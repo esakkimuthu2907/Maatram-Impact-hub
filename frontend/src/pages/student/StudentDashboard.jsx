@@ -19,6 +19,8 @@ import {
   Shield,
   Crown,
   Star,
+  Bell,
+  Coins,
 } from "lucide-react";
 
 import { useApp } from "../../context/AppContext";
@@ -39,7 +41,7 @@ const TIERS_CONFIG = [
 ];
 
 export default function StudentDashboard() {
-  const { user = {}, opportunities = [], applications = [] } = useApp();
+  const { user = {}, opportunities = [], applications = [], pointsHistory = [], notifications = [] } = useApp();
   const navigate = useNavigate();
 
   // Peer comparison state
@@ -498,6 +500,139 @@ export default function StudentDashboard() {
                 );
               })}
             </div>
+          </div>
+
+          {/* RECENT POINTS TRANSACTIONS */}
+          <div className="dash-section-card">
+            <div className="section-card-header">
+              <div>
+                <h2>Points &amp; Rewards</h2>
+                <p>Recent impact points earned.</p>
+              </div>
+              <Link to="/contributions" className="view-all-link">
+                View All
+              </Link>
+            </div>
+
+            {pointsHistory && pointsHistory.length > 0 ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {pointsHistory.slice(0, 3).map((tx) => (
+                  <div
+                    key={tx._id || tx.id}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      padding: "10px 12px",
+                      background: "#F8FAFC",
+                      borderRadius: 10,
+                      border: "1px solid #E2E8F0",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <div
+                        style={{
+                          width: 32,
+                          height: 32,
+                          borderRadius: 8,
+                          background: tx.type === "DEBIT" ? "#FEE2E2" : "#FEF9C3",
+                          color: tx.type === "DEBIT" ? "#DC2626" : "#CA8A04",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontWeight: 700,
+                        }}
+                      >
+                        <Coins size={16} />
+                      </div>
+                      <div>
+                        <strong style={{ fontSize: 13, color: "#0F172A", display: "block" }}>
+                          {tx.eventName || tx.reason || "Volunteer Activity"}
+                        </strong>
+                        <span style={{ fontSize: 11, color: "#64748B" }}>
+                          {tx.createdAt ? new Date(tx.createdAt).toLocaleDateString("en-IN") : "Recent"}
+                        </span>
+                      </div>
+                    </div>
+                    <span
+                      style={{
+                        fontWeight: 800,
+                        fontSize: 13.5,
+                        color: tx.type === "DEBIT" ? "#DC2626" : "#16A34A",
+                      }}
+                    >
+                      {tx.type === "DEBIT" ? "-" : "+"}{tx.points} pts
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p style={{ fontSize: 13, color: "#94A3B8", margin: 0, padding: "8px 0" }}>
+                No points transactions recorded yet. Join events to earn impact points!
+              </p>
+            )}
+          </div>
+
+          {/* RECENT NOTIFICATIONS */}
+          <div className="dash-section-card">
+            <div className="section-card-header">
+              <div>
+                <h2>Recent Notifications</h2>
+                <p>Updates, badges and drive approvals.</p>
+              </div>
+              <Link to="/notifications" className="view-all-link">
+                View All
+              </Link>
+            </div>
+
+            {notifications && notifications.length > 0 ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {notifications.slice(0, 3).map((item) => (
+                  <div
+                    key={item._id || item.id}
+                    style={{
+                      display: "flex",
+                      alignItems: "flex-start",
+                      gap: 10,
+                      padding: "10px 12px",
+                      background: item.isRead ? "#FFFFFF" : "#EFF6FF",
+                      borderRadius: 10,
+                      border: "1px solid",
+                      borderColor: item.isRead ? "#E2E8F0" : "#BFDBFE",
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: 28,
+                        height: 28,
+                        borderRadius: "50%",
+                        background: "#DBEAFE",
+                        color: "#1E40AF",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        flexShrink: 0,
+                        marginTop: 2,
+                      }}
+                    >
+                      <Bell size={14} />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <strong style={{ fontSize: 13, color: "#0F172A", display: "block" }}>
+                        {item.title}
+                      </strong>
+                      <p style={{ fontSize: 12, color: "#475569", margin: "2px 0 0", lineHeight: 1.4 }}>
+                        {item.message}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p style={{ fontSize: 13, color: "#94A3B8", margin: 0, padding: "8px 0" }}>
+                No new notifications. You're all caught up!
+              </p>
+            )}
           </div>
 
           {/* QUICK SHORTCUTS */}

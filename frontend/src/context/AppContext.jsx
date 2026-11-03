@@ -417,6 +417,21 @@ export function AppProvider({ children }) {
     [fetchApplications, fetchEvents, fetchAdminStats, showToast]
   );
 
+  const deleteApplication = useCallback(
+    async (appId) => {
+      try {
+        await applicationsAPI.remove(appId);
+        await fetchApplications();
+        await fetchEvents();
+        await fetchAdminStats();
+        showToast("Application permanently deleted.");
+      } catch (err) {
+        showToast(err.message || "Failed to delete application", "error");
+      }
+    },
+    [fetchApplications, fetchEvents, fetchAdminStats, showToast]
+  );
+
   /* ─── Admin: Track Attendance & Award Points ────────────────── */
   const trackAttendanceAndAwardPoints = useCallback(
     async (eventId, attendanceRecords) => {
@@ -579,6 +594,7 @@ export function AppProvider({ children }) {
         applyForOpportunity,
         cancelApplication,
         updateApplicationStatus,
+        deleteApplication,
         /* Admin Management */
         adminStats,
         fetchAdminStats,
