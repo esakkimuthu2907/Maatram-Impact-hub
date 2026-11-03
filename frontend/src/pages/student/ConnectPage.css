@@ -1,0 +1,525 @@
+/* ════════════════════════════════════════════════════════
+   MAATRAM CONNECT PAGE — LinkedIn-style volunteer network
+════════════════════════════════════════════════════════ */
+
+.connect-root {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 32px 28px 80px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  font-family: "Inter", sans-serif;
+}
+
+/* ── Header ── */
+.connect-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.connect-title {
+  font-size: 28px;
+  font-weight: 900;
+  color: #0f172a;
+  font-family: "Plus Jakarta Sans", sans-serif;
+  margin: 0 0 4px;
+}
+.connect-sub { font-size: 15px; color: #64748b; margin: 0; }
+.connect-header-stats { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.ch-stat {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #2563eb;
+  background: #eff6ff;
+  border-radius: 999px;
+  padding: 6px 14px;
+  white-space: nowrap;
+}
+.pending-stat { color: #d97706; background: #fffbeb; }
+
+/* ── Search ── */
+.connect-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #ffffff;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 0 16px;
+  height: 48px;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.06);
+  transition: border-color 0.2s;
+}
+.connect-search-bar:focus-within { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1); }
+.cs-icon { color: #94a3b8; flex-shrink: 0; }
+.cs-input { flex: 1; border: none; outline: none; font-size: 15px; color: #1e293b; background: transparent; }
+.cs-input::placeholder { color: #94a3b8; }
+.cs-clear { background: none; border: none; cursor: pointer; color: #94a3b8; padding: 0; display: flex; }
+
+/* ── Section ── */
+.connect-section { display: flex; flex-direction: column; gap: 16px; }
+.connect-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 17px;
+  font-weight: 800;
+  color: #1e293b;
+  font-family: "Plus Jakarta Sans", sans-serif;
+}
+.connect-empty {
+  text-align: center;
+  color: #94a3b8;
+  padding: 40px;
+  font-size: 15px;
+}
+
+/* ── Grid ── */
+.connect-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+/* ── Volunteer Card ── */
+.vol-card {
+  background: #ffffff;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 18px;
+  padding: 0 0 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  overflow: hidden;
+  transition: box-shadow 0.2s, transform 0.2s;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+}
+.vol-card:hover {
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+  transform: translateY(-2px);
+}
+.vol-card-dismiss {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: rgba(15, 23, 42, 0.55);
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+  transition: background 0.2s;
+}
+.vol-card-dismiss:hover { background: #dc2626; }
+
+.vol-card-top {
+  width: 100%;
+  height: 80px;
+  background: linear-gradient(135deg, #e0f2fe, #dbeafe);
+  position: relative;
+  margin-bottom: 40px;
+}
+.vol-avatar {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  border: 3px solid #ffffff;
+  object-fit: cover;
+  position: absolute;
+  bottom: -36px;
+  left: 50%;
+  transform: translateX(-50%);
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.15);
+}
+.vol-connected-badge {
+  position: absolute;
+  bottom: -30px;
+  left: calc(50% + 20px);
+  width: 20px;
+  height: 20px;
+  background: #16a34a;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  color: #fff;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+}
+.vol-card-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 0 12px 12px;
+  gap: 3px;
+  width: 100%;
+}
+.vol-name { font-size: 14px; font-weight: 800; color: #1e293b; font-family: "Plus Jakarta Sans", sans-serif; }
+.vol-college { font-size: 12px; color: #64748b; line-height: 1.4; }
+.vol-mutual {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: #475569;
+  margin-top: 3px;
+}
+.vol-mutual-avatar { width: 18px; height: 18px; border-radius: 50%; object-fit: cover; }
+
+.vol-card-actions { width: 100%; padding: 0 12px; }
+.vol-connect-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 16px;
+  border: 1.5px solid #2563eb;
+  background: #ffffff;
+  color: #2563eb;
+  font-size: 13px;
+  font-weight: 700;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.vol-connect-btn:hover:not(:disabled) {
+  background: #2563eb;
+  color: #ffffff;
+}
+.vol-connect-btn.pending {
+  border-color: #d97706;
+  color: #d97706;
+  cursor: not-allowed;
+  opacity: 0.85;
+}
+.vol-msg-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 16px;
+  border: 1.5px solid #16a34a;
+  background: #f0fdf4;
+  color: #16a34a;
+  font-size: 13px;
+  font-weight: 700;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.vol-msg-btn:hover { background: #16a34a; color: #fff; }
+
+/* ═══════════════════════════════════════
+   FULL PROFILE MODAL
+═══════════════════════════════════════ */
+.cp-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  backdrop-filter: blur(4px);
+}
+.cp-modal {
+  background: #ffffff;
+  border-radius: 24px;
+  width: 100%;
+  max-width: 420px;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.22);
+  overflow: hidden;
+  position: relative;
+  animation: modal-in 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes modal-in {
+  from { transform: scale(0.85); opacity: 0; }
+  to   { transform: scale(1);    opacity: 1; }
+}
+.cp-modal-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1.5px solid #e2e8f0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+  color: #64748b;
+}
+.cp-modal-banner {
+  height: 100px;
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
+}
+.cp-modal-avatar-wrap {
+  display: flex;
+  justify-content: center;
+  margin-top: -44px;
+  margin-bottom: 12px;
+}
+.cp-modal-avatar {
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  border: 4px solid #ffffff;
+  object-fit: cover;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.15);
+}
+.cp-modal-body {
+  padding: 0 24px 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+}
+.cp-modal-name   { font-size: 20px; font-weight: 900; color: #1e293b; font-family: "Plus Jakarta Sans", sans-serif; margin: 0; }
+.cp-modal-college{ font-size: 13px; color: #64748b; margin: 0; }
+.cp-modal-bio    { font-size: 13px; color: #475569; line-height: 1.6; max-width: 320px; margin: 4px 0; }
+
+.cp-modal-stats {
+  display: flex;
+  gap: 24px;
+  border-top: 1.5px solid #f1f5f9;
+  border-bottom: 1.5px solid #f1f5f9;
+  padding: 14px 0;
+  width: 100%;
+  justify-content: center;
+}
+.cp-stat { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.cp-stat-val { font-size: 20px; font-weight: 900; color: #1e293b; font-family: "Plus Jakarta Sans", sans-serif; }
+.cp-stat-lbl { font-size: 11px; color: #64748b; font-weight: 600; }
+
+.cp-modal-skills { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 4px; }
+.cp-skill-pill {
+  background: #eff6ff;
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+
+.cp-modal-actions { display: flex; gap: 10px; margin-top: 8px; width: 100%; justify-content: center; }
+.cp-connect-btn-lg {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  border-radius: 999px;
+  padding: 11px 28px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.cp-connect-btn-lg:hover { background: #1d4ed8; }
+.cp-connect-btn-lg.pending { background: #d97706; cursor: not-allowed; }
+.cp-msg-btn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  background: #f0fdf4;
+  color: #16a34a;
+  border: 1.5px solid #16a34a;
+  border-radius: 999px;
+  padding: 11px 20px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.cp-msg-btn:hover { background: #16a34a; color: #fff; }
+.cp-remove-btn {
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1.5px solid #dc2626;
+  border-radius: 999px;
+  padding: 11px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.cp-remove-btn:hover { background: #dc2626; color: #fff; }
+
+/* ── Responsive ── */
+@media (max-width: 700px) {
+  .connect-root { padding: 20px 14px 80px; gap: 20px; }
+  .connect-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  .connect-title { font-size: 22px; }
+}
+@media (max-width: 400px) {
+  .connect-grid { grid-template-columns: 1fr 1fr; }
+}
+
+
+/* ── My Profile Card at Top of Connect Page ── */
+.my-connect-profile-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #ffffff;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 18px;
+  padding: 18px 24px;
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.05);
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.mcp-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.mcp-avatar {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #ffd629;
+}
+
+.mcp-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.mcp-name-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.mcp-name {
+  font-size: 16px;
+  font-weight: 800;
+  color: #0f172a;
+  font-family: "Plus Jakarta Sans", sans-serif;
+}
+
+.mcp-badge {
+  font-size: 11px;
+  font-weight: 700;
+  color: #16a34a;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+.mcp-sub {
+  font-size: 13px;
+  color: #64748b;
+}
+
+.mcp-id {
+  font-size: 11px;
+  font-weight: 700;
+  color: #d97706;
+}
+
+.mcp-edit-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #2563eb;
+  text-decoration: none;
+  background: #eff6ff;
+  padding: 8px 16px;
+  border-radius: 999px;
+  transition: all 0.2s;
+}
+
+.mcp-edit-link:hover {
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.vol-id-pill {
+  font-size: 10.5px;
+  font-weight: 800;
+  color: #d97706;
+  background: #fffbeb;
+  border-radius: 999px;
+  padding: 2px 8px;
+  display: inline-block;
+  margin-bottom: 2px;
+}
+
+.vol-meta-hours {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #475569;
+  margin-top: 4px;
+}
+
+.cp-id-tag {
+  font-size: 11px;
+  font-weight: 800;
+  color: #2563eb;
+  background: #eff6ff;
+  border-radius: 999px;
+  padding: 3px 10px;
+}
+
+.cp-modal-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cp-modal-contact {
+  font-size: 12px;
+  color: #475569;
+  background: #f8fafc;
+  border-radius: 8px;
+  padding: 6px 12px;
+  margin: 4px 0;
+  border: 1px solid #e2e8f0;
+}
+
+/* ── Interactive Chat Modal ── */
+.cp-modal.chat-modal {
+  width: 95%;
+  max-width: 480px;
+  height: 580px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 20px;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.25);
+}

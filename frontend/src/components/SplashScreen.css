@@ -1,0 +1,133 @@
+/* =========================================================
+   MAATRAM FOUNDATION - SPLASH SCREEN ORIGINAL DESIGN
+========================================================= */
+
+.splash-screen {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #ffd629;
+  background: radial-gradient(circle at center, #ffe066 0%, #ffd629 65%, #ebb809 100%);
+  overflow: hidden;
+  z-index: 9999;
+}
+
+/* Corner Arc and Dots Decorations */
+.corner-decoration {
+  position: absolute;
+  width: 220px;
+  height: 220px;
+  pointer-events: none;
+}
+
+.corner-decoration.top-left {
+  top: -40px;
+  left: -40px;
+}
+
+.corner-decoration.bottom-right {
+  bottom: -40px;
+  right: -40px;
+  transform: rotate(180deg);
+}
+
+.corner-arc {
+  position: absolute;
+  border-radius: 50%;
+  border: 3px solid rgba(21, 21, 21, 0.12);
+}
+
+.corner-arc.arc-one {
+  width: 180px;
+  height: 180px;
+  top: 10px;
+  left: 10px;
+}
+
+.corner-arc.arc-two {
+  width: 130px;
+  height: 130px;
+  top: 35px;
+  left: 35px;
+  border-color: rgba(21, 21, 21, 0.18);
+}
+
+.corner-dots {
+  position: absolute;
+  top: 80px;
+  left: 80px;
+  display: flex;
+  gap: 6px;
+}
+
+.corner-dots i {
+  display: block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(21, 21, 21, 0.25);
+}
+
+/* Centered Logo */
+.splash-logo-wrapper {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: splashPulse 2.4s ease-in-out infinite alternate;
+}
+
+.splash-logo {
+  max-width: min(340px, 80vw);
+  max-height: 180px;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 12px 28px rgba(0, 0, 0, 0.15));
+}
+
+.splash-shadow {
+  position: absolute;
+  width: 240px;
+  height: 28px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.18) 0%, transparent 70%);
+  bottom: calc(50% - 95px);
+  z-index: 1;
+  animation: shadowPulse 2.4s ease-in-out infinite alternate;
+}
+
+@keyframes splashPulse {
+  0% {
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    transform: translateY(-8px) scale(1.02);
+  }
+}
+
+@keyframes shadowPulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(0.9);
+    opacity: 0.5;
+  }
+}
+
+/* Also support alternative container */
+.splash-page-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #ffd629;
+}

@@ -1,0 +1,571 @@
+/* ═══════════════════════════════════════════════════════════
+   MISSIONS PAGE — GAME UI DARK PURPLE THEME
+   ═══════════════════════════════════════════════════════════ */
+
+.missions-root {
+  min-height: 100vh;
+  background: radial-gradient(ellipse at top, #1a0533 0%, #0d0019 60%, #000000 100%);
+  font-family: "Inter", sans-serif;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* ── TOP BAR ── */
+.missions-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 24px;
+  background: rgba(26, 5, 51, 0.96);
+  border-bottom: 1px solid rgba(138, 43, 226, 0.3);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  backdrop-filter: blur(12px);
+}
+.missions-topbar-left { display: flex; align-items: center; gap: 14px; }
+.missions-back-btn {
+  color: #a78bfa;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: rgba(167, 139, 250, 0.1);
+  transition: background 0.2s;
+}
+.missions-back-btn:hover { background: rgba(167, 139, 250, 0.22); }
+.missions-page-title {
+  color: #ffffff;
+  font-size: 18px;
+  font-weight: 800;
+  font-family: "Plus Jakarta Sans", sans-serif;
+}
+.missions-topbar-right { display: flex; align-items: center; gap: 10px; }
+.missions-coin-badge {
+  background: linear-gradient(135deg, #ff9d00, #ffd629);
+  color: #1a0533;
+  font-weight: 800;
+  font-size: 14px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  box-shadow: 0 2px 12px rgba(255, 157, 0, 0.4);
+}
+.missions-life-badge {
+  background: rgba(255, 100, 100, 0.15);
+  color: #ff6464;
+  font-weight: 700;
+  font-size: 14px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 100, 100, 0.3);
+}
+
+/* ── CONTENT AREA ── */
+.missions-content {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 24px 20px 80px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* ════════════════════════════════════════
+   SEASON PASS CARD
+════════════════════════════════════════ */
+.season-card {
+  background: linear-gradient(135deg, #2d1b69 0%, #1a0533 100%);
+  border-radius: 20px;
+  padding: 22px 20px;
+  border: 1px solid rgba(138, 43, 226, 0.4);
+  box-shadow: 0 8px 32px rgba(138, 43, 226, 0.2);
+}
+.season-header { margin-bottom: 14px; }
+.season-title-block { display: flex; flex-direction: column; gap: 2px; }
+.season-label {
+  color: #ffffff;
+  font-size: 24px;
+  font-weight: 900;
+  font-family: "Plus Jakarta Sans", sans-serif;
+  letter-spacing: 2px;
+}
+.season-end { color: #a78bfa; font-size: 12px; font-weight: 600; letter-spacing: 0.5px; }
+
+.season-level-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  padding: 8px 14px;
+  margin-bottom: 18px;
+}
+.season-level-badge { color: #ffd629; font-size: 13px; font-weight: 800; white-space: nowrap; }
+.season-progress-track {
+  flex: 1;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.season-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #ff9d00, #ffd629);
+  border-radius: 999px;
+  transition: width 0.6s ease;
+}
+.season-progress-label { color: #ffd629; font-size: 13px; font-weight: 800; }
+
+.season-passes-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0;
+}
+.pass-col { flex: 1; display: flex; flex-direction: column; gap: 10px; }
+.pass-label {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-align: center;
+  padding: 6px 4px;
+  border-radius: 8px;
+  margin-bottom: 4px;
+}
+.premium-label { background: linear-gradient(135deg, #ffd629, #ff9d00); color: #1a0533; }
+.free-label {
+  background: rgba(255, 255, 255, 0.08);
+  color: #a78bfa;
+  border: 1px solid rgba(167, 139, 250, 0.3);
+}
+.pass-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 62px;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 700;
+  gap: 4px;
+}
+.locked-item { background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08); color: #64748b; }
+.coin-item   { background: rgba(255, 214, 41, 0.1); border: 1px solid rgba(255, 214, 41, 0.2); color: #ffd629; font-size: 14px; }
+.collect-item{ background: rgba(138, 43, 226, 0.15); border: 1px solid rgba(138, 43, 226, 0.3); }
+.collect-btn {
+  background: linear-gradient(135deg, #8b5cf6, #6d28d9);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 7px 13px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  letter-spacing: 0.5px;
+  transition: all 0.2s;
+}
+.collect-btn:hover { background: linear-gradient(135deg, #7c3aed, #5b21b6); transform: translateY(-1px); }
+
+.season-timeline {
+  width: 50px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  position: relative;
+  padding-top: 44px;
+}
+.season-timeline-line {
+  position: absolute;
+  top: 60px;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 2px;
+  background: rgba(255, 157, 0, 0.4);
+  z-index: 0;
+}
+.season-node {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 72px;
+  position: relative;
+  z-index: 1;
+}
+.season-hex {
+  width: 34px;
+  height: 34px;
+  background: linear-gradient(135deg, #ff9d00, #ffd629);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #1a0533;
+  font-weight: 900;
+  font-size: 14px;
+  box-shadow: 0 2px 10px rgba(255, 157, 0, 0.5);
+}
+
+/* ════════════════════════════════════════
+   DAILY STREAK CARD (white/light)
+════════════════════════════════════════ */
+.streak-card-missions {
+  background: #ffffff;
+  border-radius: 20px;
+  padding: 22px 20px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.28);
+}
+.streak-top-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+.streak-day-count {
+  font-size: 22px;
+  font-weight: 900;
+  color: #1e293b;
+  font-family: "Plus Jakarta Sans", sans-serif;
+}
+.streak-tagline { font-size: 14px; color: #64748b; margin-top: 3px; }
+.streak-flame-big {
+  font-size: 44px;
+  line-height: 1;
+  filter: drop-shadow(0 0 10px rgba(255, 100, 0, 0.55));
+}
+
+/* Week row */
+.streak-week-wrapper { margin-bottom: 4px; }
+.streak-week-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 4px;
+}
+.streak-day-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+}
+.streak-day-letter {
+  font-size: 12px;
+  font-weight: 700;
+  color: #94a3b8;
+  text-transform: uppercase;
+}
+.streak-day-circle {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: #e8edf2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.streak-day-done {
+  background: linear-gradient(135deg, #ffd629, #ff9d00);
+  box-shadow: 0 2px 10px rgba(255, 157, 0, 0.4);
+}
+.streak-check { font-size: 16px; color: #fff; font-weight: 900; line-height: 1; }
+
+/* Badges */
+.badges-section {
+  border-top: 1.5px solid #f1f5f9;
+  padding-top: 14px;
+  margin-top: 18px;
+}
+.badges-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: none;
+  border: none;
+  font-size: 16px;
+  font-weight: 700;
+  color: #1e293b;
+  cursor: pointer;
+  padding: 0;
+  margin-bottom: 14px;
+  font-family: "Plus Jakarta Sans", sans-serif;
+}
+.chevron-icon { font-size: 14px; color: #64748b; }
+.badges-row {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: none;
+}
+.badges-row::-webkit-scrollbar { display: none; }
+.badge-milestone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  min-width: 72px;
+  padding: 12px 8px;
+  border-radius: 14px;
+  background: #f8fafc;
+  border: 1.5px solid #e2e8f0;
+  opacity: 0.65;
+  flex-shrink: 0;
+  transition: all 0.2s;
+}
+.badge-earned {
+  opacity: 1;
+  background: #fefce8;
+  border-color: #ffd629;
+  box-shadow: 0 2px 10px rgba(255, 214, 41, 0.3);
+}
+.badge-icon-box  { font-size: 28px; line-height: 1; }
+.badge-days      { font-size: 11px; font-weight: 700; color: #64748b; }
+.badge-label-name{ font-size: 12px; font-weight: 700; color: #1e293b; }
+
+/* Keep streak toggle */
+.streak-keep-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1.5px solid #f1f5f9;
+  padding-top: 16px;
+  margin-top: 16px;
+  gap: 12px;
+}
+.streak-keep-title { font-size: 14px; font-weight: 700; color: #1e293b; }
+.streak-keep-sub   { font-size: 12px; color: #64748b; margin-top: 2px; }
+.streak-toggle {
+  width: 50px;
+  height: 28px;
+  border-radius: 999px;
+  cursor: pointer;
+  position: relative;
+  transition: background 0.25s;
+  flex-shrink: 0;
+  border: none;
+  outline: none;
+}
+.toggle-on  { background: #16a34a; }
+.toggle-off { background: #cbd5e1; }
+.toggle-thumb {
+  position: absolute;
+  top: 3px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.22);
+  transition: left 0.25s;
+}
+.toggle-on  .toggle-thumb { left: 25px; }
+.toggle-off .toggle-thumb { left: 3px; }
+
+/* ════════════════════════════════════════
+   MISSIONS LIST CARD
+════════════════════════════════════════ */
+.missions-section-card {
+  background: linear-gradient(160deg, #1e0940 0%, #0d0019 100%);
+  border-radius: 20px;
+  padding: 22px 20px;
+  border: 1px solid rgba(138, 43, 226, 0.28);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+}
+.missions-section-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 18px;
+  font-weight: 800;
+  color: #ffffff;
+  margin-bottom: 16px;
+  font-family: "Plus Jakarta Sans", sans-serif;
+}
+.missions-list { display: flex; flex-direction: column; gap: 10px; }
+.mission-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 14px;
+  transition: all 0.2s;
+}
+.mission-row:hover {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(138, 43, 226, 0.4);
+  transform: translateY(-1px);
+}
+.mission-done { opacity: 0.55; pointer-events: none; }
+.mission-icon-box { font-size: 28px; flex-shrink: 0; line-height: 1; }
+.mission-info  { flex: 1; min-width: 0; }
+.mission-title { font-size: 14px; font-weight: 700; color: #ffffff; margin-bottom: 3px; }
+.mission-desc  { font-size: 12px; color: #a78bfa; line-height: 1.4; }
+.mission-right { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; flex-shrink: 0; }
+.mission-coins { font-size: 13px; font-weight: 800; color: #ffd629; white-space: nowrap; }
+.mission-claim-btn {
+  background: linear-gradient(135deg, #8b5cf6, #6d28d9);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 7px 14px;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  letter-spacing: 0.5px;
+  transition: all 0.2s;
+  box-shadow: 0 2px 10px rgba(109, 40, 217, 0.4);
+}
+.mission-claim-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(109, 40, 217, 0.55);
+}
+.mission-done-check { font-size: 22px; }
+
+/* ════════════════════════════════════════
+   SCRATCH CARD SECTION
+════════════════════════════════════════ */
+.scratch-section-card {
+  background: linear-gradient(135deg, #2d1b69 0%, #1a0533 100%);
+  border-radius: 20px;
+  padding: 22px 20px;
+  border: 1px solid rgba(138, 43, 226, 0.3);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+}
+.scratch-section-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 18px;
+  font-weight: 800;
+  color: #ffffff;
+  margin-bottom: 8px;
+  font-family: "Plus Jakarta Sans", sans-serif;
+}
+.scratch-section-sub { font-size: 13px; color: #a78bfa; margin-bottom: 18px; line-height: 1.5; }
+.scratch-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+.scratch-card-item {
+  border-radius: 16px;
+  aspect-ratio: 0.72;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.25s;
+  position: relative;
+  overflow: hidden;
+  outline: none;
+}
+.card-unscratched {
+  background: linear-gradient(155deg, #5b21b6, #7c3aed, #a855f7);
+  border: 2px solid rgba(167, 139, 250, 0.4);
+  box-shadow: 0 4px 18px rgba(109, 40, 217, 0.35);
+}
+.card-unscratched:hover {
+  transform: translateY(-4px) scale(1.03);
+  box-shadow: 0 10px 28px rgba(109, 40, 217, 0.5);
+}
+.card-revealed {
+  background: linear-gradient(135deg, #ffd629, #ff9d00);
+  border: 2px solid rgba(255, 214, 41, 0.5);
+  box-shadow: 0 4px 18px rgba(255, 157, 0, 0.35);
+  cursor: default;
+  animation: card-flip 0.4s ease;
+}
+@keyframes card-flip {
+  0%   { transform: scale(0.85) rotateY(90deg); opacity: 0; }
+  100% { transform: scale(1)    rotateY(0deg);  opacity: 1; }
+}
+.card-scratch-prompt { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.scratch-gift  { font-size: 34px; line-height: 1; }
+.scratch-text  { color: #ffffff; font-size: 13px; font-weight: 800; text-align: center; line-height: 1.4; }
+.card-prize-reveal { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.prize-coin-icon { font-size: 30px; }
+.prize-amount { font-size: 22px; font-weight: 900; color: #1a0533; }
+.prize-label  { font-size: 11px; font-weight: 700; color: #1a0533; }
+
+/* ════════════════════════════════════════
+   STRIKE ANIMATION OVERLAY
+════════════════════════════════════════ */
+.strike-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(13, 0, 25, 0.88);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(6px);
+}
+.confetti-container {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.confetti-piece {
+  position: absolute;
+  top: -20px;
+  border-radius: 2px;
+  animation: confetti-fall 2.6s ease-in forwards;
+}
+.confetti-circle { border-radius: 50%; }
+.confetti-rect   { border-radius: 2px; }
+@keyframes confetti-fall {
+  0%   { transform: translateY(0)     rotate(0deg)   scale(1);   opacity: 1; }
+  80%  { opacity: 1; }
+  100% { transform: translateY(110vh) rotate(720deg) scale(0.5); opacity: 0; }
+}
+
+.strike-banner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  z-index: 1;
+  animation: strike-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  text-align: center;
+  padding: 32px;
+}
+@keyframes strike-pop {
+  0%   { transform: scale(0.3); opacity: 0; }
+  100% { transform: scale(1);   opacity: 1; }
+}
+.strike-fire {
+  font-size: 64px;
+  animation: fire-pulse 0.5s ease infinite alternate;
+}
+@keyframes fire-pulse {
+  from { transform: scale(1);    }
+  to   { transform: scale(1.16); }
+}
+.strike-title {
+  font-size: 60px;
+  font-weight: 900;
+  background: linear-gradient(135deg, #ffd629, #ff9d00, #ff6b00);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-family: "Plus Jakarta Sans", sans-serif;
+  letter-spacing: 4px;
+}
+.strike-coins { font-size: 24px; font-weight: 800; color: #ffd629; }
+.strike-sub   { font-size: 15px; color: #a78bfa; }
+
+/* ── RESPONSIVE ── */
+@media (max-width: 600px) {
+  .missions-topbar   { padding: 12px 16px; }
+  .missions-content  { padding: 16px 12px 80px; }
+  .season-card, .streak-card-missions,
+  .missions-section-card, .scratch-section-card { padding: 16px 14px; }
+  .strike-title      { font-size: 42px; }
+  .scratch-cards-grid{ gap: 8px; }
+  .season-passes-row { gap: 0; }
+  .missions-page-title { font-size: 15px; }
+}
