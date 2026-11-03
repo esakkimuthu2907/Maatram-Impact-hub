@@ -3,12 +3,22 @@
 // Central API wrapper for Maatram Impact Hub
 // Supports Desktop, Mobile LAN and deployed environments.
 
-// Backend API configuration
-const API_URL = (
-  import.meta.env.VITE_API_URL || "http://localhost:5000"
-).replace(/\/+$/, "");
+// Backend API configuration - auto-detects localhost, 127.0.0.1, or mobile LAN IP
+function resolveApiUrl() {
+  if (typeof window !== "undefined") {
+    const host = window.location.hostname;
+    if (host === "localhost" || host === "127.0.0.1") {
+      return "http://localhost:5000/api";
+    }
+    if (/^\d+\.\d+\.\d+\.\d+$/.test(host)) {
+      return `http://${host}:5000/api`;
+    }
+  }
+  const envUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
+  return `${envUrl.replace(/\/+$/, "")}/api`;
+}
 
-const BASE_URL = `${API_URL}/api`;
+const BASE_URL = resolveApiUrl();
 
 // Get authentication token
 function getToken() {
