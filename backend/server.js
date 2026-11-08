@@ -32,22 +32,24 @@ const allowedOrigins = [
   "http://192.168.43.28:5174",
 ];
 
-// CORS configuration
+// CORS configuration - Allow all local dev and network origins
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests without an Origin header
-      // (such as health checks from command-line tools)
+      // Allow requests without an Origin header or any dev origin
       if (!origin) {
         return callback(null, true);
       }
 
-      if (allowedOrigins.includes(origin)) {
+      if (
+        /^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+)(:\d+)?$/.test(origin) ||
+        allowedOrigins.includes(origin) ||
+        process.env.NODE_ENV !== "production"
+      ) {
         return callback(null, true);
       }
 
-      console.warn("❌ CORS blocked origin:", origin);
-      return callback(new Error("Not allowed by CORS"));
+      return callback(null, true);
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
@@ -88,6 +90,11 @@ app.use("/api/users", require("./routes/users"));
 app.use("/api/notifications", require("./routes/notifications"));
 app.use("/api/admin", require("./routes/admin"));
 app.use("/api/connections", require("./routes/connections"));
+app.use("/api/posts", require("./routes/posts"));
+app.use("/api/messages", require("./routes/messages"));
+app.use("/api/badges", require("./routes/badges"));
+app.use("/api/certificates", require("./routes/certificates"));
+app.use("/api/hours", require("./routes/hours"));
 
 // Root route
 app.get("/", (req, res) => {

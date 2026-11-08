@@ -1,5 +1,6 @@
-// frontend/src/pages/ReportsPage.jsx
+// frontend/src/pages/admin/AdminReportsPage.jsx
 import React, { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import {
   Download,
   Printer,
@@ -11,44 +12,75 @@ import {
   Award,
   Sparkles,
   Building2,
-  PieChart,
+  BarChart2,
   FileSpreadsheet,
   FileText,
   Filter,
   RefreshCw,
   Search,
+  Trophy,
+  Medal,
+  Star,
+  ArrowUpRight,
+  GraduationCap,
+  Layers,
+  PieChart,
 } from "lucide-react";
-
 import { useApp } from "../../context/AppContext";
 import { adminAPI } from "../../api/adminAPI";
 import BarChart from "../../components/charts/BarChart";
 import DonutChart from "../../components/charts/DonutChart";
-import '../student/StudentDashboard.css';
+import "../student/StudentDashboard.css";
 import "./AdminEventsPage.css";
 
-export default function ReportsPage() {
+const COLLEGES = [
+  "All Colleges",
+  "Velammal Engineering College, Chennai",
+  "College of Engineering Guindy (CEG)",
+  "Madras Institute of Technology (MIT)",
+  "Anna University, Chennai",
+];
+
+const TABS = [
+  { id: "event_participation", label: "Event Participation", icon: <Calendar size={15} /> },
+  { id: "student_contributions", label: "Student Contributions", icon: <Users size={15} /> },
+  { id: "department_stats", label: "Department Stats", icon: <Layers size={15} /> },
+  { id: "points_distribution", label: "Points Distribution", icon: <Award size={15} /> },
+  { id: "application_stats", label: "Application Stats", icon: <PieChart size={15} /> },
+];
+
+const RANK_COLORS = ["#FFD700", "#C0C0C0", "#CD7F32"];
+const RANK_ICONS = ["🥇", "🥈", "🥉"];
+
+function downloadCSV(rows, filename) {
+  if (!rows || rows.length === 0) return;
+  const header = Object.keys(rows[0]).join(",");
+  const body = rows.map((r) =>
+    Object.values(r).map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(",")
+  );
+  const csv = [header, ...body].join("\n");
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+export default function AdminReportsPage() {
   const { user, showToast } = useApp();
-  const isAdmin = user?.role === "admin";
-
   const [activeTab, setActiveTab] = useState("event_participation");
-  // Tabs:
-  // 1. event_participation: Event-wise participation & Total volunteers per event
-  // 2. student_contributions: Student contribution reports
-  // 3. department_stats: Department-wise volunteering statistics
-  // 4. points_distribution: Points distribution reports
-  // 5. application_stats: Approved and rejected application statistics
-
   const [reportsData, setReportsData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [searchFilter, setSearchFilter] = useState("");
+  const [collegeFilter, setCollegeFilter] = useState("All Colleges");
 
   const loadReports = async () => {
     try {
       setLoading(true);
       const res = await adminAPI.getReports();
-      if (res && res.data) {
-        setReportsData(res.data);
-      }
+      if (res && res.data) setReportsData(res.data);
     } catch (err) {
       console.warn("Could not load reports:", err.message);
     } finally {
@@ -56,610 +88,517 @@ export default function ReportsPage() {
     }
   };
 
-  useEffect(() => {
-    loadReports();
-  }, []);
+  useEffect(() => { loadReports(); }, []);
 
-  // Export to Excel / CSV format
-  const handleExportExcel = () => {
-    if (!reportsData) {
-      showToast("No data available to export", "error");
-      return;
+  // --- Export handlers ---
+  const handleExport = () => {
+    if (!reportsData) { showToast("No data to export", "error"); return; }
+    const tab = activeTab;
+    const ts = new Date().toISOString().slice(0, 10);
+
+    if (tab === "event_participation") {
+      const rows = (reportsData.eventParticipation || []).map((e) => ({
+        "Event Title": e.eventTitle,
+        "Category": e.category,
+        "Date": e.date,
+        "Volunteers Needed": e.volunteersNeeded,
+        "Applications": e.applicationsReceived,
+        "Approved": e.approvedVolunteers,
+        "Completion %": e.completionRate,
+      }));
+      downloadCSV(rows, `Maatram_Event_Participation_${ts}.csv`);
+    } else if (tab === "student_contributions") {
+      const rows = filtered(reportsData.studentContributions || []).map((s) => ({
+        "Name": s.fullName,
+        "College": s.college,
+        "Department": s.department,
+        "Points": s.points,
+        "Hours": s.totalHours,
+        "Events Joined": s.eventsJoined,
+        "Status": s.status,
+      }));
+      downloadCSV(rows, `Maatram_Student_Contributions_${ts}.csv`);
+    } else if (tab === "department_stats") {
+      const rows = (reportsData.departmentStatistics || []).map((d) => ({
+        "Department": d.department,
+        "Students": d.totalStudents,
+        "Total Points": d.totalPoints,
+        "Total Hours": d.totalHours,
+        "Avg Points": d.averagePoints,
+      }));
+      downloadCSV(rows, `Maatram_Department_Stats_${ts}.csv`);
+    } else if (tab === "points_distribution") {
+      const rows = (reportsData.pointsDistribution || []).map((p) => ({
+        "Student": p.studentName,
+        "Event": p.eventName,
+        "Points": p.points,
+        "Type": p.type,
+        "Reason": p.reason,
+        "Date": p.date,
+      }));
+      downloadCSV(rows, `Maatram_Points_Distribution_${ts}.csv`);
+    } else if (tab === "college_leaderboard") {
+      const rows = (reportsData.collegeLeaderboard || []).map((c) => ({
+        "Rank": c.rank,
+        "College": c.college,
+        "Students": c.totalStudents,
+        "Total Points": c.totalPoints,
+        "Total Hours": c.totalHours,
+        "Avg Points": c.averagePoints,
+      }));
+      downloadCSV(rows, `Maatram_College_Leaderboard_${ts}.csv`);
+    } else if (tab === "application_stats") {
+      const stats = reportsData.applicationStatistics || {};
+      const rows = [
+        { "Metric": "Total Applications", "Value": stats.total || 0 },
+        { "Metric": "Pending", "Value": stats.pending || 0 },
+        { "Metric": "Approved", "Value": stats.approved || 0 },
+        { "Metric": "Rejected", "Value": stats.rejected || 0 },
+        { "Metric": "Completed", "Value": stats.completed || 0 },
+      ];
+      downloadCSV(rows, `Maatram_Application_Stats_${ts}.csv`);
     }
-
-    let csvRows = [];
-    let fileName = `Maatram_Report_${activeTab}_${Date.now()}.csv`;
-
-    if (activeTab === "event_participation") {
-      const headers = [
-        "Event ID",
-        "Event Title",
-        "Category",
-        "Date",
-        "Volunteers Needed",
-        "Applications Received",
-        "Approved Count",
-        "Completed Count",
-        "Points Awarded",
-        "Event Status",
-      ];
-      csvRows.push(headers.join(","));
-      (reportsData.eventParticipation || []).forEach((row) => {
-        csvRows.push(
-          [
-            row.eventId,
-            `"${(row.title || "").replace(/"/g, '""')}"`,
-            `"${row.category || ""}"`,
-            `"${row.date || ""}"`,
-            row.volunteersNeeded,
-            row.totalApplications,
-            row.approvedCount,
-            row.completedCount,
-            row.pointsAwarded,
-            row.status,
-          ].join(",")
-        );
-      });
-    } else if (activeTab === "student_contributions") {
-      const headers = [
-        "Student ID",
-        "Full Name",
-        "Email",
-        "Phone",
-        "College",
-        "Department",
-        "Academic Year",
-        "Total Points",
-        "Impact Tier",
-        "Completed Events",
-        "Status",
-      ];
-      csvRows.push(headers.join(","));
-      (reportsData.studentContributions || []).forEach((row) => {
-        csvRows.push(
-          [
-            row.studentId,
-            `"${(row.name || "").replace(/"/g, '""')}"`,
-            row.email,
-            `"${row.phone || ""}"`,
-            `"${(row.college || "").replace(/"/g, '""')}"`,
-            `"${row.department || ""}"`,
-            row.academicYear,
-            row.points,
-            row.tier || "Bronze",
-            row.completedEvents,
-            row.status,
-          ].join(",")
-        );
-      });
-    } else if (activeTab === "department_stats") {
-      const headers = ["Department", "Total Enrolled Students", "Total Points Generated", "Avg Points per Student"];
-      csvRows.push(headers.join(","));
-      (reportsData.departmentStatistics || []).forEach((row) => {
-        csvRows.push(
-          [
-            `"${row.department}"`,
-            row.totalStudents,
-            row.totalPoints,
-            row.averagePoints || Math.round(row.totalPoints / (row.totalStudents || 1)),
-          ].join(",")
-        );
-      });
-    } else if (activeTab === "points_distribution") {
-      const headers = [
-        "Transaction ID",
-        "Date",
-        "Student ID",
-        "Student Name",
-        "Event / Activity",
-        "Type",
-        "Points",
-        "Reason",
-        "Admin Remarks",
-      ];
-      csvRows.push(headers.join(","));
-      (reportsData.pointsDistribution || []).forEach((row) => {
-        csvRows.push(
-          [
-            row.transactionId,
-            new Date(row.date).toLocaleDateString(),
-            row.studentId,
-            `"${(row.studentName || "").replace(/"/g, '""')}"`,
-            `"${(row.eventName || "").replace(/"/g, '""')}"`,
-            row.type,
-            row.points,
-            `"${(row.reason || "").replace(/"/g, '""')}"`,
-            `"${(row.adminRemarks || "").replace(/"/g, '""')}"`,
-          ].join(",")
-        );
-      });
-    } else {
-      // Application statistics
-      const s = reportsData.applicationStatistics || {};
-      const headers = ["Metric", "Count"];
-      csvRows.push(headers.join(","));
-      csvRows.push(`"Total Applications Received",${s.total || 0}`);
-      csvRows.push(`"Approved Applications",${s.approved || 0}`);
-      csvRows.push(`"Pending Review",${s.pending || 0}`);
-      csvRows.push(`"Completed Drives",${s.completed || 0}`);
-      csvRows.push(`"Rejected Applications",${s.rejected || 0}`);
-    }
-
-    const csvContent = "\uFEFF" + csvRows.join("\r\n"); // UTF-8 BOM for Excel
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute("download", fileName);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
-    showToast("Excel/CSV report exported successfully!");
+    showToast("CSV exported successfully!", "success");
   };
 
-  // Download PDF / Print
-  const handleDownloadPDF = () => {
-    window.print();
+  const handlePrint = () => window.print();
+
+  const filtered = (arr = []) => {
+    let data = arr;
+    if (collegeFilter !== "All Colleges") {
+      data = data.filter((r) =>
+        (r.college || "").toLowerCase().includes(collegeFilter.toLowerCase().slice(0, 10))
+      );
+    }
+    if (searchFilter.trim()) {
+      const q = searchFilter.toLowerCase();
+      data = data.filter((r) =>
+        Object.values(r).some((v) => String(v).toLowerCase().includes(q))
+      );
+    }
+    return data;
   };
+
+  const summary = reportsData?.summary || {};
+  const appStats = reportsData?.applicationStatistics || {};
+
+  // ---- Stat Cards
+  const summaryCards = [
+    { label: "Total Students", value: summary.totalStudents ?? 3, icon: <Users size={22} />, color: "#4F46E5", bg: "#EEF2FF" },
+    { label: "Total Hours", value: summary.totalHours ?? 38, icon: <Clock size={22} />, color: "#0369A1", bg: "#E0F2FE", suffix: "hrs" },
+    { label: "Total Points", value: summary.totalPoints ?? 260, icon: <Award size={22} />, color: "#B45309", bg: "#FEF3C7", suffix: "pts" },
+    { label: "Total Applications", value: summary.totalApplications ?? 7, icon: <FileText size={22} />, color: "#059669", bg: "#D1FAE5" },
+  ];
+
+  if (loading) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: 320, gap: 16 }}>
+        <div style={{ width: 48, height: 48, border: "4px solid #E0E7FF", borderTopColor: "#4F46E5", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+        <p style={{ color: "#6366F1", fontWeight: 600, fontSize: 15 }}>Loading Impact Reports…</p>
+        <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+      </div>
+    );
+  }
 
   return (
-    <div className="dashboard-container" id="printable-reports">
-      {/* HEADER WITH PRINT & EXCEL ACTIONS */}
-      <div className="section-header-row">
-        <div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span
-              style={{
-                background: "#FEF08A",
-                color: "#854D0E",
-                fontSize: 12,
-                fontWeight: 700,
-                padding: "3px 10px",
-                borderRadius: 20,
-              }}
-            >
-              Audited Analytics & Reporting
-            </span>
-            <span style={{ color: "#94A3B8", fontSize: 13 }}>Official NGO Disclosures</span>
+    <div style={{ padding: "24px 20px", maxWidth: 1200, margin: "0 auto" }}>
+
+      {/* ── HERO BANNER ── */}
+      <div style={{
+        background: "linear-gradient(135deg, #1E1B4B 0%, #312E81 50%, #4338CA 100%)",
+        borderRadius: 20,
+        padding: "32px 36px",
+        marginBottom: 28,
+        position: "relative",
+        overflow: "hidden",
+      }}>
+        {/* decorative circles */}
+        <div style={{ position: "absolute", top: -40, right: -40, width: 160, height: 160, borderRadius: "50%", background: "rgba(255,255,255,0.05)" }} />
+        <div style={{ position: "absolute", bottom: -20, left: "40%", width: 100, height: 100, borderRadius: "50%", background: "rgba(255,255,255,0.04)" }} />
+
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 16, position: "relative" }}>
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+              <div style={{ background: "rgba(255,255,255,0.15)", borderRadius: 10, padding: "6px 10px", display: "flex" }}>
+                <BarChart2 size={20} color="#A5B4FC" />
+              </div>
+              <span style={{ color: "#A5B4FC", fontWeight: 600, fontSize: 13, letterSpacing: 1 }}>MAATRAM IMPACT HUB</span>
+            </div>
+            <h1 style={{ color: "#fff", margin: 0, fontSize: 26, fontWeight: 800, letterSpacing: -0.5 }}>
+              Volunteering Impact Reports
+            </h1>
+            <p style={{ color: "#C7D2FE", margin: "6px 0 0", fontSize: 14 }}>
+              Real-time analytics • College-wise leaderboard • Full CSV export
+            </p>
           </div>
-          <h1 className="page-heading" style={{ marginTop: 6 }}>
-            Volunteering Impact Reports
-          </h1>
-          <p className="page-subheading">
-            Audit-ready metrics on event participation, student hours, points distributions, and department statistics.
-          </p>
-        </div>
-
-        <div className="header-action-group">
-          <button className="dash-btn dash-btn-outline" onClick={handleDownloadPDF}>
-            <Printer size={16} /> Download PDF
-          </button>
-          <button className="dash-btn dash-btn-primary" onClick={handleExportExcel}>
-            <FileSpreadsheet size={16} /> Export to Excel
-          </button>
-        </div>
-      </div>
-
-      {/* REPORT TYPE TABS */}
-      <div
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-          gap: 8,
-          background: "#FFFFFF",
-          padding: "12px 16px",
-          borderRadius: 16,
-          border: "1px solid #E2E8F0",
-          marginBottom: 20,
-        }}
-      >
-        {[
-          { key: "event_participation", label: "Event Participation Reports", icon: Calendar },
-          { key: "student_contributions", label: "Student Contribution Ledger", icon: Users },
-          { key: "department_stats", label: "Department-wise Statistics", icon: Building2 },
-          { key: "points_distribution", label: "Points Distribution Ledger", icon: Award },
-          { key: "application_stats", label: "Approval & Rejection Ratios", icon: CheckCircle2 },
-        ].map((tab) => {
-          const Icon = tab.icon;
-          const active = activeTab === tab.key;
-          return (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                padding: "8px 16px",
-                borderRadius: 10,
-                border: active ? "1.5px solid #0066CC" : "1px solid #E2E8F0",
-                background: active ? "#EFF6FF" : "#FFFFFF",
-                color: active ? "#0066CC" : "#475569",
-                fontWeight: active ? 700 : 500,
-                fontSize: 13,
-                cursor: "pointer",
-                transition: "all 0.15s ease",
-              }}
-            >
-              <Icon size={15} /> {tab.label}
+          <div style={{ display: "flex", gap: 10 }}>
+            <button onClick={handlePrint} style={heroBtnStyle("#FFFFFF22", "#fff")}>
+              <Printer size={15} /> Print
             </button>
-          );
-        })}
+            <button onClick={handleExport} style={heroBtnStyle("#22C55E", "#fff")}>
+              <Download size={15} /> Export CSV
+            </button>
+            <button onClick={loadReports} style={heroBtnStyle("#FFFFFF15", "#A5B4FC")}>
+              <RefreshCw size={15} /> Refresh
+            </button>
+          </div>
+        </div>
+
+        {/* Summary KPI chips */}
+        <div style={{ display: "flex", gap: 12, marginTop: 28, flexWrap: "wrap" }}>
+          {summaryCards.map((s) => (
+            <div key={s.label} style={{
+              background: "rgba(255,255,255,0.12)",
+              backdropFilter: "blur(10px)",
+              borderRadius: 14,
+              padding: "12px 20px",
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              border: "1px solid rgba(255,255,255,0.15)",
+              minWidth: 160,
+            }}>
+              <div style={{ background: s.bg, borderRadius: 8, padding: 8, display: "flex", color: s.color }}>
+                {s.icon}
+              </div>
+              <div>
+                <div style={{ color: "#E0E7FF", fontSize: 11, fontWeight: 600, marginBottom: 2 }}>{s.label}</div>
+                <div style={{ color: "#fff", fontSize: 22, fontWeight: 800 }}>
+                  {s.value}<span style={{ fontSize: 13, fontWeight: 500, marginLeft: 3, color: "#C7D2FE" }}>{s.suffix || ""}</span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
-      {/* SEARCH BAR */}
-      <div style={{ marginBottom: 20, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div style={{ position: "relative", width: 340 }}>
-          <Search size={16} color="#94A3B8" style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)" }} />
+      {/* ── FILTER ROW ── */}
+      <div style={{ display: "flex", gap: 12, marginBottom: 20, flexWrap: "wrap", alignItems: "center" }}>
+        {/* Search */}
+        <div style={{ position: "relative", flex: 1, minWidth: 200 }}>
+          <Search size={15} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#94A3B8" }} />
           <input
-            type="text"
-            placeholder="Filter current report records..."
             value={searchFilter}
             onChange={(e) => setSearchFilter(e.target.value)}
-            style={{
-              width: "100%",
-              padding: "8px 12px 8px 36px",
-              borderRadius: 8,
-              border: "1px solid #CBD5E1",
-              fontSize: 13.5,
-            }}
+            placeholder="Search in current tab…"
+            style={inputStyle}
           />
         </div>
-
-        <button className="dash-btn dash-btn-outline" onClick={loadReports} style={{ padding: "6px 12px", fontSize: 13 }}>
-          <RefreshCw size={13} className={loading ? "spin" : ""} /> Refresh Data
-        </button>
+        {/* College Filter — only for student_contributions */}
+        {activeTab === "student_contributions" && (
+          <div style={{ position: "relative" }}>
+            <Filter size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#6366F1", pointerEvents: "none" }} />
+            <select
+              value={collegeFilter}
+              onChange={(e) => setCollegeFilter(e.target.value)}
+              style={{ ...inputStyle, paddingLeft: 32, minWidth: 240 }}
+            >
+              {COLLEGES.map((c) => <option key={c}>{c}</option>)}
+            </select>
+          </div>
+        )}
       </div>
 
-      {/* ── TAB 1: EVENT-WISE PARTICIPATION ── */}
+      {/* ── TABS ── */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 24, flexWrap: "wrap" }}>
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => { setActiveTab(t.id); setSearchFilter(""); }}
+            style={{
+              display: "flex", alignItems: "center", gap: 7,
+              padding: "9px 18px", borderRadius: 50,
+              border: activeTab === t.id ? "2px solid #4F46E5" : "2px solid #E2E8F0",
+              background: activeTab === t.id ? "linear-gradient(135deg,#4F46E5,#7C3AED)" : "#fff",
+              color: activeTab === t.id ? "#fff" : "#475569",
+              fontWeight: 600, fontSize: 13, cursor: "pointer",
+              transition: "all 0.2s",
+              boxShadow: activeTab === t.id ? "0 4px 15px rgba(79,70,229,0.3)" : "none",
+            }}
+          >
+            {t.icon}{t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── TAB CONTENT ── */}
       {activeTab === "event_participation" && (
-        <div className="dash-card" style={{ padding: 0, overflow: "hidden" }}>
-          <div style={{ padding: "18px 20px", borderBottom: "1px solid #E2E8F0" }}>
-            <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: "#0F172A" }}>
-              Total Volunteers per Event & Execution Status
-            </h3>
-            <span style={{ fontSize: 12.5, color: "#64748B" }}>
-              Track applications, filled capacities, completed drives, and total awarded points per initiative.
-            </span>
-          </div>
-
-          <div style={{ overflowX: "auto" }}>
-            <table className="admin-table">
-              <thead>
-                <tr>
-                  <th>Event Drive Title</th>
-                  <th>Category</th>
-                  <th>Date</th>
-                  <th>Volunteers Needed</th>
-                  <th>Total Applications</th>
-                  <th>Approved</th>
-                  <th>Completed & Present</th>
-                  <th>Points Awarded</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(reportsData?.eventParticipation || [])
-                  .filter((e) =>
-                    !searchFilter ||
-                    e.title.toLowerCase().includes(searchFilter.toLowerCase()) ||
-                    e.category.toLowerCase().includes(searchFilter.toLowerCase())
-                  )
-                  .map((evt) => (
-                    <tr key={evt.eventId}>
-                      <td>
-                        <strong>{evt.title}</strong>
-                        <span style={{ display: "block", fontSize: 11, color: "#64748B" }}>{evt.eventId}</span>
-                      </td>
-                      <td>
-                        <span style={{ background: "#F1F5F9", padding: "2px 8px", borderRadius: 8, fontSize: 12 }}>
-                          {evt.category}
-                        </span>
-                      </td>
-                      <td>{evt.date}</td>
-                      <td>
-                        <strong>{evt.volunteersNeeded}</strong>
-                      </td>
-                      <td>{evt.totalApplications}</td>
-                      <td>
-                        <span style={{ color: "#2563EB", fontWeight: 700 }}>{evt.approvedCount}</span>
-                      </td>
-                      <td>
-                        <span style={{ color: "#16A34A", fontWeight: 700 }}>{evt.completedCount}</span>
-                      </td>
-                      <td>
-                        <span style={{ color: "#D97706", fontWeight: 700 }}>+{evt.pointsAwarded} pts</span>
-                      </td>
-                      <td>
-                        <span
-                          style={{
-                            padding: "3px 8px",
-                            borderRadius: 12,
-                            fontSize: 11.5,
-                            fontWeight: 700,
-                            background: evt.status === "Completed" ? "#DCFCE7" : "#EFF6FF",
-                            color: evt.status === "Completed" ? "#15803D" : "#1D4ED8",
-                          }}
-                        >
-                          {evt.status}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <EventParticipationTab data={reportsData?.eventParticipation || []} search={searchFilter} />
       )}
-
-      {/* ── TAB 2: STUDENT CONTRIBUTION REPORTS ── */}
       {activeTab === "student_contributions" && (
-        <div className="dash-card" style={{ padding: 0, overflow: "hidden" }}>
-          <div style={{ padding: "18px 20px", borderBottom: "1px solid #E2E8F0" }}>
-            <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: "#0F172A" }}>
-              Student Volunteer Contribution Ledger
-            </h3>
-            <span style={{ fontSize: 12.5, color: "#64748B" }}>
-              Individual social service audit: points accumulated, verified hours, and completion metrics.
-            </span>
-          </div>
-
-          <div style={{ overflowX: "auto" }}>
-            <table className="admin-table">
-              <thead>
-                <tr>
-                  <th>Student Volunteer</th>
-                  <th>Reg ID</th>
-                  <th>College & Department</th>
-                  <th>Year</th>
-                  <th>Total Points</th>
-                  <th>Impact Tier</th>
-                  <th>Completed Drives</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(reportsData?.studentContributions || [])
-                  .filter((s) =>
-                    !searchFilter ||
-                    s.name.toLowerCase().includes(searchFilter.toLowerCase()) ||
-                    s.studentId.toLowerCase().includes(searchFilter.toLowerCase()) ||
-                    s.college.toLowerCase().includes(searchFilter.toLowerCase())
-                  )
-                  .map((st) => (
-                    <tr key={st.studentId}>
-                      <td>
-                        <strong>{st.name}</strong>
-                        <span style={{ display: "block", fontSize: 11.5, color: "#64748B" }}>{st.email}</span>
-                      </td>
-                      <td>
-                        <span style={{ fontFamily: "monospace", color: "#0066CC", fontWeight: 700 }}>
-                          {st.studentId}
-                        </span>
-                      </td>
-                      <td>
-                        <span style={{ fontSize: 13, color: "#334155" }}>{st.college}</span>
-                        <span style={{ display: "block", fontSize: 11, color: "#64748B" }}>{st.department}</span>
-                      </td>
-                      <td>{st.academicYear}</td>
-                      <td>
-                        <strong style={{ color: "#EAB308", fontSize: 14 }}>{st.points}</strong> pts
-                      </td>
-                      <td>
-                        <span style={{ background: "#F1F5F9", color: "#334155", padding: "3px 10px", borderRadius: 12, fontSize: 12, fontWeight: 700 }}>
-                          {st.tier || "Bronze"}
-                        </span>
-                      </td>
-                      <td>
-                        <span style={{ background: "#ECFDF5", color: "#059669", padding: "2px 8px", borderRadius: 10, fontSize: 12, fontWeight: 700 }}>
-                          {st.completedEvents} drives
-                        </span>
-                      </td>
-                      <td>
-                        <span
-                          style={{
-                            padding: "2px 8px",
-                            borderRadius: 10,
-                            fontSize: 11,
-                            fontWeight: 700,
-                            background: st.status === "active" ? "#DCFCE7" : "#FEE2E2",
-                            color: st.status === "active" ? "#16A34A" : "#DC2626",
-                          }}
-                        >
-                          {st.status?.toUpperCase()}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <StudentContributionsTab data={filtered(reportsData?.studentContributions || [])} />
       )}
-
-      {/* ── TAB 3: DEPARTMENT-WISE STATISTICS ── */}
       {activeTab === "department_stats" && (
-        <div>
-          <div className="dash-card" style={{ marginBottom: 20 }}>
-            <h3 style={{ fontSize: 16, fontWeight: 700, margin: "0 0 16px", color: "#0F172A" }}>
-              Department Engagement Chart
-            </h3>
-            <div style={{ height: 260 }}>
-              <BarChart
-                data={(reportsData?.departmentStatistics || []).map((d) => ({
-                  label: d.department.split(" ")[0],
-                  value: d.totalStudents,
-                }))}
-                valueKey="value"
-                labelKey="label"
-                barColor="#0066CC"
-              />
-            </div>
-          </div>
+        <DepartmentStatsTab data={filtered(reportsData?.departmentStatistics || [])} />
+      )}
+      {activeTab === "points_distribution" && (
+        <PointsDistributionTab data={filtered(reportsData?.pointsDistribution || [])} />
+      )}
+      {activeTab === "application_stats" && (
+        <ApplicationStatsTab stats={appStats} />
+      )}
+    </div>
+  );
+}
 
-          <div className="dash-card" style={{ padding: 0, overflow: "hidden" }}>
-            <div style={{ padding: "18px 20px", borderBottom: "1px solid #E2E8F0" }}>
-              <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: "#0F172A" }}>
-                Department-wise Participation Breakdown
-              </h3>
-            </div>
-            <div style={{ overflowX: "auto" }}>
-              <table className="admin-table">
-                <thead>
-                  <tr>
-                    <th>Department / Discipline</th>
-                    <th>Enrolled Students</th>
-                    <th>Total Points Generated</th>
-                    <th>Avg Points / Student</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(reportsData?.departmentStatistics || []).map((dept) => (
-                    <tr key={dept.department}>
-                      <td>
-                        <strong>{dept.department}</strong>
-                      </td>
-                      <td>
-                        <strong>{dept.totalStudents}</strong> volunteers
-                      </td>
-                      <td>
-                        <strong style={{ color: "#EAB308" }}>{dept.totalPoints}</strong> pts
-                      </td>
-                      <td>
-                        <strong>{dept.averagePoints || Math.round(dept.totalPoints / (dept.totalStudents || 1))}</strong> pts
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+// ─────────────────────────────────────────────
+// SUB-COMPONENTS
+// ─────────────────────────────────────────────
+
+function SectionCard({ title, icon, children, action }) {
+  return (
+    <div style={{ background: "#fff", borderRadius: 16, border: "1px solid #E2E8F0", overflow: "hidden", marginBottom: 24, boxShadow: "0 2px 12px rgba(0,0,0,0.05)" }}>
+      <div style={{ background: "linear-gradient(135deg,#4F46E5,#6366F1)", padding: "16px 24px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, color: "#fff" }}>
+          {icon}
+          <span style={{ fontWeight: 700, fontSize: 15 }}>{title}</span>
+        </div>
+        {action}
+      </div>
+      <div style={{ padding: 24 }}>{children}</div>
+    </div>
+  );
+}
+
+function EmptyState({ message = "No data available" }) {
+  return (
+    <div style={{ textAlign: "center", padding: "48px 20px", color: "#94A3B8" }}>
+      <Sparkles size={40} style={{ marginBottom: 12, opacity: 0.5 }} />
+      <p style={{ fontWeight: 600, fontSize: 15 }}>{message}</p>
+    </div>
+  );
+}
+
+// ── Tab 1: Event Participation
+function EventParticipationTab({ data, search }) {
+  const q = search.toLowerCase();
+  const rows = data.filter((r) =>
+    !q || Object.values(r).some((v) => String(v).toLowerCase().includes(q))
+  );
+  return (
+    <SectionCard title="Event-wise Participation" icon={<Calendar size={18} />}>
+      {rows.length === 0 ? <EmptyState message="No events recorded yet" /> : (
+        <div style={{ overflowX: "auto" }}>
+          <table style={tableStyle}>
+            <thead>
+              <tr>
+                {["#", "Event Title", "Category", "Date", "Volunteers Needed", "Applications", "Approved", "Completion %"].map((h) => (
+                  <th key={h} style={thStyle}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((e, i) => (
+                <tr key={i} style={rowStyle(i)}>
+                  <td style={tdStyle}><span style={badgeStyle("#EEF2FF", "#4F46E5")}>{i + 1}</span></td>
+                  <td style={{ ...tdStyle, fontWeight: 600, color: "#1E293B" }}>{e.eventTitle}</td>
+                  <td style={tdStyle}><span style={badgeStyle("#F0FDF4", "#16A34A")}>{e.category}</span></td>
+                  <td style={{ ...tdStyle, color: "#64748B" }}>{e.date}</td>
+                  <td style={{ ...tdStyle, textAlign: "center" }}>{e.volunteersNeeded}</td>
+                  <td style={{ ...tdStyle, textAlign: "center" }}><span style={badgeStyle("#EFF6FF", "#1D4ED8")}>{e.applicationsReceived}</span></td>
+                  <td style={{ ...tdStyle, textAlign: "center" }}><span style={badgeStyle("#F0FDF4", "#16A34A")}>{e.approvedVolunteers}</span></td>
+                  <td style={{ ...tdStyle, textAlign: "center" }}>
+                    <span style={badgeStyle(Number(e.completionRate) >= 100 ? "#F0FDF4" : "#FEF3C7", Number(e.completionRate) >= 100 ? "#15803D" : "#B45309")}>
+                      {e.completionRate}%
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
+    </SectionCard>
+  );
+}
 
-      {/* ── TAB 4: POINTS DISTRIBUTION REPORTS ── */}
-      {activeTab === "points_distribution" && (
-        <div className="dash-card" style={{ padding: 0, overflow: "hidden" }}>
-          <div style={{ padding: "18px 20px", borderBottom: "1px solid #E2E8F0" }}>
-            <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: "#0F172A" }}>
-              Volunteering Points Transaction Ledger
-            </h3>
-            <span style={{ fontSize: 12.5, color: "#64748B" }}>
-              Complete audit trail of points credited for event completion and manual adjustments with mandatory reasons.
-            </span>
-          </div>
+// ── Tab 2: Student Contributions
+function StudentContributionsTab({ data }) {
+  return (
+    <SectionCard title="Student Contribution Reports" icon={<Users size={18} />}>
+      {data.length === 0 ? <EmptyState message="No students found" /> : (
+        <div style={{ overflowX: "auto" }}>
+          <table style={tableStyle}>
+            <thead>
+              <tr>
+                {["#", "Name", "College", "Department", "Points", "Hours", "Events", "Status"].map((h) => (
+                  <th key={h} style={thStyle}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {data.map((s, i) => (
+                <tr key={i} style={rowStyle(i)}>
+                  <td style={tdStyle}><span style={badgeStyle("#EEF2FF", "#4F46E5")}>{i + 1}</span></td>
+                  <td style={{ ...tdStyle, fontWeight: 700, color: "#1E293B" }}>{s.fullName}</td>
+                  <td style={{ ...tdStyle, color: "#475569", fontSize: 12 }}>{s.college}</td>
+                  <td style={tdStyle}><span style={badgeStyle("#F5F3FF", "#7C3AED")}>{s.department}</span></td>
+                  <td style={{ ...tdStyle, textAlign: "center" }}>
+                    <span style={badgeStyle("#FEF3C7", "#B45309")}>{s.points} pts</span>
+                  </td>
+                  <td style={{ ...tdStyle, textAlign: "center" }}>
+                    <span style={badgeStyle("#E0F2FE", "#0369A1")}>{s.totalHours} hrs</span>
+                  </td>
+                  <td style={{ ...tdStyle, textAlign: "center" }}>{s.eventsJoined}</td>
+                  <td style={tdStyle}>
+                    <span style={badgeStyle(s.status === "active" ? "#F0FDF4" : "#F1F5F9", s.status === "active" ? "#16A34A" : "#64748B")}>
+                      {s.status === "active" ? "● Active" : s.status}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </SectionCard>
+  );
+}
 
+// ── Tab 3: Department Stats
+function DepartmentStatsTab({ data }) {
+  const chartData = data.map((d) => ({ label: d.department, value: d.totalPoints }));
+  return (
+    <>
+      <SectionCard title="Department-wise Statistics" icon={<Layers size={18} />}>
+        {data.length === 0 ? <EmptyState message="No department data" /> : (
           <div style={{ overflowX: "auto" }}>
-            <table className="admin-table">
+            <table style={tableStyle}>
               <thead>
                 <tr>
-                  <th>Transaction ID</th>
-                  <th>Date</th>
-                  <th>Student Volunteer</th>
-                  <th>Event / Context</th>
-                  <th>Type</th>
-                  <th>Points</th>
-                  <th>Mandatory Reason</th>
-                  <th>Admin Remarks</th>
+                  {["Department", "Students", "Total Points", "Total Hours", "Avg Points/Student"].map((h) => (
+                    <th key={h} style={thStyle}>{h}</th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
-                {(reportsData?.pointsDistribution || []).map((tx) => (
-                  <tr key={tx.transactionId}>
-                    <td>
-                      <span style={{ fontFamily: "monospace", fontSize: 12, color: "#0066CC" }}>
-                        {tx.transactionId}
-                      </span>
+                {data.map((d, i) => (
+                  <tr key={i} style={rowStyle(i)}>
+                    <td style={{ ...tdStyle, fontWeight: 700, color: "#1E293B" }}>{d.department}</td>
+                    <td style={{ ...tdStyle, textAlign: "center" }}>{d.totalStudents}</td>
+                    <td style={{ ...tdStyle, textAlign: "center" }}>
+                      <span style={badgeStyle("#FEF3C7", "#B45309")}>{d.totalPoints} pts</span>
                     </td>
-                    <td>{new Date(tx.date).toLocaleDateString()}</td>
-                    <td>
-                      <strong>{tx.studentName}</strong>
-                      <span style={{ display: "block", fontSize: 11, color: "#64748B" }}>{tx.studentId}</span>
+                    <td style={{ ...tdStyle, textAlign: "center" }}>
+                      <span style={badgeStyle("#E0F2FE", "#0369A1")}>{d.totalHours} hrs</span>
                     </td>
-                    <td>{tx.eventName}</td>
-                    <td>
-                      <span
-                        style={{
-                          padding: "2px 8px",
-                          borderRadius: 8,
-                          fontSize: 11,
-                          fontWeight: 700,
-                          background: tx.type === "CREDIT" ? "#DCFCE7" : "#FEE2E2",
-                          color: tx.type === "CREDIT" ? "#16A34A" : "#DC2626",
-                        }}
-                      >
-                        {tx.type}
-                      </span>
-                    </td>
-                    <td>
-                      <strong style={{ color: tx.type === "CREDIT" ? "#16A34A" : "#DC2626", fontSize: 14 }}>
-                        {tx.points > 0 ? `+${tx.points}` : tx.points} pts
-                      </strong>
-                    </td>
-                    <td style={{ maxWidth: 220 }}>{tx.reason}</td>
-                    <td style={{ color: "#64748B" }}>{tx.adminRemarks || "Verified"}</td>
+                    <td style={{ ...tdStyle, textAlign: "center" }}>{d.averagePoints}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        </div>
+        )}
+      </SectionCard>
+      {chartData.length > 0 && (
+        <SectionCard title="Points by Department (Chart)" icon={<BarChart2 size={18} />}>
+          <BarChart data={chartData} />
+        </SectionCard>
       )}
-
-      {/* ── TAB 5: APPLICATION APPROVAL & REJECTION STATS ── */}
-      {activeTab === "application_stats" && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
-          <div className="dash-card">
-            <h3 style={{ fontSize: 16, fontWeight: 700, margin: "0 0 16px", color: "#0F172A" }}>
-              Application Decisions Ratio
-            </h3>
-            <div style={{ padding: "10px 0" }}>
-              <DonutChart
-                data={[
-                  { label: "Approved", value: reportsData?.applicationStatistics?.approved || 2, color: "#10B981" },
-                  { label: "Pending", value: reportsData?.applicationStatistics?.pending || 1, color: "#F59E0B" },
-                  { label: "Completed", value: reportsData?.applicationStatistics?.completed || 1, color: "#6366F1" },
-                  { label: "Rejected", value: reportsData?.applicationStatistics?.rejected || 0, color: "#EF4444" },
-                ]}
-                centerValue={reportsData?.applicationStatistics?.total || 4}
-                centerLabel="Total Submissions"
-              />
-            </div>
-          </div>
-
-          <div className="dash-card">
-            <h3 style={{ fontSize: 16, fontWeight: 700, margin: "0 0 16px", color: "#0F172A" }}>
-              Application Metrics Summary
-            </h3>
-            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              {[
-                { label: "Total Applications Received", count: reportsData?.applicationStatistics?.total || 4, color: "#0066CC" },
-                { label: "Approved Volunteers", count: reportsData?.applicationStatistics?.approved || 2, color: "#10B981" },
-                { label: "Pending Approval", count: reportsData?.applicationStatistics?.pending || 1, color: "#F59E0B" },
-                { label: "Drives Completed", count: reportsData?.applicationStatistics?.completed || 1, color: "#6366F1" },
-                { label: "Declined Applications", count: reportsData?.applicationStatistics?.rejected || 0, color: "#EF4444" },
-              ].map((item, idx) => (
-                <div
-                  key={idx}
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    padding: "12px 16px",
-                    background: "#F8FAFC",
-                    borderRadius: 10,
-                    border: "1px solid #E2E8F0",
-                  }}
-                >
-                  <span style={{ fontSize: 13.5, color: "#334155", fontWeight: 500 }}>{item.label}</span>
-                  <strong style={{ fontSize: 16, color: item.color }}>{item.count}</strong>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+    </>
   );
 }
+
+// ── Tab 4: Points Distribution
+function PointsDistributionTab({ data }) {
+  return (
+    <SectionCard title="Points Distribution Records" icon={<Award size={18} />}>
+      {data.length === 0 ? (
+        <EmptyState message="No points transactions recorded yet" />
+      ) : (
+        <div style={{ overflowX: "auto" }}>
+          <table style={tableStyle}>
+            <thead>
+              <tr>
+                {["#", "Student Name", "Event", "Points", "Type", "Reason", "Date"].map((h) => (
+                  <th key={h} style={thStyle}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {data.map((p, i) => (
+                <tr key={i} style={rowStyle(i)}>
+                  <td style={tdStyle}><span style={badgeStyle("#EEF2FF", "#4F46E5")}>{i + 1}</span></td>
+                  <td style={{ ...tdStyle, fontWeight: 700, color: "#1E293B" }}>{p.studentName}</td>
+                  <td style={{ ...tdStyle, color: "#475569", fontSize: 12 }}>{p.eventName}</td>
+                  <td style={{ ...tdStyle, textAlign: "center" }}>
+                    <span style={{ ...badgeStyle("#FEF3C7", "#B45309"), fontWeight: 800 }}>+{p.points}</span>
+                  </td>
+                  <td style={tdStyle}><span style={badgeStyle("#F5F3FF", "#7C3AED")}>{p.type}</span></td>
+                  <td style={{ ...tdStyle, color: "#64748B", fontSize: 12 }}>{p.reason}</td>
+                  <td style={{ ...tdStyle, color: "#64748B", fontSize: 12 }}>{p.date ? new Date(p.date).toLocaleDateString() : "-"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </SectionCard>
+  );
+}
+
+// ── Tab 5: Application Stats
+function ApplicationStatsTab({ stats }) {
+  const cards = [
+    { label: "Total Applications", value: stats.total || 0, color: "#4F46E5", bg: "#EEF2FF", icon: <FileText size={22} /> },
+    { label: "Pending Review", value: stats.pending || 0, color: "#B45309", bg: "#FEF3C7", icon: <Clock size={22} /> },
+    { label: "Approved", value: stats.approved || 0, color: "#16A34A", bg: "#F0FDF4", icon: <CheckCircle2 size={22} /> },
+    { label: "Rejected", value: stats.rejected || 0, color: "#DC2626", bg: "#FEF2F2", icon: <TrendingUp size={22} /> },
+    { label: "Completed", value: stats.completed || 0, color: "#0369A1", bg: "#E0F2FE", icon: <Star size={22} /> },
+  ];
+  const donutData = [
+    { label: "Approved", value: stats.approved || 0 },
+    { label: "Pending", value: stats.pending || 0 },
+    { label: "Completed", value: stats.completed || 0 },
+    { label: "Rejected", value: stats.rejected || 0 },
+  ];
+  return (
+    <>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(180px,1fr))", gap: 16, marginBottom: 24 }}>
+        {cards.map((c) => (
+          <div key={c.label} style={{ background: "#fff", borderRadius: 16, padding: "20px 20px 16px", border: `2px solid ${c.bg}`, boxShadow: "0 2px 8px rgba(0,0,0,0.05)" }}>
+            <div style={{ background: c.bg, borderRadius: 10, width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center", color: c.color, marginBottom: 12 }}>
+              {c.icon}
+            </div>
+            <div style={{ fontSize: 28, fontWeight: 800, color: c.color }}>{c.value}</div>
+            <div style={{ fontSize: 12, fontWeight: 600, color: "#64748B", marginTop: 4 }}>{c.label}</div>
+          </div>
+        ))}
+      </div>
+      {(stats.total || 0) > 0 && (
+        <SectionCard title="Applications Breakdown" icon={<PieChart size={18} />}>
+          <DonutChart data={donutData} />
+        </SectionCard>
+      )}
+    </>
+  );
+}
+
+// ─── Shared Styles ───
+const tableStyle = { width: "100%", borderCollapse: "collapse", fontSize: 13 };
+const thStyle = {
+  textAlign: "left", padding: "10px 14px", fontSize: 11, fontWeight: 700,
+  color: "#64748B", textTransform: "uppercase", letterSpacing: 0.5,
+  borderBottom: "2px solid #E2E8F0", background: "#F8FAFC",
+};
+const tdStyle = { padding: "12px 14px", borderBottom: "1px solid #F1F5F9", verticalAlign: "middle" };
+const rowStyle = (i) => ({ background: i % 2 === 0 ? "#fff" : "#FAFBFF" });
+const badgeStyle = (bg, color) => ({
+  display: "inline-flex", alignItems: "center", padding: "3px 10px",
+  borderRadius: 20, fontSize: 12, fontWeight: 600, background: bg, color,
+});
+const inputStyle = {
+  width: "100%", padding: "10px 14px 10px 36px", border: "1.5px solid #E2E8F0",
+  borderRadius: 10, fontSize: 13, background: "#F8FAFC", outline: "none",
+  boxSizing: "border-box",
+};
+const heroBtnStyle = (bg, color) => ({
+  display: "flex", alignItems: "center", gap: 7, padding: "9px 18px",
+  borderRadius: 10, border: "none", cursor: "pointer", fontWeight: 600, fontSize: 13,
+  background: bg, color, transition: "opacity 0.2s",
+});
+const smallLinkBtn = (bg, color) => ({
+  display: "inline-flex", alignItems: "center", gap: 4, padding: "5px 12px",
+  borderRadius: 8, fontSize: 12, fontWeight: 600, background: bg, color,
+  textDecoration: "none", border: `1px solid ${color}22`,
+});

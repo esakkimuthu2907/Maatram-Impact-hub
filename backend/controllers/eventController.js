@@ -20,12 +20,14 @@ const getEventById = async (req, res) => {
 
     // Include registered volunteers (applications) for this specific event
     const applications = await Storage.getApplicationsByEvent(req.params.id);
+    const attendance = await Storage.getEventAttendance(req.params.id);
 
     res.json({
       success: true,
       data: {
         ...event,
         registeredVolunteers: applications,
+        attendanceRecords: attendance,
       },
     });
   } catch (err) {
@@ -74,6 +76,55 @@ const deleteEvent = async (req, res) => {
   }
 };
 
+// POST /api/events/:id/qr-token (Admin only - generate QR)
+const generateQRToken = async (req, res) => {
+  try {
+    const result = await Storage.generateEventQRToken(req.params.id, req.user);
+    res.json({ success: true, data: result, message: "Event QR Code generated successfully!" });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+};
+
+// POST /api/events/:id/checkin (Approved Volunteer scans QR)
+const checkInViaQR = async (req, res) => {
+  try {
+    const { qrToken } = req.body;
+    const result = await Storage.checkInViaQR({
+      eventId: req.params.id,
+      qrToken,
+      user: req.user,
+    });
+    res.json({ success: true, data: result, message: result.message });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+};
+
+// GET /api/events/:id/attendance (Admin & Volunteers view roster)
+const getAttendance = async (req, res) => {
+  try {
+    const attendance = await Storage.getEventAttendance(req.params.id);
+    res.json({ success: true, data: attendance });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// POST /api/events/:id/remind (Admin trigger event reminders via email)
+const sendReminder = async (req, res) => {
+  try {
+    const result = await Storage.sendEventReminderBlast(req.params.id, req.user);
+    res.json({
+      success: true,
+      data: result,
+      message: `Event reminder emails dispatched to ${result.sentCount} approved volunteer(s)!`,
+    });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+};
+
 module.exports = {
   getEvents,
   getEventById,
@@ -81,4 +132,8 @@ module.exports = {
   createEvent,
   updateEvent,
   deleteEvent,
+  generateQRToken,
+  checkInViaQR,
+  getAttendance,
+  sendReminder,
 };

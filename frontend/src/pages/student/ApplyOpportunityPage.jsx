@@ -1,5 +1,5 @@
 // frontend/src/pages/ApplyOpportunityPage.jsx
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 
 import { useApp } from "../../context/AppContext";
+import { eventsAPI } from "../../api/eventsAPI";
 import "./OpportunitiesPage.css";
 
 export default function ApplyOpportunityPage() {
@@ -28,7 +29,15 @@ export default function ApplyOpportunityPage() {
   const navigate = useNavigate();
   const { user = {}, opportunities = [], applyForOpportunity } = useApp();
 
-  const opp = opportunities.find((o) => o.id === id || o._id === id) || opportunities[0];
+  const [opp, setOpp] = useState(() => opportunities.find((o) => (o.id || o._id) === id));
+
+  useEffect(() => {
+    if (!opp && id) {
+      eventsAPI.getById(id).then((res) => {
+        if (res && res.data) setOpp(res.data);
+      }).catch(() => {});
+    }
+  }, [id, opp]);
 
   const defaultSlots = opp?.slots && opp.slots.length > 0 ? opp.slots : [
     { slotId: "slot_default_1", title: "General Volunteering Slot", time: opp?.time || "9:30 AM – 1:30 PM", capacity: opp?.volunteersNeeded || 10, filled: 0 }
@@ -103,12 +112,14 @@ export default function ApplyOpportunityPage() {
 
     setIsSubmitting(true);
     try {
+      const oppId = (opp?.id || opp?._id || id || "").toString();
       const payload = {
         ...formData,
+        opportunityId: oppId,
         slotId: selectedSlotId,
         slotName: selectedSlotObj?.title || "Standard Slot",
       };
-      const appResult = await applyForOpportunity(opp, payload);
+      const appResult = await applyForOpportunity(oppId, payload);
       if (appResult) {
         setSubmittedApp(appResult);
       }

@@ -1,8 +1,8 @@
-// frontend/src/pages/ReportsPage.jsx
+// frontend/src/pages/student/ReportsPage.jsx
 import React, { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import {
   Download,
-  Printer,
   Calendar,
   Users,
   Clock,
@@ -10,15 +10,18 @@ import {
   TrendingUp,
   Award,
   Sparkles,
-  Building2,
+  Layers,
   PieChart,
-  FileSpreadsheet,
   FileText,
   Filter,
   RefreshCw,
   Search,
+  Trophy,
+  Star,
+  ArrowUpRight,
+  GraduationCap,
+  BarChart2,
 } from "lucide-react";
-
 import { useApp } from "../../context/AppContext";
 import { adminAPI } from "../../api/adminAPI";
 import BarChart from "../../components/charts/BarChart";
@@ -26,29 +29,52 @@ import DonutChart from "../../components/charts/DonutChart";
 import "./StudentDashboard.css";
 import "../admin/AdminEventsPage.css";
 
+const COLLEGES = [
+  "All Colleges",
+  "Velammal Engineering College, Chennai",
+  "College of Engineering Guindy (CEG)",
+  "Madras Institute of Technology (MIT)",
+  "Anna University, Chennai",
+];
+
+const TABS = [
+  { id: "event_participation", label: "Events", icon: <Calendar size={15} /> },
+  { id: "student_contributions", label: "Student Leaders", icon: <Users size={15} /> },
+  { id: "department_stats", label: "Departments", icon: <Layers size={15} /> },
+  { id: "points_distribution", label: "Points Log", icon: <Award size={15} /> },
+];
+
+const RANK_ICONS = ["🥇", "🥈", "🥉"];
+
+function downloadCSV(rows, filename) {
+  if (!rows || rows.length === 0) return;
+  const header = Object.keys(rows[0]).join(",");
+  const body = rows.map((r) =>
+    Object.values(r).map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(",")
+  );
+  const csv = [header, ...body].join("\n");
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export default function ReportsPage() {
   const { user, showToast } = useApp();
-  const isAdmin = user?.role === "admin";
-
   const [activeTab, setActiveTab] = useState("event_participation");
-  // Tabs:
-  // 1. event_participation: Event-wise participation & Total volunteers per event
-  // 2. student_contributions: Student contribution reports
-  // 3. department_stats: Department-wise volunteering statistics
-  // 4. points_distribution: Points distribution reports
-  // 5. application_stats: Approved and rejected application statistics
-
   const [reportsData, setReportsData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [searchFilter, setSearchFilter] = useState("");
+  const [collegeFilter, setCollegeFilter] = useState("All Colleges");
 
   const loadReports = async () => {
     try {
       setLoading(true);
       const res = await adminAPI.getReports();
-      if (res && res.data) {
-        setReportsData(res.data);
-      }
+      if (res && res.data) setReportsData(res.data);
     } catch (err) {
       console.warn("Could not load reports:", err.message);
     } finally {
@@ -56,608 +82,301 @@ export default function ReportsPage() {
     }
   };
 
-  useEffect(() => {
-    loadReports();
-  }, []);
+  useEffect(() => { loadReports(); }, []);
 
-  // Export to Excel / CSV format
-  const handleExportExcel = () => {
-    if (!reportsData) {
-      showToast("No data available to export", "error");
-      return;
+  const summary = reportsData?.summary || {};
+  const appStats = reportsData?.applicationStatistics || {};
+
+  const summaryCards = [
+    { label: "Total Students", value: summary.totalStudents ?? 3, icon: <Users size={20} />, color: "#4F46E5", bg: "#EEF2FF" },
+    { label: "Total Hours", value: summary.totalHours ?? 38, icon: <Clock size={20} />, color: "#0369A1", bg: "#E0F2FE", suffix: "hrs" },
+    { label: "Total Points", value: summary.totalPoints ?? 260, icon: <Award size={20} />, color: "#B45309", bg: "#FEF3C7", suffix: "pts" },
+    { label: "Total Events", value: summary.totalEvents ?? 3, icon: <Calendar size={20} />, color: "#059669", bg: "#D1FAE5" },
+  ];
+
+  const filtered = (arr = []) => {
+    let data = arr;
+    if (collegeFilter !== "All Colleges") {
+      data = data.filter((r) =>
+        (r.college || "").toLowerCase().includes(collegeFilter.toLowerCase().slice(0, 10))
+      );
     }
-
-    let csvRows = [];
-    let fileName = `Maatram_Report_${activeTab}_${Date.now()}.csv`;
-
-    if (activeTab === "event_participation") {
-      const headers = [
-        "Event ID",
-        "Event Title",
-        "Category",
-        "Date",
-        "Volunteers Needed",
-        "Applications Received",
-        "Approved Count",
-        "Completed Count",
-        "Points Awarded",
-        "Event Status",
-      ];
-      csvRows.push(headers.join(","));
-      (reportsData.eventParticipation || []).forEach((row) => {
-        csvRows.push(
-          [
-            row.eventId,
-            `"${(row.title || "").replace(/"/g, '""')}"`,
-            `"${row.category || ""}"`,
-            `"${row.date || ""}"`,
-            row.volunteersNeeded,
-            row.totalApplications,
-            row.approvedCount,
-            row.completedCount,
-            row.pointsAwarded,
-            row.status,
-          ].join(",")
-        );
-      });
-    } else if (activeTab === "student_contributions") {
-      const headers = [
-        "Student ID",
-        "Full Name",
-        "Email",
-        "Phone",
-        "College",
-        "Department",
-        "Academic Year",
-        "Total Points",
-        "Verified Hours",
-        "Completed Events",
-        "Status",
-      ];
-      csvRows.push(headers.join(","));
-      (reportsData.studentContributions || []).forEach((row) => {
-        csvRows.push(
-          [
-            row.studentId,
-            `"${(row.name || "").replace(/"/g, '""')}"`,
-            row.email,
-            `"${row.phone || ""}"`,
-            `"${(row.college || "").replace(/"/g, '""')}"`,
-            `"${row.department || ""}"`,
-            row.academicYear,
-            row.points,
-            row.totalHours,
-            row.completedEvents,
-            row.status,
-          ].join(",")
-        );
-      });
-    } else if (activeTab === "department_stats") {
-      const headers = ["Department", "Total Enrolled Students", "Total Points Generated", "Total Volunteering Hours"];
-      csvRows.push(headers.join(","));
-      (reportsData.departmentStatistics || []).forEach((row) => {
-        csvRows.push(
-          [
-            `"${row.department}"`,
-            row.totalStudents,
-            row.totalPoints,
-            row.totalHours,
-          ].join(",")
-        );
-      });
-    } else if (activeTab === "points_distribution") {
-      const headers = [
-        "Transaction ID",
-        "Date",
-        "Student ID",
-        "Student Name",
-        "Event / Activity",
-        "Type",
-        "Points",
-        "Reason",
-        "Admin Remarks",
-      ];
-      csvRows.push(headers.join(","));
-      (reportsData.pointsDistribution || []).forEach((row) => {
-        csvRows.push(
-          [
-            row.transactionId,
-            new Date(row.date).toLocaleDateString(),
-            row.studentId,
-            `"${(row.studentName || "").replace(/"/g, '""')}"`,
-            `"${(row.eventName || "").replace(/"/g, '""')}"`,
-            row.type,
-            row.points,
-            `"${(row.reason || "").replace(/"/g, '""')}"`,
-            `"${(row.adminRemarks || "").replace(/"/g, '""')}"`,
-          ].join(",")
-        );
-      });
-    } else {
-      // Application statistics
-      const s = reportsData.applicationStatistics || {};
-      const headers = ["Metric", "Count"];
-      csvRows.push(headers.join(","));
-      csvRows.push(`"Total Applications Received",${s.total || 0}`);
-      csvRows.push(`"Approved Applications",${s.approved || 0}`);
-      csvRows.push(`"Pending Review",${s.pending || 0}`);
-      csvRows.push(`"Completed Drives",${s.completed || 0}`);
-      csvRows.push(`"Rejected Applications",${s.rejected || 0}`);
+    if (searchFilter.trim()) {
+      const q = searchFilter.toLowerCase();
+      data = data.filter((r) =>
+        Object.values(r).some((v) => String(v).toLowerCase().includes(q))
+      );
     }
-
-    const csvContent = "\uFEFF" + csvRows.join("\r\n"); // UTF-8 BOM for Excel
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute("download", fileName);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
-    showToast("Excel/CSV report exported successfully!");
+    return data;
   };
 
-  // Download PDF / Print
-  const handleDownloadPDF = () => {
-    window.print();
+  const handleExport = () => {
+    if (!reportsData) { showToast("No data to export", "error"); return; }
+    const ts = new Date().toISOString().slice(0, 10);
+    if (activeTab === "student_contributions") {
+      const rows = filtered(reportsData.studentContributions || []).map((s) => ({
+        "Name": s.fullName, "College": s.college, "Department": s.department,
+        "Points": s.points, "Hours": s.totalHours, "Events": s.eventsJoined,
+      }));
+      downloadCSV(rows, `Maatram_Student_Leaders_${ts}.csv`);
+    } else if (activeTab === "college_leaderboard") {
+      const rows = (reportsData.collegeLeaderboard || []).map((c) => ({
+        "Rank": c.rank, "College": c.college, "Students": c.totalStudents,
+        "Points": c.totalPoints, "Hours": c.totalHours, "Avg": c.averagePoints,
+      }));
+      downloadCSV(rows, `Maatram_College_Leaderboard_${ts}.csv`);
+    } else if (activeTab === "event_participation") {
+      const rows = (reportsData.eventParticipation || []).map((e) => ({
+        "Event": e.eventTitle, "Category": e.category, "Date": e.date,
+        "Approved Volunteers": e.approvedVolunteers,
+      }));
+      downloadCSV(rows, `Maatram_Events_${ts}.csv`);
+    }
+    showToast("Exported successfully!", "success");
   };
+
+  if (loading) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: 320, gap: 16 }}>
+        <div style={{ width: 48, height: 48, border: "4px solid #E0E7FF", borderTopColor: "#4F46E5", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+        <p style={{ color: "#6366F1", fontWeight: 600, fontSize: 15 }}>Loading Impact Reports…</p>
+        <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+      </div>
+    );
+  }
 
   return (
-    <div className="dashboard-container" id="printable-reports">
-      {/* HEADER WITH PRINT & EXCEL ACTIONS */}
-      <div className="section-header-row">
-        <div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span
-              style={{
-                background: "#FEF08A",
-                color: "#854D0E",
-                fontSize: 12,
-                fontWeight: 700,
-                padding: "3px 10px",
-                borderRadius: 20,
-              }}
-            >
-              Audited Analytics & Reporting
-            </span>
-            <span style={{ color: "#94A3B8", fontSize: 13 }}>Official NGO Disclosures</span>
+    <div style={{ padding: "24px 20px", maxWidth: 1200, margin: "0 auto" }}>
+
+      {/* HERO */}
+      <div style={{
+        background: "linear-gradient(135deg,#1E3A8A 0%,#1D4ED8 50%,#0284C7 100%)",
+        borderRadius: 20, padding: "28px 32px", marginBottom: 24, position: "relative", overflow: "hidden",
+        boxShadow: "0 10px 30px rgba(30, 58, 138, 0.25)",
+      }}>
+        <div style={{ position: "absolute", top: -30, right: -30, width: 120, height: 120, borderRadius: "50%", background: "rgba(255,255,255,0.08)" }} />
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+              <BarChart2 size={18} color="#93C5FD" />
+              <span style={{ color: "#93C5FD", fontWeight: 700, fontSize: 12, letterSpacing: 1 }}>IMPACT ANALYTICS</span>
+            </div>
+            <h1 style={{ color: "#fff", margin: 0, fontSize: 24, fontWeight: 800 }}>Community Impact Reports</h1>
+            <p style={{ color: "#BFDBFE", margin: "4px 0 0", fontSize: 13 }}>Real-time volunteering data • Verified volunteer impact</p>
           </div>
-          <h1 className="page-heading" style={{ marginTop: 6 }}>
-            Volunteering Impact Reports
-          </h1>
-          <p className="page-subheading">
-            Audit-ready metrics on event participation, student hours, points distributions, and department statistics.
-          </p>
-        </div>
-
-        <div className="header-action-group">
-          <button className="dash-btn dash-btn-outline" onClick={handleDownloadPDF}>
-            <Printer size={16} /> Download PDF
-          </button>
-          <button className="dash-btn dash-btn-primary" onClick={handleExportExcel}>
-            <FileSpreadsheet size={16} /> Export to Excel
-          </button>
-        </div>
-      </div>
-
-      {/* REPORT TYPE TABS */}
-      <div
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-          gap: 8,
-          background: "#FFFFFF",
-          padding: "12px 16px",
-          borderRadius: 16,
-          border: "1px solid #E2E8F0",
-          marginBottom: 20,
-        }}
-      >
-        {[
-          { key: "event_participation", label: "Event Participation Reports", icon: Calendar },
-          { key: "student_contributions", label: "Student Contribution Ledger", icon: Users },
-          { key: "department_stats", label: "Department-wise Statistics", icon: Building2 },
-          { key: "points_distribution", label: "Points Distribution Ledger", icon: Award },
-          { key: "application_stats", label: "Approval & Rejection Ratios", icon: CheckCircle2 },
-        ].map((tab) => {
-          const Icon = tab.icon;
-          const active = activeTab === tab.key;
-          return (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                padding: "8px 16px",
-                borderRadius: 10,
-                border: active ? "1.5px solid #0066CC" : "1px solid #E2E8F0",
-                background: active ? "#EFF6FF" : "#FFFFFF",
-                color: active ? "#0066CC" : "#475569",
-                fontWeight: active ? 700 : 500,
-                fontSize: 13,
-                cursor: "pointer",
-                transition: "all 0.15s ease",
-              }}
-            >
-              <Icon size={15} /> {tab.label}
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={handleExport} style={heroBtnStyle("#2563EB", "#fff")}>
+              <Download size={14} /> Export
             </button>
-          );
-        })}
+            <button onClick={loadReports} style={heroBtnStyle("rgba(255,255,255,0.15)", "#BFDBFE")}>
+              <RefreshCw size={14} /> Refresh
+            </button>
+          </div>
+        </div>
+
+        {/* Summary chips */}
+        <div style={{ display: "flex", gap: 12, marginTop: 20, flexWrap: "wrap" }}>
+          {summaryCards.map((s) => (
+            <div key={s.label} style={{
+              background: "rgba(255,255,255,0.12)", backdropFilter: "blur(10px)",
+              borderRadius: 12, padding: "10px 16px", display: "flex", alignItems: "center",
+              gap: 10, border: "1px solid rgba(255,255,255,0.15)",
+            }}>
+              <div style={{ background: s.bg, borderRadius: 8, padding: 7, color: s.color }}>{s.icon}</div>
+              <div>
+                <div style={{ color: "#DBEAFE", fontSize: 10, fontWeight: 700 }}>{s.label}</div>
+                <div style={{ color: "#fff", fontSize: 20, fontWeight: 800 }}>
+                  {s.value}<span style={{ fontSize: 11, color: "#BFDBFE", marginLeft: 2 }}>{s.suffix || ""}</span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
-      {/* SEARCH BAR */}
-      <div style={{ marginBottom: 20, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div style={{ position: "relative", width: 340 }}>
-          <Search size={16} color="#94A3B8" style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)" }} />
-          <input
-            type="text"
-            placeholder="Filter current report records..."
-            value={searchFilter}
-            onChange={(e) => setSearchFilter(e.target.value)}
+      {/* FILTER ROW */}
+      <div style={{ display: "flex", gap: 12, marginBottom: 20, flexWrap: "wrap", alignItems: "center" }}>
+        <div style={{ position: "relative", flex: 1, minWidth: 200 }}>
+          <Search size={14} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#94A3B8" }} />
+          <input value={searchFilter} onChange={(e) => setSearchFilter(e.target.value)}
+            placeholder="Search…" style={inputStyle} />
+        </div>
+        {activeTab === "student_contributions" && (
+          <div style={{ position: "relative" }}>
+            <Filter size={13} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#2563EB", pointerEvents: "none" }} />
+            <select value={collegeFilter} onChange={(e) => setCollegeFilter(e.target.value)}
+              style={{ ...inputStyle, paddingLeft: 30, minWidth: 220 }}>
+              {COLLEGES.map((c) => <option key={c}>{c}</option>)}
+            </select>
+          </div>
+        )}
+      </div>
+
+      {/* TABS */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 24, flexWrap: "wrap" }}>
+        {TABS.map((t) => (
+          <button key={t.id} onClick={() => { setActiveTab(t.id); setSearchFilter(""); }}
             style={{
-              width: "100%",
-              padding: "8px 12px 8px 36px",
-              borderRadius: 8,
-              border: "1px solid #CBD5E1",
-              fontSize: 13.5,
-            }}
-          />
-        </div>
-
-        <button className="dash-btn dash-btn-outline" onClick={loadReports} style={{ padding: "6px 12px", fontSize: 13 }}>
-          <RefreshCw size={13} className={loading ? "spin" : ""} /> Refresh Data
-        </button>
+              display: "flex", alignItems: "center", gap: 7, padding: "9px 18px",
+              borderRadius: 50, border: activeTab === t.id ? "2px solid #2563EB" : "2px solid #E2E8F0",
+              background: activeTab === t.id ? "linear-gradient(135deg,#2563EB,#0284C7)" : "#fff",
+              color: activeTab === t.id ? "#fff" : "#475569", fontWeight: 600, fontSize: 13,
+              cursor: "pointer", transition: "all 0.2s",
+              boxShadow: activeTab === t.id ? "0 4px 15px rgba(37,99,235,0.3)" : "none",
+            }}>
+            {t.icon}{t.label}
+          </button>
+        ))}
       </div>
 
-      {/* ── TAB 1: EVENT-WISE PARTICIPATION ── */}
-      {activeTab === "event_participation" && (
-        <div className="dash-card" style={{ padding: 0, overflow: "hidden" }}>
-          <div style={{ padding: "18px 20px", borderBottom: "1px solid #E2E8F0" }}>
-            <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: "#0F172A" }}>
-              Total Volunteers per Event & Execution Status
-            </h3>
-            <span style={{ fontSize: 12.5, color: "#64748B" }}>
-              Track applications, filled capacities, completed drives, and total awarded points per initiative.
-            </span>
-          </div>
+      {/* TAB PANELS */}
+      {activeTab === "event_participation" && <EventsTab data={reportsData?.eventParticipation || []} search={searchFilter} />}
+      {activeTab === "student_contributions" && <StudentsTab data={filtered(reportsData?.studentContributions || [])} />}
+      {activeTab === "department_stats" && <DeptTab data={filtered(reportsData?.departmentStatistics || [])} />}
+      {activeTab === "points_distribution" && <PointsTab data={filtered(reportsData?.pointsDistribution || [])} />}
+    </div>
+  );
+}
 
-          <div style={{ overflowX: "auto" }}>
-            <table className="admin-table">
-              <thead>
-                <tr>
-                  <th>Event Drive Title</th>
-                  <th>Category</th>
-                  <th>Date</th>
-                  <th>Volunteers Needed</th>
-                  <th>Total Applications</th>
-                  <th>Approved</th>
-                  <th>Completed & Present</th>
-                  <th>Points Awarded</th>
-                  <th>Status</th>
+// ─── Shared helpers ───
+function Card({ title, icon, children, action }) {
+  return (
+    <div style={{ background: "#fff", borderRadius: 16, border: "1px solid #E2E8F0", overflow: "hidden", marginBottom: 24, boxShadow: "0 2px 12px rgba(0,0,0,0.05)" }}>
+      <div style={{ background: "linear-gradient(135deg,#1D4ED8,#2563EB)", padding: "14px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 9, color: "#fff" }}>{icon}<span style={{ fontWeight: 700, fontSize: 14 }}>{title}</span></div>
+        {action}
+      </div>
+      <div style={{ padding: 20 }}>{children}</div>
+    </div>
+  );
+}
+function Empty({ msg = "No data available" }) {
+  return (
+    <div style={{ textAlign: "center", padding: "40px 20px", color: "#94A3B8" }}>
+      <Sparkles size={36} style={{ marginBottom: 10, opacity: 0.4 }} />
+      <p style={{ fontWeight: 600, fontSize: 14 }}>{msg}</p>
+    </div>
+  );
+}
+const tbl = { width: "100%", borderCollapse: "collapse", fontSize: 13 };
+const th = { textAlign: "left", padding: "10px 14px", fontSize: 11, fontWeight: 700, color: "#64748B", textTransform: "uppercase", letterSpacing: 0.5, borderBottom: "2px solid #E2E8F0", background: "#F8FAFC" };
+const td = { padding: "11px 14px", borderBottom: "1px solid #F1F5F9", verticalAlign: "middle" };
+const rw = (i) => ({ background: i % 2 === 0 ? "#fff" : "#F9FFF9" });
+const badge = (bg, color) => ({ display: "inline-flex", alignItems: "center", padding: "3px 10px", borderRadius: 20, fontSize: 12, fontWeight: 600, background: bg, color });
+const inputStyle = { width: "100%", padding: "9px 14px 9px 34px", border: "1.5px solid #E2E8F0", borderRadius: 10, fontSize: 13, background: "#F8FAFC", outline: "none", boxSizing: "border-box" };
+const heroBtnStyle = (bg, color) => ({ display: "flex", alignItems: "center", gap: 6, padding: "9px 16px", borderRadius: 10, border: "none", cursor: "pointer", fontWeight: 600, fontSize: 13, background: bg, color });
+const lBtn = (bg, color) => ({ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 8, fontSize: 12, fontWeight: 600, background: bg, color, textDecoration: "none" });
+
+function EventsTab({ data, search }) {
+  const q = search.toLowerCase();
+  const rows = data.filter((r) => !q || Object.values(r).some((v) => String(v).toLowerCase().includes(q)));
+  return (
+    <Card title="Community Events" icon={<Calendar size={16} />}>
+      {rows.length === 0 ? <Empty msg="No events yet" /> : (
+        <div style={{ overflowX: "auto" }}>
+          <table style={tbl}>
+            <thead><tr>{["#", "Event", "Category", "Date", "Volunteers", "Completion"].map((h) => <th key={h} style={th}>{h}</th>)}</tr></thead>
+            <tbody>
+              {rows.map((e, i) => (
+                <tr key={i} style={rw(i)}>
+                  <td style={td}><span style={badge("#EEF2FF", "#4F46E5")}>{i + 1}</span></td>
+                  <td style={{ ...td, fontWeight: 700, color: "#1E293B" }}>{e.eventTitle}</td>
+                  <td style={td}><span style={badge("#D1FAE5", "#065F46")}>{e.category}</span></td>
+                  <td style={{ ...td, color: "#64748B" }}>{e.date}</td>
+                  <td style={{ ...td, textAlign: "center" }}>{e.approvedVolunteers}/{e.volunteersNeeded}</td>
+                  <td style={{ ...td, textAlign: "center" }}>
+                    <span style={badge(Number(e.completionRate) >= 100 ? "#D1FAE5" : "#FEF3C7", Number(e.completionRate) >= 100 ? "#065F46" : "#B45309")}>
+                      {e.completionRate}%
+                    </span>
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {(reportsData?.eventParticipation || [])
-                  .filter((e) =>
-                    !searchFilter ||
-                    e.title.toLowerCase().includes(searchFilter.toLowerCase()) ||
-                    e.category.toLowerCase().includes(searchFilter.toLowerCase())
-                  )
-                  .map((evt) => (
-                    <tr key={evt.eventId}>
-                      <td>
-                        <strong>{evt.title}</strong>
-                        <span style={{ display: "block", fontSize: 11, color: "#64748B" }}>{evt.eventId}</span>
-                      </td>
-                      <td>
-                        <span style={{ background: "#F1F5F9", padding: "2px 8px", borderRadius: 8, fontSize: 12 }}>
-                          {evt.category}
-                        </span>
-                      </td>
-                      <td>{evt.date}</td>
-                      <td>
-                        <strong>{evt.volunteersNeeded}</strong>
-                      </td>
-                      <td>{evt.totalApplications}</td>
-                      <td>
-                        <span style={{ color: "#2563EB", fontWeight: 700 }}>{evt.approvedCount}</span>
-                      </td>
-                      <td>
-                        <span style={{ color: "#16A34A", fontWeight: 700 }}>{evt.completedCount}</span>
-                      </td>
-                      <td>
-                        <span style={{ color: "#D97706", fontWeight: 700 }}>+{evt.pointsAwarded} pts</span>
-                      </td>
-                      <td>
-                        <span
-                          style={{
-                            padding: "3px 8px",
-                            borderRadius: 12,
-                            fontSize: 11.5,
-                            fontWeight: 700,
-                            background: evt.status === "Completed" ? "#DCFCE7" : "#EFF6FF",
-                            color: evt.status === "Completed" ? "#15803D" : "#1D4ED8",
-                          }}
-                        >
-                          {evt.status}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
+    </Card>
+  );
+}
 
-      {/* ── TAB 2: STUDENT CONTRIBUTION REPORTS ── */}
-      {activeTab === "student_contributions" && (
-        <div className="dash-card" style={{ padding: 0, overflow: "hidden" }}>
-          <div style={{ padding: "18px 20px", borderBottom: "1px solid #E2E8F0" }}>
-            <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: "#0F172A" }}>
-              Student Volunteer Contribution Ledger
-            </h3>
-            <span style={{ fontSize: 12.5, color: "#64748B" }}>
-              Individual social service audit: points accumulated, verified hours, and completion metrics.
-            </span>
-          </div>
-
-          <div style={{ overflowX: "auto" }}>
-            <table className="admin-table">
-              <thead>
-                <tr>
-                  <th>Student Volunteer</th>
-                  <th>Reg ID</th>
-                  <th>College & Department</th>
-                  <th>Year</th>
-                  <th>Total Points</th>
-                  <th>Verified Hours</th>
-                  <th>Completed Drives</th>
-                  <th>Status</th>
+function StudentsTab({ data }) {
+  return (
+    <Card title="Student Leaders" icon={<Users size={16} />}>
+      {data.length === 0 ? <Empty msg="No students found" /> : (
+        <div style={{ overflowX: "auto" }}>
+          <table style={tbl}>
+            <thead><tr>{["#", "Name", "College", "Dept", "Points", "Hours", "Events"].map((h) => <th key={h} style={th}>{h}</th>)}</tr></thead>
+            <tbody>
+              {data.map((s, i) => (
+                <tr key={i} style={rw(i)}>
+                  <td style={td}><span style={badge("#EEF2FF", "#4F46E5")}>{i + 1}</span></td>
+                  <td style={{ ...td, fontWeight: 700, color: "#1E293B" }}>{s.fullName}</td>
+                  <td style={{ ...td, color: "#64748B", fontSize: 12 }}>{s.college}</td>
+                  <td style={td}><span style={badge("#F5F3FF", "#7C3AED")}>{s.department}</span></td>
+                  <td style={{ ...td, textAlign: "center" }}><span style={badge("#FEF3C7", "#B45309")}>{s.points} pts</span></td>
+                  <td style={{ ...td, textAlign: "center" }}><span style={badge("#E0F2FE", "#0369A1")}>{s.totalHours} hrs</span></td>
+                  <td style={{ ...td, textAlign: "center" }}>{s.eventsJoined}</td>
                 </tr>
-              </thead>
-              <tbody>
-                {(reportsData?.studentContributions || [])
-                  .filter((s) =>
-                    !searchFilter ||
-                    s.name.toLowerCase().includes(searchFilter.toLowerCase()) ||
-                    s.studentId.toLowerCase().includes(searchFilter.toLowerCase()) ||
-                    s.college.toLowerCase().includes(searchFilter.toLowerCase())
-                  )
-                  .map((st) => (
-                    <tr key={st.studentId}>
-                      <td>
-                        <strong>{st.name}</strong>
-                        <span style={{ display: "block", fontSize: 11.5, color: "#64748B" }}>{st.email}</span>
-                      </td>
-                      <td>
-                        <span style={{ fontFamily: "monospace", color: "#0066CC", fontWeight: 700 }}>
-                          {st.studentId}
-                        </span>
-                      </td>
-                      <td>
-                        <span style={{ fontSize: 13, color: "#334155" }}>{st.college}</span>
-                        <span style={{ display: "block", fontSize: 11, color: "#64748B" }}>{st.department}</span>
-                      </td>
-                      <td>{st.academicYear}</td>
-                      <td>
-                        <strong style={{ color: "#EAB308", fontSize: 14 }}>{st.points}</strong> pts
-                      </td>
-                      <td>
-                        <strong>{st.totalHours}</strong> hrs
-                      </td>
-                      <td>
-                        <span style={{ background: "#ECFDF5", color: "#059669", padding: "2px 8px", borderRadius: 10, fontSize: 12, fontWeight: 700 }}>
-                          {st.completedEvents} drives
-                        </span>
-                      </td>
-                      <td>
-                        <span
-                          style={{
-                            padding: "2px 8px",
-                            borderRadius: 10,
-                            fontSize: 11,
-                            fontWeight: 700,
-                            background: st.status === "active" ? "#DCFCE7" : "#FEE2E2",
-                            color: st.status === "active" ? "#16A34A" : "#DC2626",
-                          }}
-                        >
-                          {st.status?.toUpperCase()}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
+    </Card>
+  );
+}
 
-      {/* ── TAB 3: DEPARTMENT-WISE STATISTICS ── */}
-      {activeTab === "department_stats" && (
-        <div>
-          <div className="dash-card" style={{ marginBottom: 20 }}>
-            <h3 style={{ fontSize: 16, fontWeight: 700, margin: "0 0 16px", color: "#0F172A" }}>
-              Department Engagement Chart
-            </h3>
-            <div style={{ height: 260 }}>
-              <BarChart
-                data={(reportsData?.departmentStatistics || []).map((d) => ({
-                  label: d.department.split(" ")[0],
-                  value: d.totalStudents,
-                }))}
-                valueKey="value"
-                labelKey="label"
-                barColor="#0066CC"
-              />
-            </div>
-          </div>
-
-          <div className="dash-card" style={{ padding: 0, overflow: "hidden" }}>
-            <div style={{ padding: "18px 20px", borderBottom: "1px solid #E2E8F0" }}>
-              <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: "#0F172A" }}>
-                Department-wise Participation Breakdown
-              </h3>
-            </div>
-            <div style={{ overflowX: "auto" }}>
-              <table className="admin-table">
-                <thead>
-                  <tr>
-                    <th>Department / Discipline</th>
-                    <th>Enrolled Students</th>
-                    <th>Total Points Generated</th>
-                    <th>Total Volunteering Hours</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(reportsData?.departmentStatistics || []).map((dept) => (
-                    <tr key={dept.department}>
-                      <td>
-                        <strong>{dept.department}</strong>
-                      </td>
-                      <td>
-                        <strong>{dept.totalStudents}</strong> volunteers
-                      </td>
-                      <td>
-                        <strong style={{ color: "#EAB308" }}>{dept.totalPoints}</strong> pts
-                      </td>
-                      <td>
-                        <strong>{dept.totalHours}</strong> hrs
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── TAB 4: POINTS DISTRIBUTION REPORTS ── */}
-      {activeTab === "points_distribution" && (
-        <div className="dash-card" style={{ padding: 0, overflow: "hidden" }}>
-          <div style={{ padding: "18px 20px", borderBottom: "1px solid #E2E8F0" }}>
-            <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: "#0F172A" }}>
-              Volunteering Points Transaction Ledger
-            </h3>
-            <span style={{ fontSize: 12.5, color: "#64748B" }}>
-              Complete audit trail of points credited for event completion and manual adjustments with mandatory reasons.
-            </span>
-          </div>
-
+function DeptTab({ data }) {
+  const chartData = data.map((d) => ({ label: d.department, value: d.totalPoints }));
+  return (
+    <>
+      <Card title="Department Statistics" icon={<Layers size={16} />}>
+        {data.length === 0 ? <Empty msg="No department data" /> : (
           <div style={{ overflowX: "auto" }}>
-            <table className="admin-table">
-              <thead>
-                <tr>
-                  <th>Transaction ID</th>
-                  <th>Date</th>
-                  <th>Student Volunteer</th>
-                  <th>Event / Context</th>
-                  <th>Type</th>
-                  <th>Points</th>
-                  <th>Mandatory Reason</th>
-                  <th>Admin Remarks</th>
-                </tr>
-              </thead>
+            <table style={tbl}>
+              <thead><tr>{["Department", "Students", "Total Points", "Total Hours", "Avg Points"].map((h) => <th key={h} style={th}>{h}</th>)}</tr></thead>
               <tbody>
-                {(reportsData?.pointsDistribution || []).map((tx) => (
-                  <tr key={tx.transactionId}>
-                    <td>
-                      <span style={{ fontFamily: "monospace", fontSize: 12, color: "#0066CC" }}>
-                        {tx.transactionId}
-                      </span>
-                    </td>
-                    <td>{new Date(tx.date).toLocaleDateString()}</td>
-                    <td>
-                      <strong>{tx.studentName}</strong>
-                      <span style={{ display: "block", fontSize: 11, color: "#64748B" }}>{tx.studentId}</span>
-                    </td>
-                    <td>{tx.eventName}</td>
-                    <td>
-                      <span
-                        style={{
-                          padding: "2px 8px",
-                          borderRadius: 8,
-                          fontSize: 11,
-                          fontWeight: 700,
-                          background: tx.type === "CREDIT" ? "#DCFCE7" : "#FEE2E2",
-                          color: tx.type === "CREDIT" ? "#16A34A" : "#DC2626",
-                        }}
-                      >
-                        {tx.type}
-                      </span>
-                    </td>
-                    <td>
-                      <strong style={{ color: tx.type === "CREDIT" ? "#16A34A" : "#DC2626", fontSize: 14 }}>
-                        {tx.points > 0 ? `+${tx.points}` : tx.points} pts
-                      </strong>
-                    </td>
-                    <td style={{ maxWidth: 220 }}>{tx.reason}</td>
-                    <td style={{ color: "#64748B" }}>{tx.adminRemarks || "Verified"}</td>
+                {data.map((d, i) => (
+                  <tr key={i} style={rw(i)}>
+                    <td style={{ ...td, fontWeight: 700 }}>{d.department}</td>
+                    <td style={{ ...td, textAlign: "center" }}>{d.totalStudents}</td>
+                    <td style={{ ...td, textAlign: "center" }}><span style={badge("#FEF3C7", "#B45309")}>{d.totalPoints} pts</span></td>
+                    <td style={{ ...td, textAlign: "center" }}><span style={badge("#E0F2FE", "#0369A1")}>{d.totalHours} hrs</span></td>
+                    <td style={{ ...td, textAlign: "center" }}>{d.averagePoints}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        </div>
-      )}
+        )}
+      </Card>
+      {chartData.length > 0 && <Card title="Points by Department" icon={<BarChart2 size={16} />}><BarChart data={chartData} /></Card>}
+    </>
+  );
+}
 
-      {/* ── TAB 5: APPLICATION APPROVAL & REJECTION STATS ── */}
-      {activeTab === "application_stats" && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
-          <div className="dash-card">
-            <h3 style={{ fontSize: 16, fontWeight: 700, margin: "0 0 16px", color: "#0F172A" }}>
-              Application Decisions Ratio
-            </h3>
-            <div style={{ padding: "10px 0" }}>
-              <DonutChart
-                data={[
-                  { label: "Approved", value: reportsData?.applicationStatistics?.approved || 2, color: "#10B981" },
-                  { label: "Pending", value: reportsData?.applicationStatistics?.pending || 1, color: "#F59E0B" },
-                  { label: "Completed", value: reportsData?.applicationStatistics?.completed || 1, color: "#6366F1" },
-                  { label: "Rejected", value: reportsData?.applicationStatistics?.rejected || 0, color: "#EF4444" },
-                ]}
-                centerValue={reportsData?.applicationStatistics?.total || 4}
-                centerLabel="Total Submissions"
-              />
-            </div>
-          </div>
-
-          <div className="dash-card">
-            <h3 style={{ fontSize: 16, fontWeight: 700, margin: "0 0 16px", color: "#0F172A" }}>
-              Application Metrics Summary
-            </h3>
-            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              {[
-                { label: "Total Applications Received", count: reportsData?.applicationStatistics?.total || 4, color: "#0066CC" },
-                { label: "Approved Volunteers", count: reportsData?.applicationStatistics?.approved || 2, color: "#10B981" },
-                { label: "Pending Approval", count: reportsData?.applicationStatistics?.pending || 1, color: "#F59E0B" },
-                { label: "Drives Completed", count: reportsData?.applicationStatistics?.completed || 1, color: "#6366F1" },
-                { label: "Declined Applications", count: reportsData?.applicationStatistics?.rejected || 0, color: "#EF4444" },
-              ].map((item, idx) => (
-                <div
-                  key={idx}
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    padding: "12px 16px",
-                    background: "#F8FAFC",
-                    borderRadius: 10,
-                    border: "1px solid #E2E8F0",
-                  }}
-                >
-                  <span style={{ fontSize: 13.5, color: "#334155", fontWeight: 500 }}>{item.label}</span>
-                  <strong style={{ fontSize: 16, color: item.color }}>{item.count}</strong>
-                </div>
+function PointsTab({ data }) {
+  return (
+    <Card title="Points Log" icon={<Award size={16} />}>
+      {data.length === 0 ? <Empty msg="No points transactions yet" /> : (
+        <div style={{ overflowX: "auto" }}>
+          <table style={tbl}>
+            <thead><tr>{["#", "Student", "Event", "Points", "Type", "Date"].map((h) => <th key={h} style={th}>{h}</th>)}</tr></thead>
+            <tbody>
+              {data.map((p, i) => (
+                <tr key={i} style={rw(i)}>
+                  <td style={td}><span style={badge("#EEF2FF", "#4F46E5")}>{i + 1}</span></td>
+                  <td style={{ ...td, fontWeight: 700 }}>{p.studentName}</td>
+                  <td style={{ ...td, color: "#64748B", fontSize: 12 }}>{p.eventName}</td>
+                  <td style={{ ...td, textAlign: "center" }}><span style={{ ...badge("#FEF3C7", "#B45309"), fontWeight: 800 }}>+{p.points}</span></td>
+                  <td style={td}><span style={badge("#F5F3FF", "#7C3AED")}>{p.type}</span></td>
+                  <td style={{ ...td, color: "#64748B", fontSize: 12 }}>{p.date ? new Date(p.date).toLocaleDateString() : "-"}</td>
+                </tr>
               ))}
-            </div>
-          </div>
+            </tbody>
+          </table>
         </div>
       )}
-    </div>
+    </Card>
   );
 }

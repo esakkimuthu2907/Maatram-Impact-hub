@@ -14,13 +14,22 @@ import {
   MapPin,
   ShieldCheck,
   ChevronRight,
+  QrCode,
+  Share2,
 } from "lucide-react";
 
 import { useApp } from "../../context/AppContext";
 import "./StudentDashboard.css";
 
 export default function MyApplicationsPage() {
-  const { applications = [], cancelApplication } = useApp();
+  const {
+    applications = [],
+    cancelApplication,
+    openQRAttendance,
+    openLinkedInShare,
+    openCertificate,
+    user,
+  } = useApp();
   const [filter, setFilter] = useState("All");
   const [search, setSearch] = useState("");
 
@@ -381,41 +390,111 @@ export default function MyApplicationsPage() {
                     paddingTop: 14,
                     borderTop: "1px solid #F1F5F9",
                     display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    gap: 12,
+                    flexDirection: "column",
+                    gap: 10,
                   }}
                 >
-                  <Link
-                    to={`/opportunities/${app.opportunityId}`}
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 4,
-                      fontSize: 12.5,
-                      fontWeight: 700,
-                      color: "#1E293B",
-                      textDecoration: "none",
-                    }}
-                  >
-                    View Drive Details <ChevronRight size={14} />
-                  </Link>
-
-                  {!isCancelled && (
-                    <button
-                      onClick={() => cancelApplication(appId)}
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                    <Link
+                      to={`/opportunities/${app.opportunityId}`}
                       style={{
-                        background: "none",
-                        border: "none",
-                        fontSize: 12,
-                        fontWeight: 600,
-                        color: "#EF4444",
-                        cursor: "pointer",
-                        padding: "4px 8px",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 4,
+                        fontSize: 12.5,
+                        fontWeight: 700,
+                        color: "#0066CC",
+                        textDecoration: "none",
                       }}
                     >
-                      Withdraw
+                      View Details <ChevronRight size={14} />
+                    </Link>
+
+                    {!isCancelled && app.status !== "Completed" && (
+                      <button
+                        onClick={() => cancelApplication(appId)}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          fontSize: 12,
+                          fontWeight: 600,
+                          color: "#EF4444",
+                          cursor: "pointer",
+                          padding: "4px 8px",
+                        }}
+                      >
+                        Withdraw
+                      </button>
+                    )}
+                  </div>
+
+                  {/* QR Check-in button if Approved */}
+                  {isApproved && (
+                    <button
+                      className="dash-btn dash-btn-primary"
+                      onClick={() =>
+                        openQRAttendance({
+                          id: app.opportunityId,
+                          _id: app.opportunityId,
+                          title: app.opportunityTitle,
+                          date: app.eventDate,
+                        })
+                      }
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: 6,
+                        padding: "8px 12px",
+                        fontSize: 12.5,
+                        borderRadius: 8,
+                      }}
+                    >
+                      <QrCode size={14} /> Check-in with QR Code
                     </button>
+                  )}
+
+                  {/* Certificate & LinkedIn share if Completed */}
+                  {(app.status === "Completed" || app.attendanceStatus === "Present") && (
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button
+                        className="dash-btn dash-btn-outline"
+                        onClick={() =>
+                          openCertificate({
+                            volunteerName: user?.fullName || app.applicantDetails?.name,
+                            eventTitle: app.opportunityTitle,
+                            eventCategory: app.category,
+                            verifiedHours: app.hours || 4,
+                            certificateId: `MF-CERT-2026-${Math.floor(1000 + Math.random() * 9000)}`,
+                            issueDate: app.eventDate,
+                          })
+                        }
+                        style={{ flex: 1, fontSize: 12, padding: "6px 8px", justifyContent: "center" }}
+                      >
+                        <FileText size={13} /> Certificate
+                      </button>
+                      <button
+                        className="dash-btn dash-btn-primary"
+                        onClick={() =>
+                          openLinkedInShare({
+                            volunteerName: user?.fullName || app.applicantDetails?.name,
+                            eventTitle: app.opportunityTitle,
+                            hours: app.hours || 4,
+                            category: app.category,
+                          })
+                        }
+                        style={{
+                          flex: 1,
+                          fontSize: 12,
+                          padding: "6px 8px",
+                          justifyContent: "center",
+                          background: "#0A66C2",
+                          borderColor: "#0A66C2",
+                        }}
+                      >
+                        <Share2 size={13} /> LinkedIn
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>

@@ -2,16 +2,13 @@
 
 /* =========================================
    MAATRAM REGISTRATION STYLING
-   Primary Red: #E41B35
-   Heading Font: Plus Jakarta Sans
-   Body Font: Inter
 ========================================= */
 
 :root {
-  --reg-red: #ffd629;
-  --reg-red-hover: #facc15;
-  --reg-red-dark: #eab308;
-  --reg-red-light: #fefce8;
+  --reg-red: #d7193f;
+  --reg-red-hover: #c41439;
+  --reg-red-dark: #a90f2c;
+  --reg-red-light: #fff1f3;
   --reg-ink: #0f172a;
   --reg-ink-light: #334155;
   --reg-muted: #64748b;
@@ -21,11 +18,17 @@
   --reg-danger: #dc2626;
   --reg-success: #16a34a;
 
-  --font-heading: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --font-body: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-heading: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Roboto, sans-serif;
+
+  --font-body: "Inter", -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Roboto, sans-serif;
 }
 
-/* RESET */
+/* =========================================
+   RESET
+========================================= */
+
 .register-page,
 .register-page * {
   box-sizing: border-box;
@@ -41,9 +44,18 @@
   font-family: var(--font-body);
   font-size: 14px;
   -webkit-font-smoothing: antialiased;
+
   background:
-    radial-gradient(circle at 10% 10%, rgba(228, 27, 53, 0.05), transparent 30%),
-    radial-gradient(circle at 90% 90%, rgba(228, 27, 53, 0.04), transparent 30%),
+    radial-gradient(
+      circle at 10% 10%,
+      rgba(228, 27, 53, 0.05),
+      transparent 30%
+    ),
+    radial-gradient(
+      circle at 90% 90%,
+      rgba(228, 27, 53, 0.04),
+      transparent 30%
+    ),
     var(--reg-bg);
 }
 
@@ -70,13 +82,17 @@
   outline-offset: 2px;
 }
 
-/* MAIN SHELL */
+/* =========================================
+   MAIN SHELL
+========================================= */
+
 .register-shell {
-  width: min(1200px, 100%);
+  width: min(1500px, 100%);
   min-height: 700px;
   margin: 0 auto;
   display: grid;
-  grid-template-columns: minmax(360px, 0.95fr) minmax(0, 1.05fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: stretch;
   overflow: hidden;
   border: 1px solid rgba(226, 232, 240, 0.9);
   border-radius: 24px;
@@ -87,22 +103,13 @@
 }
 
 /* =========================================
-   LEFT SIDEBAR: FULL IMAGE COVER PANEL
+   LEFT SIDEBAR
 ========================================= */
 
-.register-shell {
-  width: min(1500px, 100%);
-  min-height: 700px;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  align-items: stretch;
-  overflow: hidden;
-}
-
-/* LEFT IMAGE PANEL — fills entire left column */
 .register-sidebar {
   position: relative;
-  width: 100%;
-  height: 100%;
+  width: 110%;
+  height: 50%;
   min-height: 100%;
   overflow: hidden;
   background: #ffffff;
@@ -113,20 +120,21 @@
   padding: 32px 24px;
 }
 
-/* IMAGE WRAPPER — fills panel and centers the image */
+/* TREE BACKGROUND IMAGE */
+
 .register-sidebar-image-wrap {
+  position: relative;
   width: 100%;
   height: 100%;
-  display: flex;
+  display: center;
   align-items: center;
   justify-content: center;
 }
 
-/* FULL-FIT COMPLETE IMAGE */
 .register-sidebar-image {
   display: block;
-  width: 100%;
-  height: 100%;
+  width: 200%;
+  height: 200%;
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
@@ -137,7 +145,55 @@
   transform: none;
 }
 
-/* RIGHT FORM PANEL */
+/* =========================================
+   MAATRAM FOUNDATION LOGO
+   CENTER OF TREE BACKGROUND
+========================================= */
+/* =========================================
+   EXTRA LARGE MAATRAM FOUNDATION LOGO
+========================================= */
+
+/* EXTREMELY LARGE MAATRAM LOGO */
+
+.register-sidebar {
+    position: relative;
+    overflow: visible;
+}
+
+.register-sidebar-logo {
+    position: absolute;
+    top: 10%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+
+    width: 1500px;
+    max-width: none;
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    z-index: 100;
+}
+
+.register-sidebar-logo img {
+    width: 100%;
+    height: auto;
+    max-width: none;
+    max-height: none;
+    object-fit: contain;
+}
+
+/* Mobile */
+@media (max-width: 680px) {
+    .register-sidebar-logo {
+        width: 600px;
+    }
+}
+/* =========================================
+   RIGHT FORM PANEL
+========================================= */
+
 .register-form-panel {
   min-width: 0;
   min-height: 700px;
@@ -150,126 +206,15 @@
 
 .register-form-inner {
   width: 100%;
-  max-width: 620px;
-  margin: 0 auto;
-}
-
-/* RED THEME - MATCH LOGIN PAGE */
-:root {
-  --reg-red: #d7193f;
-  --reg-red-hover: #c41439;
-  --reg-red-dark: #a90f2c;
-  --reg-red-light: #fff1f3;
-}
-
-/* PRIMARY BUTTON */
-.register-submit {
-  color: #ffffff !important;
-  background: linear-gradient(110deg, #e52b50, #c41439) !important;
-  border-color: #c41439 !important;
-}
-
-.register-submit:hover:not(:disabled) {
-  background: #a90f2c !important;
-  box-shadow: 0 10px 24px rgba(215, 25, 63, 0.22);
-}
-
-.register-login-prompt a {
-  color: #d7193f !important;
-}
-
-/* TABLET */
-@media (max-width: 900px) {
-  .register-shell {
-    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
-  }
-
-  .register-sidebar {
-    min-height: 700px !important;
-  }
-
-  .register-form-inner {
-    padding-left: 22px;
-    padding-right: 22px;
-  }
-}
-
-/* MOBILE */
-@media (max-width: 680px) {
-  .register-page {
-    padding: 0;
-    align-items: flex-start;
-    background: #ffffff;
-  }
-
-  .register-shell {
-    display: flex !important;
-    flex-direction: column !important;
-    width: 100%;
-    min-height: 100vh;
-    border: 0;
-    border-radius: 0;
-    box-shadow: none;
-  }
-
-  .register-sidebar {
-    width: 100% !important;
-    height: 250px !important;
-    min-height: 250px !important;
-    max-height: none !important;
-    flex: 0 0 250px;
-    border: 0 !important;
-    border-bottom: 1px solid #edf0f5 !important;
-  }
-
-  .register-form-panel {
-    min-height: auto;
-    padding: 20px 16px 36px;
-  }
-
-  .register-form-inner {
-    max-width: 100%;
-    padding: 0;
-  }
-
-  .register-field-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-/* SMALL MOBILE */
-@media (max-width: 390px) {
-  .register-sidebar {
-    height: 215px !important;
-    min-height: 215px !important;
-    flex-basis: 215px;
-  }
-
-  .register-form-panel {
-    padding-left: 14px;
-    padding-right: 14px;
-  }
-}
-
-/* =========================================
-   RIGHT REGISTRATION PANEL
-========================================= */
-.register-form-panel {
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #ffffff;
-}
-
-.register-form-inner {
-  width: 100%;
   max-width: 540px;
   margin: 0 auto;
   padding: clamp(28px, 4vw, 44px) clamp(20px, 4vw, 40px);
 }
 
-/* MOBILE BRAND */
+/* =========================================
+   MOBILE BRAND
+========================================= */
+
 .register-mobile-brand {
   display: none;
   align-items: center;
@@ -291,29 +236,30 @@
   color: var(--reg-red);
 }
 
-/* FORM HEADING */
+/* =========================================
+   FORM HEADING
+========================================= */
+
 .register-form-heading {
+  width: 100%;
+  text-align: center;
   margin-bottom: 24px;
 }
 
 .register-form-heading h2 {
-  margin: 0 0 6px;
-  color: var(--reg-ink);
-  font-family: var(--font-heading);
-  font-size: clamp(26px, 2.5vw, 32px);
-  font-weight: 800;
-  letter-spacing: -0.025em;
-  line-height: 1.2;
+  text-align: center;
+  margin: 0 0 8px;
 }
 
-.register-subtitle {
-  margin: 0;
-  color: var(--reg-muted);
-  font-size: 14px;
-  line-height: 1.5;
+.register-form-heading .register-subtitle {
+  text-align: center;
+  margin: 0 auto;
 }
 
-/* ALERTS */
+/* =========================================
+   ALERTS
+========================================= */
+
 .register-alert {
   padding: 12px 14px;
   border-radius: 10px;
@@ -328,12 +274,19 @@
   border: 1px solid #fee2e2;
 }
 
-/* FORM STRUCTURE */
+/* =========================================
+   FORM STRUCTURE
+========================================= */
+
 .register-form {
   display: flex;
   flex-direction: column;
   gap: 15px;
 }
+
+/* =========================================
+   SECTION TITLES
+========================================= */
 
 .register-section-title {
   display: flex;
@@ -369,7 +322,10 @@
   margin-top: 8px;
 }
 
-/* FIELD GRID */
+/* =========================================
+   FIELD GRID
+========================================= */
+
 .register-field-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -390,7 +346,10 @@
   line-height: 1.4;
 }
 
-/* INPUTS & SELECTS */
+/* =========================================
+   INPUTS AND SELECTS
+========================================= */
+
 .register-field input,
 .register-field select {
   width: 100%;
@@ -405,7 +364,10 @@
   font-family: var(--font-body);
   font-size: 14px;
   font-weight: 500;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    background 0.2s ease;
 }
 
 .register-field input::placeholder {
@@ -436,7 +398,10 @@
   background: #fffafa;
 }
 
-/* PASSWORD WRAPPER */
+/* =========================================
+   PASSWORD WRAPPER
+========================================= */
+
 .register-password-wrap {
   position: relative;
   display: flex;
@@ -466,7 +431,10 @@
   color: var(--reg-red);
 }
 
-/* ERROR MESSAGE */
+/* =========================================
+   ERROR MESSAGE
+========================================= */
+
 .register-field-error {
   color: var(--reg-danger);
   font-size: 12px;
@@ -474,7 +442,51 @@
   line-height: 1.4;
 }
 
-/* SUBMIT BUTTON */
+/* =========================================
+   PASSWORD STRENGTH
+========================================= */
+
+.password-strength-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.strength-indicators {
+  display: flex;
+  flex: 1;
+  gap: 5px;
+}
+
+.strength-indicators .bar {
+  height: 5px;
+  flex: 1;
+  border-radius: 10px;
+  background: #e2e8f0;
+}
+
+.strength-indicators .bar.active-1 {
+  background: #ef4444;
+}
+
+.strength-indicators .bar.active-2 {
+  background: #f59e0b;
+}
+
+.strength-indicators .bar.active-3 {
+  background: #20a464;
+}
+
+.strength-label {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* =========================================
+   PRIMARY SUBMIT BUTTON
+========================================= */
+
 .register-submit {
   width: 100%;
   min-height: 49px;
@@ -484,22 +496,25 @@
   align-items: center;
   justify-content: center;
   gap: 9px;
-  border: 1.5px solid #eab308;
+  border: 1.5px solid #c41439;
   border-radius: 12px;
-  color: #0f172a;
-  background: #ffd629;
+  color: #ffffff !important;
+  background: linear-gradient(110deg, #e52b50, #c41439);
   font-family: var(--font-heading);
   font-size: 14.5px;
   font-weight: 800;
-  box-shadow: 0 4px 16px rgba(250, 204, 21, 0.35);
+  box-shadow: 0 4px 16px rgba(215, 25, 63, 0.2);
   cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    filter 0.2s ease;
 }
 
 .register-submit:hover:not(:disabled) {
-  background: #facc15;
+  background: #a90f2c;
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(250, 204, 21, 0.45);
+  box-shadow: 0 8px 24px rgba(215, 25, 63, 0.22);
 }
 
 .register-submit:active:not(:disabled) {
@@ -511,20 +526,9 @@
   cursor: wait;
 }
 
-.register-spinner {
-  width: 16px;
-  height: 16px;
-  border: 2px solid rgba(255, 255, 255, 0.4);
-  border-top-color: #ffffff;
-  border-radius: 50%;
-  animation: reg-spin 0.7s linear infinite;
-}
-
-@keyframes reg-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
+/* =========================================
+   LOGIN PROMPT
+========================================= */
 
 .register-login-prompt {
   margin: 12px 0 0;
@@ -543,8 +547,62 @@
 }
 
 /* =========================================
-   SUCCESS MODAL / APPLICATION ID CARD
+   TERMS CHECKBOX SPACING
 ========================================= */
+
+.register-consent-wrap {
+  width: 100%;
+}
+
+.register-consent-wrap .register-checkbox-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.register-consent-wrap .register-checkbox-label input[type="checkbox"] {
+  flex: 0 0 17px;
+  width: 17px;
+  height: 17px;
+  margin: 3px 0 0;
+  accent-color: var(--reg-red);
+  cursor: pointer;
+}
+
+.register-consent-wrap .register-checkbox-label span {
+  flex: 1;
+  min-width: 0;
+  line-height: 1.6;
+}
+
+/* =========================================
+   SIGN-IN LINK SPACING
+========================================= */
+
+.register-signin-link {
+  margin: 18px 0 0;
+  color: #64748b;
+  font-size: 14px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.register-signin-link a {
+  color: var(--reg-red) !important;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.register-signin-link a:hover {
+  text-decoration: underline;
+}
+
+/* =========================================
+   SUCCESS CARD
+========================================= */
+
 .register-success-card {
   display: flex;
   flex-direction: column;
@@ -559,6 +617,7 @@
     opacity: 0;
     transform: translateY(10px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -622,7 +681,8 @@
 }
 
 .app-id-number {
-  font-family: "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-family: "SFMono-Regular", Menlo, Monaco, Consolas,
+    "Liberation Mono", monospace;
   font-size: 26px;
   font-weight: 800;
   color: #0f172a;
@@ -683,8 +743,9 @@
 }
 
 /* =========================================
-   RESPONSIVENESS (TABLETS & MOBILES)
+   RESPONSIVE DESIGN
 ========================================= */
+
 @media (max-width: 900px) {
   .register-shell {
     grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
@@ -693,28 +754,49 @@
   .register-sidebar {
     min-height: 400px;
   }
+
+  .register-sidebar-logo {
+    width: 140px;
+    height: 140px;
+  }
+
+  .register-form-inner {
+    padding-left: 22px;
+    padding-right: 22px;
+  }
 }
+
+/* =========================================
+   MOBILE RESPONSIVE
+========================================= */
 
 @media (max-width: 680px) {
   .register-page {
     padding: 0;
+    align-items: flex-start;
     background: #ffffff;
   }
 
   .register-shell {
-    display: flex;
-    flex-direction: column;
-    border: none;
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100%;
+    min-height: 100vh;
+    border: 0;
     border-radius: 0;
     box-shadow: none;
   }
 
   .register-sidebar {
-    width: 100%;
-    min-height: 220px;
-    max-height: 260px;
-    border-right: none;
-    border-bottom: 1px solid #edf0f5;
+    position: relative;
+    width: 100% !important;
+    height: 250px !important;
+    min-height: 250px !important;
+    max-height: none !important;
+    flex: 0 0 250px;
+    padding: 0;
+    border: 0 !important;
+    border-bottom: 1px solid #edf0f5 !important;
   }
 
   .register-sidebar-image-wrap {
@@ -731,7 +813,17 @@
     object-position: center top;
   }
 
+  .register-sidebar-logo {
+    width: 125px;
+    height: 125px;
+    max-width: 40%;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+  }
+
   .register-form-panel {
+    min-height: auto;
     padding: 20px 16px 36px;
   }
 
@@ -750,10 +842,37 @@
 
   .register-field input,
   .register-field select {
-    font-size: 16px; /* Prevents auto zoom on iOS */
+    font-size: 16px;
   }
 
   .app-id-number {
     font-size: 22px;
+  }
+
+  .register-signin-link {
+    margin-top: 18px;
+    text-align: center;
+  }
+}
+
+/* =========================================
+   SMALL MOBILE
+========================================= */
+
+@media (max-width: 390px) {
+  .register-sidebar {
+    height: 215px !important;
+    min-height: 215px !important;
+    flex-basis: 215px;
+  }
+
+  .register-sidebar-logo {
+    width: 110px;
+    height: 110px;
+  }
+
+  .register-form-panel {
+    padding-left: 14px;
+    padding-right: 14px;
   }
 }

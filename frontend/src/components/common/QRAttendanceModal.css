@@ -1,0 +1,496 @@
+/* frontend/src/components/common/QRAttendanceModal.css */
+.qr-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.7);
+  backdrop-filter: blur(5px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 20px;
+}
+
+.qr-modal-container {
+  background: #FFFFFF;
+  border-radius: 20px;
+  width: 100%;
+  max-width: 640px;
+  max-height: 92vh;
+  overflow-y: auto;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.3);
+  border: 1px solid #E2E8F0;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  animation: qrPop 0.25s ease-out;
+}
+
+@keyframes qrPop {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.qr-modal-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  position: relative;
+}
+
+.qr-header-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: #EFF6FF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.qr-header-title h3 {
+  margin: 0 0 4px;
+  font-size: 18px;
+  font-weight: 800;
+  color: #0F172A;
+}
+
+.qr-header-title p {
+  margin: 0;
+  font-size: 13.5px;
+  color: #64748B;
+}
+
+.qr-close-btn {
+  position: absolute;
+  right: 0;
+  top: 0;
+  background: transparent;
+  border: none;
+  color: #94A3B8;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.qr-close-btn:hover {
+  color: #0F172A;
+  background: #F1F5F9;
+}
+
+/* Tabs */
+.qr-tabs-bar {
+  display: flex;
+  gap: 8px;
+  border-bottom: 1.5px solid #E2E8F0;
+  padding-bottom: 10px;
+}
+
+.qr-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  color: #64748B;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.qr-tab-btn.active {
+  background: #004D99;
+  border-color: #004D99;
+  color: #FFFFFF;
+}
+
+/* Instructions */
+.qr-instructions-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: #FEF9C3;
+  border: 1px solid #FDE047;
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 13px;
+  color: #854D0E;
+  line-height: 1.5;
+}
+
+/* QR Code Center Frame */
+.qr-code-center-frame {
+  display: flex;
+  justify-content: center;
+  margin: 12px 0;
+}
+
+.qr-code-box {
+  background: #FFFFFF;
+  border: 2px solid #E2E8F0;
+  border-radius: 16px;
+  padding: 24px 28px;
+  text-align: center;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08);
+  max-width: 340px;
+  width: 100%;
+}
+
+.qr-maatram-pill {
+  display: inline-block;
+  background: #004D99;
+  color: #FFD629;
+  font-weight: 900;
+  font-size: 11px;
+  letter-spacing: 1px;
+  padding: 3px 12px;
+  border-radius: 12px;
+  margin-bottom: 8px;
+}
+
+.qr-box-header h4 {
+  margin: 0 0 4px;
+  font-size: 16px;
+  font-weight: 800;
+  color: #0F172A;
+}
+
+.qr-box-header p {
+  margin: 0 0 16px;
+  font-size: 12px;
+  color: #64748B;
+}
+
+.qr-svg-wrap {
+  display: flex;
+  justify-content: center;
+  padding: 12px;
+  background: #F8FAFC;
+  border-radius: 12px;
+  border: 1px solid #E2E8F0;
+  margin-bottom: 14px;
+}
+
+.qr-code-footer-code {
+  font-size: 12px;
+  color: #475569;
+}
+
+.qr-code-footer-code .code-value {
+  display: block;
+  font-family: monospace;
+  font-size: 13px;
+  color: #004D99;
+  margin-top: 2px;
+}
+
+/* Actions row */
+.qr-action-buttons-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+}
+
+.qr-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 9px 18px;
+  border-radius: 10px;
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+}
+
+.qr-btn-primary {
+  background: #0066CC;
+  color: #FFFFFF;
+  box-shadow: 0 4px 12px rgba(0, 102, 204, 0.25);
+}
+
+.qr-btn-primary:hover {
+  background: #004D99;
+}
+
+.qr-btn-secondary {
+  background: #F8FAFC;
+  border: 1.5px solid #CBD5E1;
+  color: #334155;
+}
+
+.qr-btn-secondary:hover {
+  background: #F1F5F9;
+  border-color: #94A3B8;
+}
+
+.qr-btn.full-width {
+  width: 100%;
+}
+
+/* Volunteer camera view */
+.volunteer-scan-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.camera-sim-view {
+  background: #0F172A;
+  border-radius: 16px;
+  padding: 36px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  min-height: 200px;
+}
+
+.camera-overlay-frame {
+  border: 2px dashed rgba(255, 255, 255, 0.4);
+  border-radius: 12px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  color: #E2E8F0;
+  font-size: 13px;
+  text-align: center;
+  position: relative;
+  width: 80%;
+  max-width: 320px;
+}
+
+.scan-laser-line {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: #FFD629;
+  box-shadow: 0 0 10px #FFD629;
+  animation: scanLaser 2s infinite ease-in-out;
+}
+
+@keyframes scanLaser {
+  0% { top: 10%; }
+  50% { top: 90%; }
+  100% { top: 10%; }
+}
+
+.or-divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: #94A3B8;
+  letter-spacing: 0.5px;
+  margin: 6px 0;
+}
+
+.or-divider::before,
+.or-divider::after {
+  content: "";
+  flex: 1;
+  border-bottom: 1px solid #E2E8F0;
+}
+
+.or-divider span {
+  padding: 0 10px;
+}
+
+.manual-code-row {
+  display: flex;
+  gap: 10px;
+}
+
+.code-input-wrap {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.code-input-wrap svg {
+  position: absolute;
+  left: 12px;
+}
+
+.code-input-wrap input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px 10px 36px;
+  border: 1.5px solid #CBD5E1;
+  border-radius: 10px;
+  font-size: 13.5px;
+  font-family: monospace;
+}
+
+/* Success Card */
+.scan-success-card {
+  text-align: center;
+  padding: 28px 20px;
+  background: #F0FDF4;
+  border: 1.5px solid #BBF7D0;
+  border-radius: 16px;
+}
+
+.success-icon-wrap {
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  background: #DCFCE7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 16px;
+}
+
+.scan-success-card h3 {
+  margin: 0 0 8px;
+  font-size: 20px;
+  font-weight: 800;
+  color: #14532D;
+}
+
+.scan-success-card p {
+  margin: 0 0 16px;
+  font-size: 14px;
+  color: #166534;
+}
+
+.success-details-pill {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 4px;
+  background: #FFFFFF;
+  padding: 10px 18px;
+  border-radius: 10px;
+  border: 1px solid #86EFAC;
+  font-size: 12.5px;
+  color: #1F2937;
+  text-align: left;
+}
+
+/* Live Roster */
+.roster-view-section {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.roster-stats-row {
+  display: flex;
+  gap: 10px;
+}
+
+.roster-stat-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 12.5px;
+}
+
+.roster-table-container {
+  max-height: 280px;
+  overflow-y: auto;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+}
+
+.roster-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.roster-table th {
+  background: #F8FAFC;
+  padding: 10px 12px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #64748B;
+  border-bottom: 1px solid #E2E8F0;
+}
+
+.roster-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #F1F5F9;
+}
+
+.roster-table td .sub-text {
+  display: block;
+  font-size: 11px;
+  color: #64748B;
+}
+
+.checkin-method-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 6px;
+  background: #EFF6FF;
+  color: #1D4ED8;
+  border-radius: 6px;
+}
+
+.status-pill-present {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #15803D;
+  background: #DCFCE7;
+  padding: 2px 8px;
+  border-radius: 12px;
+}
+
+.roster-empty-state {
+  text-align: center;
+  padding: 32px 20px;
+  color: #64748B;
+}
+
+.roster-verify-footer {
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.verify-info-text {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12.5px;
+  color: #334155;
+  line-height: 1.4;
+}

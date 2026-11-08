@@ -27,6 +27,8 @@ const eventSchema = new mongoose.Schema(
     featured:         { type: Boolean, default: false },
     isActive:         { type: Boolean, default: true },
     eventStatus:      { type: String, enum: ["Upcoming", "Ongoing", "Completed"], default: "Upcoming" },
+    qrCodeToken:      { type: String, default: "" },
+    attendanceOpen:   { type: Boolean, default: true },
     slots:            [
       {
         slotId: { type: String },
@@ -41,7 +43,7 @@ const eventSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Auto-set categorySlug
+// Auto-set categorySlug and ensure qrCodeToken exists
 eventSchema.pre("save", function (next) {
   const slugMap = {
     "Sangamam": "sangamam",
@@ -51,6 +53,9 @@ eventSchema.pre("save", function (next) {
     "Maatram Opportunities": "maatram",
   };
   this.categorySlug = slugMap[this.category] || this.category.toLowerCase().replace(/ /g, "-");
+  if (!this.qrCodeToken) {
+    this.qrCodeToken = `MF-QR-${Math.random().toString(36).substring(2, 8).toUpperCase()}-${Date.now().toString(36).toUpperCase()}`;
+  }
   next();
 });
 

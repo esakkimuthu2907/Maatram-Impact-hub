@@ -4,9 +4,9 @@ const mongoose = require("mongoose");
 const applicationSchema = new mongoose.Schema(
   {
     referenceId:      { type: String, unique: true },
-    userId:           { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    userId:           { type: mongoose.Schema.Types.Mixed, required: true },
     applicationId:    { type: String }, // e.g. MAA001
-    opportunityId:    { type: mongoose.Schema.Types.ObjectId, ref: "Event", required: true },
+    opportunityId:    { type: mongoose.Schema.Types.Mixed, required: true },
     opportunityTitle: { type: String },
     category:         { type: String },
     eventDate:        { type: String },

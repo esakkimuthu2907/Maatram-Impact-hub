@@ -7,13 +7,18 @@ import { adminAPI } from "../api/adminAPI";
 import { connectionsAPI } from "../api/connectionsAPI";
 import { usersAPI } from "../api/usersAPI";
 import { authAPI } from "../api/authAPI";
+import { badgesAPI } from "../api/badgesAPI";
+import { certificatesAPI } from "../api/certificatesAPI";
+import { hoursAPI } from "../api/hoursAPI";
+
+import LinkedInShareModal from "../components/common/LinkedInShareModal";
+import CertificateModal from "../components/common/CertificateModal";
+import QRAttendanceModal from "../components/common/QRAttendanceModal";
 
 const AppContext = createContext();
 
-const DEFAULT_STUDENT = null;
-
 export function AppProvider({ children }) {
-  /* ─── Auth State ─────────────────────────────────────────────── */
+  /* ─── Auth State ────────────────────────────────────────────────────────── */
   const [user, setUser] = useState(() => {
     try {
       const saved = localStorage.getItem("maatram_user");
@@ -23,11 +28,11 @@ export function AppProvider({ children }) {
           ...parsed,
           name: parsed.fullName || parsed.name || "",
           fullName: parsed.fullName || parsed.name || "",
-          // Preserve MongoDB _id for JWT auth
           id: parsed.id || parsed._id || "",
           _id: parsed._id || parsed.id || "",
           applicationId: parsed.applicationId || "",
           points: parsed.points !== undefined ? parsed.points : 0,
+          totalHours: parsed.totalHours !== undefined ? parsed.totalHours : 0,
         };
       }
       return null;
@@ -40,14 +45,14 @@ export function AppProvider({ children }) {
     Boolean(localStorage.getItem("maatram_token"))
   );
 
-  /* ─── Toast Feedback ────────────────────────────────────────── */
+  /* ─── Toast Feedback ────────────────────────────────────────────────────── */
   const [toast, setToast] = useState(null);
   const showToast = useCallback((message, type = "success") => {
     setToast({ id: Date.now(), message, type });
     setTimeout(() => setToast(null), 3800);
   }, []);
 
-  /* ─── Real Data ──────────────────────────────────────────────── */
+  /* ─── Core Data States ─────────────────────────────────────────────────── */
   const [events, setEvents] = useState([]);
   const [applications, setApplications] = useState([]);
   const [notifications, setNotifications] = useState([]);
@@ -55,6 +60,10 @@ export function AppProvider({ children }) {
   const [gradingLevels, setGradingLevels] = useState([]);
   const [connections, setConnections] = useState({ accepted: [], pendingIncoming: [], pendingOutgoing: [] });
   const [pointsHistory, setPointsHistory] = useState([]);
+  const [badges, setBadges] = useState([]);
+  const [certificates, setCertificates] = useState([]);
+  const [hourLogs, setHourLogs] = useState([]);
+  const [emailLogs, setEmailLogs] = useState([]);
   const [bookmarks, setBookmarks] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem("maatram_bookmarks")) || ["evt_001"];
@@ -67,7 +76,66 @@ export function AppProvider({ children }) {
   const [pushSupported, setPushSupported] = useState(false);
   const [pushPermission, setPushPermission] = useState("default");
 
-  /* ─── Fetch Events ───────────────────────────────────────────── */
+  /* ─── Global Modals State ───────────────────────────────────────────────── */
+  const [linkedInModal, setLinkedInModal] = useState({
+    isOpen: false,
+    volunteerName: "",
+    eventTitle: "",
+    hours: 4,
+    category: "Volunteering",
+    date: "",
+    certificateId: "",
+  });
+
+  const [certModal, setCertModal] = useState({
+    isOpen: false,
+    certificate: null,
+  });
+
+  const [qrModal, setQrModal] = useState({
+    isOpen: false,
+    event: null,
+  });
+
+  const openLinkedInShare = useCallback((data = {}) => {
+    setLinkedInModal({
+      isOpen: true,
+      volunteerName: data.volunteerName || user?.fullName || "Volunteer",
+      eventTitle: data.eventTitle || "Maatram Volunteering Drive",
+      hours: data.hours || data.verifiedHours || 4,
+      category: data.category || "Volunteering",
+      date: data.date || data.eventDate || "",
+      certificateId: data.certificateId || "",
+    });
+  }, [user?.fullName]);
+
+  const closeLinkedInShare = useCallback(() => {
+    setLinkedInModal((prev) => ({ ...prev, isOpen: false }));
+  }, []);
+
+  const openCertificate = useCallback((cert) => {
+    setCertModal({
+      isOpen: true,
+      certificate: cert,
+    });
+  }, []);
+
+  const closeCertificate = useCallback(() => {
+    setCertModal({ isOpen: false, certificate: null });
+  }, []);
+
+  const openQRAttendance = useCallback((evt) => {
+    setQrModal({
+      isOpen: true,
+      event: evt,
+    });
+  }, []);
+
+  const closeQRAttendance = useCallback(() => {
+    setQrModal({ isOpen: false, event: null });
+  }, []);
+
+  /* ─── Fetch Events ──────────────────────────────────────────────────────── */
   const fetchEvents = useCallback(async (params = {}) => {
     try {
       setLoading(true);
@@ -86,7 +154,7 @@ export function AppProvider({ children }) {
     }
   }, []);
 
-  /* ─── Fetch Applications ─────────────────────────────────────── */
+  /* ─── Fetch Applications ────────────────────────────────────────────────── */
   const fetchApplications = useCallback(async () => {
     try {
       const res = user?.role === "admin"
@@ -100,7 +168,7 @@ export function AppProvider({ children }) {
     }
   }, [user?.role]);
 
-  /* ─── Fetch Notifications ────────────────────────────────────── */
+  /* ─── Fetch Notifications ───────────────────────────────────────────────── */
   const fetchNotifications = useCallback(async () => {
     try {
       const res = await notificationsAPI.getAll();
@@ -112,7 +180,7 @@ export function AppProvider({ children }) {
     }
   }, []);
 
-  /* ─── Fetch Admin Stats ──────────────────────────────────────── */
+  /* ─── Fetch Admin Stats ─────────────────────────────────────────────────── */
   const fetchAdminStats = useCallback(async () => {
     if (user?.role !== "admin") return;
     try {
@@ -125,7 +193,7 @@ export function AppProvider({ children }) {
     }
   }, [user?.role]);
 
-  /* ─── Fetch Grading Levels ───────────────────────────────────── */
+  /* ─── Fetch Grading Levels ──────────────────────────────────────────────── */
   const fetchGradingLevels = useCallback(async () => {
     try {
       const res = await adminAPI.getGradingLevels();
@@ -137,31 +205,80 @@ export function AppProvider({ children }) {
     }
   }, []);
 
-  /* ─── Fetch Peer Connections ─────────────────────────────────── */
+  /* ─── Fetch Connections ─────────────────────────────────────────────────── */
   const fetchConnections = useCallback(async () => {
     try {
-      const res = await connectionsAPI.getMyConnections();
+      const res = await connectionsAPI.getAll();
       if (res && res.data) {
         setConnections(res.data);
       }
     } catch (err) {
-      console.warn("Connections fetch notice:", err.message);
+      console.warn("Connections notice:", err.message);
     }
   }, []);
 
-  /* ─── Fetch Points History ──────────────────────────────────── */
+  /* ─── Fetch Badges ──────────────────────────────────────────────────────── */
+  const fetchBadges = useCallback(async () => {
+    try {
+      const res = user?.role === "admin" ? await badgesAPI.getAll() : await badgesAPI.getMy();
+      if (res && res.data) {
+        setBadges(res.data);
+      }
+    } catch (err) {
+      console.warn("Badges notice:", err.message);
+    }
+  }, [user?.role]);
+
+  /* ─── Fetch Certificates ────────────────────────────────────────────────── */
+  const fetchCertificates = useCallback(async () => {
+    try {
+      const res = user?.role === "admin" ? await certificatesAPI.getAll() : await certificatesAPI.getMy();
+      if (res && res.data) {
+        setCertificates(res.data);
+      }
+    } catch (err) {
+      console.warn("Certificates notice:", err.message);
+    }
+  }, [user?.role]);
+
+  /* ─── Fetch Hour Verification Logs ──────────────────────────────────────── */
+  const fetchHourLogs = useCallback(async (params = {}) => {
+    try {
+      const res = user?.role === "admin" ? await hoursAPI.getAll(params) : await hoursAPI.getMy();
+      if (res && res.data) {
+        setHourLogs(res.data);
+      }
+    } catch (err) {
+      console.warn("Hour logs notice:", err.message);
+    }
+  }, [user?.role]);
+
+  /* ─── Fetch Automated Email Logs ────────────────────────────────────────── */
+  const fetchEmailLogs = useCallback(async (limit = 100) => {
+    if (user?.role !== "admin") return;
+    try {
+      const res = await adminAPI.getEmailLogs(limit);
+      if (res && res.data) {
+        setEmailLogs(res.data);
+      }
+    } catch (err) {
+      console.warn("Email logs notice:", err.message);
+    }
+  }, [user?.role]);
+
+  /* ─── Fetch Points History ──────────────────────────────────────────────── */
   const fetchPointsHistory = useCallback(async () => {
     try {
       const res = await usersAPI.getPointsHistory();
       if (res && res.data) {
         setPointsHistory(res.data);
       }
-      // Also sync user profile stats with backend
       const statsRes = await usersAPI.getStats();
       if (statsRes && statsRes.data) {
         setUser((prev) => ({
           ...prev,
           points: statsRes.data.points,
+          totalHours: statsRes.data.totalHours,
           eventsJoined: statsRes.data.eventsJoined,
           completedEventsCount: statsRes.data.completedEventsCount,
           badgesEarned: statsRes.data.badgesEarned,
@@ -182,7 +299,6 @@ export function AppProvider({ children }) {
 
   useEffect(() => {
     if (isAuthenticated) {
-      // Sync fresh profile from MongoDB (including permanent avatar)
       authAPI.getMe().then((res) => {
         if (res && res.data) {
           const fresh = res.data;
@@ -207,13 +323,29 @@ export function AppProvider({ children }) {
       fetchNotifications();
       fetchConnections();
       fetchPointsHistory();
+      fetchBadges();
+      fetchCertificates();
+      fetchHourLogs();
       if (user?.role === "admin") {
         fetchAdminStats();
+        fetchEmailLogs();
       }
     }
-  }, [isAuthenticated, user?.role, fetchApplications, fetchNotifications, fetchConnections, fetchPointsHistory, fetchAdminStats]);
+  }, [
+    isAuthenticated,
+    user?.role,
+    fetchApplications,
+    fetchNotifications,
+    fetchConnections,
+    fetchPointsHistory,
+    fetchBadges,
+    fetchCertificates,
+    fetchHourLogs,
+    fetchAdminStats,
+    fetchEmailLogs,
+  ]);
 
-  /* Check Notification / FCM Permission */
+  /* Push notification check */
   useEffect(() => {
     if (typeof window !== "undefined" && "Notification" in window) {
       setPushSupported(true);
@@ -228,10 +360,6 @@ export function AppProvider({ children }) {
         setPushPermission(perm);
         if (perm === "granted") {
           showToast("Push notifications enabled! You will receive live event alerts.");
-          new Notification("Maatram Impact Hub", {
-            body: "Push alerts active! Stay tuned for volunteering calls.",
-            icon: "/assets/logo_icon.jpg",
-          });
         } else {
           showToast("Notification permission was not granted.", "info");
         }
@@ -241,18 +369,14 @@ export function AppProvider({ children }) {
     }
   }, [showToast]);
 
-  /* ─── Auth Handlers ─────────────────────────────────────────── */
+  /* ─── Auth Handlers ─────────────────────────────────────────────────────── */
   const login = useCallback(
     (userData, token) => {
-      if (!token) {
-        console.error("No JWT token provided to login function");
-        return;
-      }
+      if (!token) return;
       const normalizedUser = {
         ...userData,
         name: userData.fullName || userData.name || "",
         fullName: userData.fullName || userData.name || "",
-        // Store MongoDB _id as primary id for JWT verification
         id: userData.id || userData._id || "",
         _id: userData._id || userData.id || "",
         applicationId: userData.applicationId || "",
@@ -294,31 +418,25 @@ export function AppProvider({ children }) {
           ...serverData,
           name: serverData.fullName || serverData.name || prev?.name,
           fullName: serverData.fullName || serverData.name || prev?.fullName,
-          avatar: serverData.avatar !== undefined ? serverData.avatar : prev?.avatar,
         };
         localStorage.setItem("maatram_user", JSON.stringify(next));
         return next;
       });
-      return serverData;
+      showToast("Profile details updated successfully!");
     } catch (err) {
-      console.error("Update profile error:", err);
-      throw err;
+      showToast(err.message || "Failed to update profile", "error");
     }
-  }, []);
+  }, [showToast]);
 
-  /* ─── Event CRUD ─────────────────────────────────────────────── */
+  /* ─── Opportunity Management ────────────────────────────────────────────── */
   const addOpportunity = useCallback(
-    async (eventPayload) => {
+    async (oppData) => {
       try {
-        const res = await eventsAPI.create(eventPayload);
-        const created = res.data ? { ...res.data, id: res.data.id || res.data._id } : null;
-        if (created) {
-          setEvents((prev) => [created, ...prev]);
-        }
+        const res = await eventsAPI.create(oppData);
         await fetchEvents();
         await fetchAdminStats();
-        showToast("Event posted successfully to all student dashboards!");
-        return created;
+        showToast("New volunteering drive published successfully!");
+        return res.data;
       } catch (err) {
         showToast(err.message || "Could not create event", "error");
         throw err;
@@ -328,18 +446,16 @@ export function AppProvider({ children }) {
   );
 
   const updateOpportunity = useCallback(
-    async (id, updatePayload) => {
+    async (id, oppData) => {
       try {
-        const res = await eventsAPI.update(id, updatePayload);
-        const updated = res.data ? { ...res.data, id: res.data.id || res.data._id } : null;
-        if (updated) {
-          setEvents((prev) => prev.map((e) => (e.id === id || e._id === id ? updated : e)));
-        }
+        const res = await eventsAPI.update(id, oppData);
         await fetchEvents();
         await fetchAdminStats();
-        showToast("Event details updated!");
+        showToast("Opportunity updated successfully!");
+        return res.data;
       } catch (err) {
         showToast(err.message || "Could not update event", "error");
+        throw err;
       }
     },
     [fetchEvents, fetchAdminStats, showToast]
@@ -359,25 +475,42 @@ export function AppProvider({ children }) {
     [fetchAdminStats, showToast]
   );
 
-  /* ─── Apply for Opportunity ─────────────────────────────────── */
+  /* ─── Application Management ────────────────────────────────────────────── */
   const applyForOpportunity = useCallback(
-    async (opp, formData) => {
-      const oppId = opp.id || opp._id;
+    async (oppOrId, maybeFormData = {}) => {
+      let oppId = "";
+      let formData = maybeFormData || {};
+
+      if (typeof oppOrId === "string") {
+        oppId = oppOrId;
+      } else if (oppOrId && typeof oppOrId === "object") {
+        if (oppOrId.id || oppOrId._id) {
+          oppId = (oppOrId.id || oppOrId._id).toString();
+        } else if (oppOrId.opportunityId) {
+          oppId = oppOrId.opportunityId.toString();
+          formData = oppOrId;
+        }
+      }
+
+      if (!oppId && formData.opportunityId) {
+        oppId = formData.opportunityId.toString();
+      }
+
       try {
         const res = await applicationsAPI.apply({
           opportunityId: oppId,
-          slotId: formData.slotId,
-          slotName: formData.slotName,
-          motivation: formData.motivation,
-          experience: formData.experience,
-          skills: formData.skills,
+          slotId: formData.slotId || "",
+          slotName: formData.slotName || "Standard Slot",
+          motivation: formData.motivation || "",
+          experience: formData.experience || "",
+          skills: formData.skills || "",
         });
 
         await fetchApplications();
         await fetchEvents();
         await fetchNotifications();
         showToast("Application submitted successfully!");
-        return res.data;
+        return res?.data;
       } catch (err) {
         showToast(err.message || "Failed to submit application", "error");
         throw err;
@@ -386,7 +519,6 @@ export function AppProvider({ children }) {
     [fetchApplications, fetchEvents, fetchNotifications, showToast]
   );
 
-  /* ─── Cancel Application ────────────────────────────────────── */
   const cancelApplication = useCallback(
     async (appId) => {
       try {
@@ -401,7 +533,6 @@ export function AppProvider({ children }) {
     [fetchApplications, fetchEvents, showToast]
   );
 
-  /* ─── Admin: Update Application Status ──────────────────────── */
   const updateApplicationStatus = useCallback(
     async (appId, status, notes = "") => {
       try {
@@ -409,7 +540,7 @@ export function AppProvider({ children }) {
         await fetchApplications();
         await fetchEvents();
         await fetchAdminStats();
-        showToast(`Application marked as ${status}! Respective student notified.`);
+        showToast(`Application marked as ${status}! Automated email notification sent.`);
       } catch (err) {
         showToast(err.message || "Failed to update status", "error");
       }
@@ -432,7 +563,7 @@ export function AppProvider({ children }) {
     [fetchApplications, fetchEvents, fetchAdminStats, showToast]
   );
 
-  /* ─── Admin: Track Attendance & Award Points ────────────────── */
+  /* ─── Attendance & QR ───────────────────────────────────────────────────── */
   const trackAttendanceAndAwardPoints = useCallback(
     async (eventId, attendanceRecords) => {
       try {
@@ -441,17 +572,81 @@ export function AppProvider({ children }) {
         await fetchApplications();
         await fetchAdminStats();
         await fetchPointsHistory();
-        showToast("Attendance logged! Points distributed to completing volunteers.");
+        await fetchCertificates();
+        showToast("Attendance audited & verified hours added to contributions!");
         return res.data;
       } catch (err) {
         showToast(err.message || "Attendance submission failed", "error");
         throw err;
       }
     },
-    [fetchEvents, fetchApplications, fetchAdminStats, fetchPointsHistory, showToast]
+    [fetchEvents, fetchApplications, fetchAdminStats, fetchPointsHistory, fetchCertificates, showToast]
   );
 
-  /* ─── Admin: Manual Point Adjustment ────────────────────────── */
+  const checkInViaQR = useCallback(
+    async (eventId, qrToken) => {
+      try {
+        const res = await eventsAPI.checkInViaQR(eventId, qrToken);
+        await fetchApplications();
+        await fetchNotifications();
+        showToast("QR Attendance successfully recorded! ✅");
+        return res;
+      } catch (err) {
+        showToast(err.message || "Check-in failed", "error");
+        throw err;
+      }
+    },
+    [fetchApplications, fetchNotifications, showToast]
+  );
+
+  const sendEventReminder = useCallback(
+    async (eventId) => {
+      try {
+        const res = await eventsAPI.sendReminder(eventId);
+        showToast(res.message || "Event reminder emails dispatched!");
+        return res.data;
+      } catch (err) {
+        showToast(err.message || "Failed to send reminders", "error");
+        throw err;
+      }
+    },
+    [showToast]
+  );
+
+  /* ─── Hours Verification ────────────────────────────────────────────────── */
+  const submitHourLog = useCallback(
+    async (payload) => {
+      try {
+        const res = await hoursAPI.submit(payload);
+        await fetchHourLogs();
+        showToast("Volunteering hours submitted for admin audit!");
+        return res.data;
+      } catch (err) {
+        showToast(err.message || "Failed to submit hours", "error");
+        throw err;
+      }
+    },
+    [fetchHourLogs, showToast]
+  );
+
+  const verifyHourLog = useCallback(
+    async (id, payload) => {
+      try {
+        const res = await hoursAPI.verify(id, payload);
+        await fetchHourLogs();
+        await fetchAdminStats();
+        await fetchPointsHistory();
+        showToast(res.message || `Hours verified! Only verified hours count on reports.`);
+        return res.data;
+      } catch (err) {
+        showToast(err.message || "Failed to update hour verification status", "error");
+        throw err;
+      }
+    },
+    [fetchHourLogs, fetchAdminStats, fetchPointsHistory, showToast]
+  );
+
+  /* ─── Admin Point Adjustments & Broadcasts ──────────────────────────────── */
   const adjustStudentPoints = useCallback(
     async (userId, payload) => {
       try {
@@ -468,7 +663,6 @@ export function AppProvider({ children }) {
     [fetchAdminStats, fetchPointsHistory, showToast]
   );
 
-  /* ─── Admin: Broadcast Notification ─────────────────────────── */
   const broadcastNotification = useCallback(
     async (payload) => {
       try {
@@ -485,7 +679,7 @@ export function AppProvider({ children }) {
     [fetchNotifications, fetchAdminStats, showToast]
   );
 
-  /* ─── Connect: Peer Networking ──────────────────────────────── */
+  /* ─── Peer Networking ───────────────────────────────────────────────────── */
   const sendConnectRequest = useCallback(
     async (recipientId, message) => {
       try {
@@ -540,7 +734,7 @@ export function AppProvider({ children }) {
     [fetchConnections, showToast]
   );
 
-  /* ─── Notifications ─────────────────────────────────────────── */
+  /* ─── Notifications ─────────────────────────────────────────────────────── */
   const markNotificationsRead = useCallback(async () => {
     try {
       await notificationsAPI.markRead();
@@ -588,6 +782,7 @@ export function AppProvider({ children }) {
         editEvent: updateOpportunity,
         deleteOpportunity,
         removeEvent: deleteOpportunity,
+        sendEventReminder,
         /* Applications */
         applications,
         fetchApplications,
@@ -603,6 +798,29 @@ export function AppProvider({ children }) {
         trackAttendanceAndAwardPoints,
         adjustStudentPoints,
         broadcastNotification,
+        /* QR Attendance */
+        checkInViaQR,
+        openQRAttendance,
+        closeQRAttendance,
+        /* Certificates */
+        certificates,
+        fetchCertificates,
+        openCertificate,
+        closeCertificate,
+        /* Badges */
+        badges,
+        fetchBadges,
+        /* Hours Verification */
+        hourLogs,
+        fetchHourLogs,
+        submitHourLog,
+        verifyHourLog,
+        /* LinkedIn Sharing */
+        openLinkedInShare,
+        closeLinkedInShare,
+        /* Automated Email Audit */
+        emailLogs,
+        fetchEmailLogs,
         /* Connections */
         connections,
         fetchConnections,
@@ -633,6 +851,53 @@ export function AppProvider({ children }) {
       }}
     >
       {children}
+
+      {/* Global Modals for Seamless One-Click Invocation */}
+      <LinkedInShareModal
+        isOpen={linkedInModal.isOpen}
+        onClose={closeLinkedInShare}
+        volunteerName={linkedInModal.volunteerName}
+        eventTitle={linkedInModal.eventTitle}
+        hours={linkedInModal.hours}
+        category={linkedInModal.category}
+        date={linkedInModal.date}
+        certificateId={linkedInModal.certificateId}
+        onShared={() => showToast("Opening LinkedIn sharing page! Thank you for sharing your impact.")}
+      />
+
+      <CertificateModal
+        isOpen={certModal.isOpen}
+        onClose={closeCertificate}
+        certificate={certModal.certificate}
+        onOpenLinkedInShare={(cert) => {
+          closeCertificate();
+          openLinkedInShare({
+            volunteerName: cert.volunteerName,
+            eventTitle: cert.eventTitle,
+            hours: cert.verifiedHours,
+            category: cert.eventCategory,
+            date: cert.eventDate || cert.issueDate,
+            certificateId: cert.certificateId,
+          });
+        }}
+      />
+
+      {qrModal.event && (
+        <QRAttendanceModal
+          isOpen={qrModal.isOpen}
+          onClose={closeQRAttendance}
+          event={qrModal.event}
+          user={user}
+          isAdmin={user?.role === "admin"}
+          showToast={showToast}
+          onAttendanceVerified={() => {
+            fetchEvents();
+            fetchApplications();
+            fetchPointsHistory();
+            fetchCertificates();
+          }}
+        />
+      )}
     </AppContext.Provider>
   );
 }

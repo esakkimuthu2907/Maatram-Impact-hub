@@ -3,14 +3,20 @@ const mongoose = require("mongoose");
 
 const attendanceSchema = new mongoose.Schema(
   {
-    eventId:       { type: mongoose.Schema.Types.ObjectId, ref: "Event", required: true },
-    userId:        { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-    applicationId: { type: mongoose.Schema.Types.ObjectId, ref: "Application", required: true },
-    slotId:        { type: String, default: "" },
-    status:        { type: String, enum: ["Present", "Absent"], default: "Present" },
-    markedBy:      { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-    markedByName:  { type: String, default: "Admin" },
-    markedAt:      { type: Date, default: Date.now },
+    eventId:          { type: mongoose.Schema.Types.Mixed, required: true },
+    userId:           { type: mongoose.Schema.Types.Mixed, required: true },
+    applicationId:    { type: mongoose.Schema.Types.Mixed },
+    volunteerName:    { type: String, default: "" },
+    volunteerEmail:   { type: String, default: "" },
+    slotId:           { type: String, default: "" },
+    status:           { type: String, enum: ["Present", "Absent", "Checked-In"], default: "Checked-In" },
+    checkInMethod:    { type: String, enum: ["QR_SCAN", "MANUAL", "ADMIN_CONFIRMED"], default: "QR_SCAN" },
+    checkInTime:      { type: Date, default: Date.now },
+    isVerified:       { type: Boolean, default: false },
+    verifiedHours:    { type: Number, default: 0 },
+    markedBy:         { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    markedByName:     { type: String, default: "Admin" },
+    markedAt:         { type: Date, default: Date.now },
   },
   { timestamps: true }
 );

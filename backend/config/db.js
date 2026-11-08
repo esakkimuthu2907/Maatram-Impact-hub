@@ -1,6 +1,9 @@
 // backend/config/db.js
 const mongoose = require("mongoose");
 
+// Disable query buffering so Mongoose never hangs for 10000ms when disconnected
+mongoose.set("bufferCommands", false);
+
 let isConnected = false;
 
 // Attach error listener so unhandled connection errors don't terminate process
@@ -23,7 +26,7 @@ const connectDB = async () => {
   try {
     console.log("🔄 Connecting to MongoDB Database...");
     await mongoose.connect(uri, {
-      serverSelectionTimeoutMS: 5000,
+      serverSelectionTimeoutMS: 1500,
     });
     isConnected = true;
     console.log(`✅ MongoDB Atlas Connected Successfully: ${mongoose.connection.host}`);

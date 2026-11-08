@@ -13,4 +13,12 @@ export const eventsAPI = {
   create: (data) => api.post("/events", data),
   update: (id, data) => api.put(`/events/${id}`, data),
   remove: (id) => api.delete(`/events/${id}`),
+
+  // QR Attendance
+  generateQRToken: (id) => api.post(`/events/${id}/qr-token`),
+  checkInViaQR: (id, qrToken) => api.post(`/events/${id}/checkin`, { qrToken }),
+  getAttendance: (id) => api.get(`/events/${id}/attendance`),
+
+  // Email reminders blast
+  sendReminder: (id) => api.post(`/events/${id}/remind`),
 };

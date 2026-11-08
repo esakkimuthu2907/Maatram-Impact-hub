@@ -55,6 +55,11 @@ export default function Sidebar({ collapsed, onToggleCollapse, isMobile, onClose
       icon: Users,
     },
     {
+      title: "Alumni Network & Leads",
+      path: "/admin/alumni",
+      icon: GraduationCap,
+    },
+    {
       title: "Impact Reports & Export",
       path: "/admin/reports",
       icon: TrendingUp,
@@ -66,47 +71,28 @@ export default function Sidebar({ collapsed, onToggleCollapse, isMobile, onClose
     },
   ];
 
-  // Student-specific navigation
-  const studentNavLinks = [
+  // Alumni-specific navigation
+  const alumniNavLinks = [
     {
-      title: "Dashboard",
+      title: "Alumni Dashboard",
       path: "/dashboard",
       icon: LayoutDashboard,
+      badge: "Alumni",
     },
     {
-      title: "Missions & Streak",
-      path: "/missions",
-      icon: Target,
-      badge: "Streak 🔥",
-    },
-    {
-      title: "Opportunities",
+      title: "Opportunities & Leads",
       path: "/opportunities",
       icon: Compass,
-      hasSubmenu: true,
-      subItems: [
-        { title: "All Opportunities", path: "/opportunities", icon: Compass },
-        { title: "Sangamam", path: "/opportunities/sangamam", icon: Users, badge: "Gatherings" },
-        { title: "School Visits", path: "/opportunities/school-visits", icon: GraduationCap, badge: "High Need" },
-        { title: "Outside Events", path: "/opportunities/outside-events", icon: Globe },
-        { title: "Karpom Karpipom", path: "/opportunities/karpom-karpipom", icon: BookOpen },
-        { title: "Maatram Ops", path: "/opportunities/maatram", icon: HeartHandshake },
-      ],
-    },
-    {
-      title: "My Applications",
-      path: "/applications",
-      icon: FileText,
-    },
-    {
-      title: "My Profile",
-      path: "/profile",
-      icon: User,
     },
     {
       title: "Maatram Connect",
       path: "/connect",
       icon: Users,
+    },
+    {
+      title: "Alumni Mentors",
+      path: "/alumni",
+      icon: GraduationCap,
     },
     {
       title: "Leaderboard",
@@ -124,11 +110,57 @@ export default function Sidebar({ collapsed, onToggleCollapse, isMobile, onClose
       icon: TrendingUp,
     },
     {
-      title: "Notifications",
-      path: "/notifications",
-      icon: Bell,
-      badge: unreadCount > 0 ? unreadCount : null,
+      title: "Settings",
+      path: "/settings",
+      icon: Settings,
     },
+  ];
+
+  // Student-specific navigation
+  const studentNavLinks = [
+    {
+      title: "Dashboard",
+      path: "/dashboard",
+      icon: LayoutDashboard,
+    },
+    
+    {
+      title: "Opportunities",
+      path: "/opportunities",
+      icon: Compass,
+    },
+    {
+      title: "My Applications",
+      path: "/applications",
+      icon: FileText,
+    },
+   
+    {
+      title: "Maatram Connect",
+      path: "/connect",
+      icon: Users,
+    },
+    {
+      title: "Alumni Mentors",
+      path: "/alumni",
+      icon: GraduationCap,
+    },
+    {
+      title: "Leaderboard",
+      path: "/leaderboard",
+      icon: Trophy,
+    },
+    {
+      title: "My Contributions",
+      path: "/contributions",
+      icon: HeartHandshake,
+    },
+    {
+      title: "Volunteer Reports",
+      path: "/reports",
+      icon: TrendingUp,
+    },
+    
     {
       title: "Settings",
       path: "/settings",
@@ -136,7 +168,11 @@ export default function Sidebar({ collapsed, onToggleCollapse, isMobile, onClose
     },
   ];
 
-  const navLinks = isAdmin ? adminNavLinks : studentNavLinks;
+  const navLinks = isAdmin
+    ? adminNavLinks
+    : user?.role === "alumni"
+    ? alumniNavLinks
+    : studentNavLinks;
 
   const handleLinkClick = () => {
     if (isMobile) onCloseMobile?.();

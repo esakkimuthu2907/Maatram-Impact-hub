@@ -17,6 +17,8 @@ export const authService = {
       academicYear: details.role === "alumni" ? "Alumni" : (details.year ? `${details.year} Year` : "1st Year"),
       regNumber: details.regNumber,
       role: details.role || "student",
+      zone: details.zone || "Zone 1",
+      batch: details.batch || "",
       graduationYear: details.graduationYear || "",
       organization: details.organization || "",
       designation: details.designation || "",

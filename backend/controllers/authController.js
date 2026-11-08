@@ -22,6 +22,8 @@ const register = async (req, res) => {
       graduationYear = "",
       organization = "",
       designation = "",
+      zone = "Zone 1",
+      batch = "",
     } = req.body;
 
     if (!fullName || !email || !password) {
@@ -46,6 +48,8 @@ const register = async (req, res) => {
       regNumber: regNumber || "",
       role: validRole,
       status: "pending_approval",
+      zone: zone || "Zone 1",
+      batch: batch || (validRole === "alumni" ? "2020-2024" : "2022-2026"),
       graduationYear: graduationYear || "",
       organization: organization || "",
       designation: designation || "",
@@ -138,6 +142,13 @@ const login = async (req, res) => {
         academicYear: user.academicYear,
         role: user.role || "student",
         status: user.status || "active",
+        zone: user.zone || "Zone 1",
+        batch: user.batch || "",
+        assignedWorks: user.assignedWorks || [],
+        assignedEvent: user.assignedEvent || "",
+        assignedRole: user.assignedRole || "",
+        workDescription: user.workDescription || "",
+        assignedDate: user.assignedDate || "",
         avatar: user.avatar || "",
         totalHours: user.totalHours || 0,
         eventsJoined: user.eventsJoined || 0,

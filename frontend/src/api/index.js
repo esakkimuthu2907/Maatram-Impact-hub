@@ -150,4 +150,17 @@ export const api = {
 // Export API configuration if required elsewhere
 export const API_BASE_URL = BASE_URL;
 
+export { eventsAPI } from "./eventsAPI";
+export { adminAPI } from "./adminAPI";
+export { applicationsAPI } from "./applicationsAPI";
+export { authAPI } from "./authAPI";
+export { connectionsAPI } from "./connectionsAPI";
+export { notificationsAPI } from "./notificationsAPI";
+export { usersAPI } from "./usersAPI";
+export { badgesAPI } from "./badgesAPI";
+export { certificatesAPI } from "./certificatesAPI";
+export { hoursAPI } from "./hoursAPI";
+export { postsAPI } from "./postsAPI";
+export { messagesAPI } from "./messagesAPI";
+
 export default api;

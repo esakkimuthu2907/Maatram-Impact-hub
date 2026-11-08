@@ -29,14 +29,26 @@ import ContributionsPage from "./pages/student/ContributionsPage";
 import ReportsPage from "./pages/student/ReportsPage";
 import NotificationsPage from "./pages/student/NotificationsPage";
 import SettingsPage from "./pages/student/SettingsPage";
-import MissionsPage from "./pages/student/MissionsPage";
 import ConnectPage from "./pages/student/ConnectPage";
+import AlumniPage from "./pages/student/AlumniPage";
+import AlumniDashboard from "./pages/student/AlumniDashboard";
 
 // Admin Pages
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminEventsPage from "./pages/admin/AdminEventsPage";
 import AdminUsersPage from "./pages/admin/AdminUsersPage";
+import AdminAlumniPage from "./pages/admin/AdminAlumniPage";
 import AdminReportsPage from "./pages/admin/AdminReportsPage";
+
+// Alumni Pages
+
+function DashboardRouter() {
+  const { user } = useApp();
+  if (user?.role === "alumni") {
+    return <AlumniDashboard />;
+  }
+  return <StudentDashboard />;
+}
 
 function RootRedirect() {
   const { user, isAuthenticated } = useApp();
@@ -68,13 +80,23 @@ export default function App() {
             {/* Root redirect */}
             <Route path="/" element={<RootRedirect />} />
 
-            {/* Protected Student Routes wrapped in AppLayout */}
+            {/* Protected Student / Alumni Routes wrapped in AppLayout */}
             <Route
               path="/dashboard"
               element={
                 <ProtectedRoute>
                   <AppLayout>
-                    <StudentDashboard />
+                    <DashboardRouter />
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/alumni/dashboard"
+              element={
+                <ProtectedRoute>
+                  <AppLayout>
+                    <AlumniDashboard />
                   </AppLayout>
                 </ProtectedRoute>
               }
@@ -165,16 +187,7 @@ export default function App() {
             />
 
             {/* Applications, Profile, Impact & Reporting Modules */}
-            <Route
-              path="/missions"
-              element={
-                <ProtectedRoute>
-                  <AppLayout>
-                    <MissionsPage />
-                  </AppLayout>
-                </ProtectedRoute>
-              }
-            />
+            
             <Route
               path="/applications"
               element={
@@ -255,6 +268,27 @@ export default function App() {
                 </ProtectedRoute>
               }
             />
+            <Route
+              path="/alumni"
+              element={
+                <ProtectedRoute>
+                  <AppLayout>
+                    <AlumniPage />
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/alumni"
+              element={
+                <ProtectedRoute adminOnly={true}>
+                  <AppLayout>
+                    <AdminAlumniPage />
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+
 
             {/* Admin Management Routes */}
             <Route

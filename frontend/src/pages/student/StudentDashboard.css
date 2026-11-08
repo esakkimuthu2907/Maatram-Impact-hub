@@ -252,10 +252,14 @@
   flex-shrink: 0;
 }
 
-.stat-icon-wrap.yellow { background: #fefce8; color: #ca8a04; }
-.stat-icon-wrap.green  { background: #f0fdf4; color: #16a34a; }
-.stat-icon-wrap.blue   { background: #eff6ff; color: #2563eb; }
-.stat-icon-wrap.amber  { background: #fffbeb; color: #d97706; }
+.stat-icon-wrap.yellow  { background: #fefce8; color: #ca8a04; }
+.stat-icon-wrap.green   { background: #f0fdf4; color: #16a34a; }
+.stat-icon-wrap.blue    { background: #eff6ff; color: #2563eb; }
+.stat-icon-wrap.amber   { background: #fffbeb; color: #d97706; }
+.stat-icon-wrap.purple  { background: #EDE9FE; color: #7C3AED; }
+.stat-icon-wrap.red     { background: #FEF2F2; color: #DC2626; }
+.stat-icon-wrap.indigo  { background: #EEF2FF; color: #4F46E5; }
+.stat-icon-wrap.teal    { background: #F0FDFA; color: #0D9488; }
 
 .stat-content {
   display: flex;

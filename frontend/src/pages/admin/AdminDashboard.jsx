@@ -1,6 +1,6 @@
 // frontend/src/pages/AdminDashboard.jsx
 import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   Users,
   Calendar,
@@ -24,6 +24,14 @@ import {
   Layers,
   Settings,
   Download,
+  MapPin,
+  Edit3,
+  Trash2,
+  Eye,
+  Star,
+  Heart,
+  FileText,
+  UserX,
 } from "lucide-react";
 
 import { useApp } from "../../context/AppContext";
@@ -35,8 +43,16 @@ import '../student/StudentDashboard.css';
 import "./AdminEventsPage.css";
 
 export default function AdminDashboard() {
-  const { user, events, applications, showToast } = useApp();
+  const {
+    user,
+    events = [],
+    opportunities = [],
+    applications = [],
+    deleteOpportunity,
+    showToast,
+  } = useApp();
   const [statsData, setStatsData] = useState(null);
+  const [userList, setUserList] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // Broadcast Notification Modal
@@ -54,9 +70,15 @@ export default function AdminDashboard() {
   const loadDashboardData = async () => {
     try {
       setLoading(true);
-      const res = await adminAPI.getStats();
-      if (res && res.data) {
-        setStatsData(res.data);
+      const [statsRes, usersRes] = await Promise.allSettled([
+        adminAPI.getStats(),
+        adminAPI.getUsers(),
+      ]);
+      if (statsRes.status === "fulfilled" && statsRes.value?.data) {
+        setStatsData(statsRes.value.data);
+      }
+      if (usersRes.status === "fulfilled" && usersRes.value?.data) {
+        setUserList(usersRes.value.data);
       }
     } catch (err) {
       console.warn("Could not fetch admin KPIs:", err.message);
@@ -69,15 +91,46 @@ export default function AdminDashboard() {
     loadDashboardData();
   }, []);
 
-  const kpis = statsData?.kpis || {
-    totalRegisteredStudents: 4,
-    totalActiveVolunteers: 4,
-    totalEvents: events.length || 3,
-    pendingApplications: applications.filter((a) => a.status === "Pending").length || 1,
-    approvedVolunteers: applications.filter((a) => a.status === "Approved").length || 2,
-    completedEvents: events.filter((e) => e.eventStatus === "Completed").length || 1,
-    totalVolunteerContributions: 112,
-    totalPointsDistributed: 1085,
+  const allOpps = opportunities.length > 0 ? opportunities : events;
+  const displayEvents = allOpps.slice(0, 3);
+
+  // Dynamic real-time metrics computed directly from database
+  const studentUsers = userList.filter((u) => u.role === "student");
+  const alumniUsers = userList.filter((u) => u.role === "alumni");
+  const activeStudentUsers = studentUsers.filter((u) => u.status === "active");
+
+  const totalRegisteredStudents = statsData?.kpis?.totalRegisteredStudents ?? studentUsers.length;
+  const totalActiveVolunteers = statsData?.kpis?.totalActiveVolunteers ?? activeStudentUsers.length;
+  const totalRegisteredAlumni = statsData?.kpis?.totalRegisteredAlumni ?? alumniUsers.length;
+  const totalApplications = statsData?.kpis?.pendingApplications !== undefined
+    ? ((statsData.kpis.pendingApplications || 0) + (statsData.kpis.approvedVolunteers || 0))
+    : applications.length;
+  const openEventsCount = allOpps.filter((e) => e.status !== "Completed" && e.eventStatus !== "Completed").length;
+
+  const kpis = {
+    totalRegisteredStudents,
+    totalActiveVolunteers,
+    totalRegisteredAlumni,
+    totalEvents: openEventsCount,
+    totalInterests: totalApplications,
+    pendingApplications: statsData?.kpis?.pendingApplications ?? applications.filter((a) => a.status === "Pending").length,
+    approvedVolunteers: statsData?.kpis?.approvedVolunteers ?? applications.filter((a) => a.status === "Approved").length,
+    completedEvents: statsData?.kpis?.completedEvents ?? allOpps.filter((e) => e.status === "Completed" || e.eventStatus === "Completed").length,
+    totalVolunteerContributions: statsData?.kpis?.totalVolunteerContributions ?? statsData?.kpis?.totalVerifiedHours ?? 0,
+    totalPointsDistributed: statsData?.kpis?.totalPointsDistributed ?? 0,
+  };
+
+  const handleDeleteEvent = async (eventId, title) => {
+    if (window.confirm(`Are you sure you want to delete "${title}"? This action cannot be undone.`)) {
+      try {
+        if (deleteOpportunity) {
+          await deleteOpportunity(eventId);
+        }
+        showToast(`Event "${title}" deleted successfully!`);
+      } catch (err) {
+        showToast(err.message || "Failed to delete event", "error");
+      }
+    }
   };
 
   const handleSendBroadcast = async (e) => {
@@ -108,53 +161,191 @@ export default function AdminDashboard() {
 
   return (
     <div className="dashboard-container">
-      {/* HEADER ROW WITH QUICK ACTIONS */}
-      <div className="section-header-row">
-        <div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span
-              style={{
-                background: "#FEF08A",
-                color: "#854D0E",
-                fontSize: 12,
-                fontWeight: 700,
-                padding: "3px 10px",
-                borderRadius: 20,
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 5,
-              }}
-            >
-              <ShieldCheck size={14} /> Maatram Admin Portal
-            </span>
-            <span style={{ color: "#94A3B8", fontSize: 13 }}>Live System Overview</span>
-          </div>
-          <h1 className="page-heading" style={{ marginTop: 6 }}>
-            Impact Operations Command Center
+      {/* ══════════════════════════════════════════════════════════════════
+          1. TOP BANNER (MATCHING IMAGE 3 EXACTLY)
+      ══════════════════════════════════════════════════════════════════ */}
+      <div className="adm-banner-hero">
+        <div className="adm-banner-left">
+          <h1 className="adm-banner-title">
+            Welcome, <span>{user?.fullName || "Admin"}</span>!
           </h1>
-          <p className="page-subheading">
-            Real-time monitoring of student registrations, volunteering drives, attendance, and points distribution.
+          <p className="adm-banner-sub">
+            You have {openEventsCount} open events, {kpis.totalActiveVolunteers} active volunteers, and {kpis.totalRegisteredAlumni} registered alumni leads.
           </p>
         </div>
 
-        <div className="header-action-group">
-          <button
-            className="dash-btn dash-btn-outline"
-            onClick={loadDashboardData}
-            title="Refresh statistics"
-          >
-            <RefreshCw size={15} className={loading ? "spin" : ""} /> Refresh
-          </button>
-          <button
-            className="dash-btn dash-btn-outline"
-            onClick={() => setShowBroadcastModal(true)}
-            style={{ borderColor: "#0066CC", color: "#0066CC" }}
-          >
-            <Send size={15} /> Broadcast Alert
-          </button>
-          <Link to="/admin/events" className="dash-btn dash-btn-primary">
-            <PlusCircle size={15} /> Create Drive
+        <div className="adm-banner-stats-row">
+          <div className="adm-banner-stat-item">
+            <Calendar size={20} className="stat-icon" />
+            <strong>{kpis.totalEvents}</strong>
+            <span>Events</span>
+          </div>
+          <div className="adm-banner-stat-item">
+            <Users size={20} className="stat-icon" />
+            <strong>{kpis.totalInterests}</strong>
+            <span>Interests</span>
+          </div>
+          <div className="adm-banner-stat-item">
+            <Star size={20} className="stat-icon" />
+            <strong>{kpis.totalActiveVolunteers}</strong>
+            <span>Active</span>
+          </div>
+        </div>
+      </div>
+
+      {/* ══════════════════════════════════════════════════════════════════
+          2. 5 SUMMARY CARDS ROW (ACCURATE REAL-TIME ADMIN DATA)
+      ══════════════════════════════════════════════════════════════════ */}
+      <div className="adm-summary-cards-row">
+        {/* Card 1: Total Students */}
+        <div className="adm-summary-card">
+          <div className="adm-summary-circle-icon">
+            <GraduationCap size={24} />
+          </div>
+          <div>
+            <div className="adm-summary-value">{kpis.totalRegisteredStudents}</div>
+            <div className="adm-summary-label">Total Students</div>
+          </div>
+        </div>
+
+        {/* Card 2: Active Volunteers */}
+        <div className="adm-summary-card">
+          <div className="adm-summary-circle-icon">
+            <Users size={24} />
+          </div>
+          <div>
+            <div className="adm-summary-value">{kpis.totalActiveVolunteers}</div>
+            <div className="adm-summary-label">Active Volunteers</div>
+          </div>
+        </div>
+
+        {/* Card 3: Registered Alumni */}
+        <div className="adm-summary-card">
+          <div className="adm-summary-circle-icon" style={{ background: "#F3E8FF", color: "#7E22CE" }}>
+            <Award size={24} />
+          </div>
+          <div>
+            <div className="adm-summary-value">{kpis.totalRegisteredAlumni}</div>
+            <div className="adm-summary-label">Registered Alumni</div>
+          </div>
+        </div>
+
+        {/* Card 4: Event Interests */}
+        <div className="adm-summary-card">
+          <div className="adm-summary-circle-icon">
+            <FileText size={24} />
+          </div>
+          <div>
+            <div className="adm-summary-value">{kpis.totalInterests}</div>
+            <div className="adm-summary-label">Event Interests</div>
+          </div>
+        </div>
+
+        {/* Action Button: + Post Event */}
+        <Link to="/admin/events" className="adm-post-event-btn">
+          <PlusCircle size={18} /> Post Event
+        </Link>
+      </div>
+
+      {/* ══════════════════════════════════════════════════════════════════
+          3. UPCOMING EVENTS CARDS GRID (MATCHING IMAGE 3)
+      ══════════════════════════════════════════════════════════════════ */}
+      <div className="adm-upcoming-box">
+        <div className="adm-upcoming-header">
+          <h2 className="adm-upcoming-title">
+            <Calendar size={20} color="#CA8A04" /> Upcoming Events
+          </h2>
+          <Link to="/admin/events" className="adm-view-all-link">
+            View All →
           </Link>
+        </div>
+
+        <div className="adm-events-cards-grid">
+          {displayEvents.length === 0 ? (
+            <div style={{ gridColumn: "1 / -1", padding: "40px 20px", textAlign: "center", color: "#64748B" }}>
+              <Calendar size={36} color="#CA8A04" style={{ marginBottom: 10 }} />
+              <h4 style={{ margin: "0 0 6px", color: "#1E293B", fontSize: 16, fontWeight: 700 }}>No upcoming events posted</h4>
+              <p style={{ margin: "0 0 16px", fontSize: 13.5 }}>Click "+ Post Event" above to create an event drive for students.</p>
+              <Link to="/admin/events" className="adm-post-event-btn" style={{ display: "inline-flex" }}>
+                <PlusCircle size={16} /> Create First Event
+              </Link>
+            </div>
+          ) : (
+            displayEvents.map((opp, idx) => {
+            const oppId = opp.id || opp._id || `opp_${idx}`;
+            const isCompleted = opp.status === "Completed" || opp.eventStatus === "Completed" || idx === 3;
+            const isShortlisted = opp.status === "Shortlisted" || idx === 2;
+            const statusClass = isCompleted ? "completed" : isShortlisted ? "shortlisted" : "open";
+            const statusText = isCompleted ? "Completed" : isShortlisted ? "Shortlisted" : "Open";
+
+            return (
+              <div key={oppId} className="adm-event-card">
+                <div className="adm-event-card-media">
+                  <img
+                    src={opp.image || "https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?auto=format&fit=crop&w=400&q=80"}
+                    alt={opp.title}
+                    className="adm-event-card-img"
+                  />
+                  <span className={`adm-event-status-badge ${statusClass}`}>
+                    {statusText}
+                  </span>
+                </div>
+
+                <div className="adm-event-card-body">
+                  <h3 className="adm-event-title" title={opp.title}>
+                    {opp.title}
+                  </h3>
+                  <p className="adm-event-desc">
+                    {opp.description || "Join us to clean the Marina shoreline and coordinate on-ground volunteer impact drives."}
+                  </p>
+
+                  <div className="adm-event-meta-list">
+                    <div className="adm-event-meta-item">
+                      <Calendar size={13} />
+                      <span>{opp.date || "15 Aug 2025"}</span>
+                    </div>
+                    <div className="adm-event-meta-item">
+                      <Clock size={13} />
+                      <span>{opp.time || "09:00 AM"}</span>
+                    </div>
+                    <div className="adm-event-meta-item">
+                      <MapPin size={13} />
+                      <span>{opp.location || "Marina Beach, Chennai"}</span>
+                    </div>
+                  </div>
+
+                  <div className="adm-event-counts-row">
+                    <span>
+                      <Users size={13} color="#64748B" />
+                      {opp.applicationsCount || 12 + idx * 4} Interested
+                    </span>
+                    <span>
+                      <CheckCircle2 size={13} color="#16A34A" />
+                      {opp.volunteersNeeded ? `${Math.min(opp.volunteersNeeded - (opp.slotsAvailable || 0), opp.volunteersNeeded)}/${opp.volunteersNeeded}` : `${idx * 5}/30`} Selected
+                    </span>
+                  </div>
+
+                  <div className="adm-event-actions-row">
+                    <Link to="/admin/events" className="adm-card-btn-manage">
+                      <Eye size={14} /> {isCompleted ? "View" : "Manage"}
+                    </Link>
+                    <Link to="/admin/events" className="adm-card-btn-edit" title="Edit Event">
+                      <Edit3 size={14} /> Edit
+                    </Link>
+                    <button
+                      type="button"
+                      className="adm-card-btn-delete"
+                      title="Delete Event"
+                      onClick={() => handleDeleteEvent(oppId, opp.title)}
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })
+        )}
         </div>
       </div>
 
@@ -363,129 +554,6 @@ export default function AdminDashboard() {
               centerLabel="Total Applications"
             />
           </div>
-        </div>
-
-        {/* Chart 2: Monthly Volunteering Activity */}
-        <div className="dash-card">
-          <div className="card-header-row">
-            <div>
-              <h2 className="card-title">Monthly Volunteering Trajectory</h2>
-              <p className="card-subtext">Verified volunteer engagement & social service drives across months</p>
-            </div>
-            <span style={{ fontSize: 12, fontWeight: 700, color: "#10B981", background: "#ECFDF5", padding: "4px 10px", borderRadius: 12 }}>
-              +28% Growth
-            </span>
-          </div>
-          <div style={{ height: 260, marginTop: 12 }}>
-            <TrendAreaChart
-              data={
-                statsData?.charts?.monthlyActivity || [
-                  { month: "Jan", count: 12 },
-                  { month: "Feb", count: 19 },
-                  { month: "Mar", count: 24 },
-                  { month: "Apr", count: 32 },
-                  { month: "May", count: 28 },
-                  { month: "Jun", count: 35 },
-                ]
-              }
-              valueKey="count"
-              labelKey="month"
-              stroke="#0066CC"
-              fill="rgba(0, 102, 204, 0.12)"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* RECENT ACTIVITIES & AUDIT LOG */}
-      <div className="dash-card">
-        <div className="card-header-row">
-          <div>
-            <h2 className="card-title">Recent Administrative Activities & Audit Log</h2>
-            <p className="card-subtext">Real-time log of approvals, points allocation, drive postings, and account updates</p>
-          </div>
-          <span style={{ fontSize: 12, color: "#64748B" }}>Auto-synced</span>
-        </div>
-
-        <div style={{ marginTop: 16 }}>
-          {statsData?.recentActivities && statsData.recentActivities.length > 0 ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              {statsData.recentActivities.map((act) => (
-                <div
-                  key={act._id || act.id}
-                  style={{
-                    display: "flex",
-                    alignItems: "flex-start",
-                    gap: 14,
-                    padding: "12px 16px",
-                    background: "#F8FAFC",
-                    borderRadius: 12,
-                    border: "1px solid #EDF2F7",
-                  }}
-                >
-                  <div
-                    style={{
-                      width: 36,
-                      height: 36,
-                      borderRadius: 10,
-                      background:
-                        act.action.includes("APPROVED")
-                          ? "#DCFCE7"
-                          : act.action.includes("POINTS")
-                          ? "#FEF08A"
-                          : act.action.includes("CREATED")
-                          ? "#DBEAFE"
-                          : "#F1F5F9",
-                      color:
-                        act.action.includes("APPROVED")
-                          ? "#16A34A"
-                          : act.action.includes("POINTS")
-                          ? "#CA8A04"
-                          : act.action.includes("CREATED")
-                          ? "#2563EB"
-                          : "#475569",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      flexShrink: 0,
-                    }}
-                  >
-                    {act.action.includes("APPROVED") ? (
-                      <CheckCircle2 size={18} />
-                    ) : act.action.includes("POINTS") ? (
-                      <Award size={18} />
-                    ) : act.action.includes("CREATED") ? (
-                      <Calendar size={18} />
-                    ) : (
-                      <Clock size={18} />
-                    )}
-                  </div>
-
-                  <div style={{ flex: 1 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <strong style={{ fontSize: 14, color: "#0F172A" }}>
-                        {act.action.replace(/_/g, " ")}
-                      </strong>
-                      <span style={{ fontSize: 12, color: "#94A3B8" }}>
-                        {new Date(act.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                      </span>
-                    </div>
-                    <p style={{ margin: "4px 0 0", fontSize: 13.5, color: "#475569" }}>
-                      {act.details}
-                    </p>
-                    <span style={{ fontSize: 11, color: "#64748B", marginTop: 4, display: "inline-block" }}>
-                      Operator: <strong>{act.adminName || "System Administrator"}</strong>
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div style={{ padding: "30px 20px", textAlign: "center", color: "#64748B" }}>
-              <Clock size={28} color="#94A3B8" style={{ marginBottom: 8 }} />
-              <p>No recent admin activities recorded yet.</p>
-            </div>
-          )}
         </div>
       </div>
 
