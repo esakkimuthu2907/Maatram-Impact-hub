@@ -222,11 +222,11 @@ export default function LeaderboardPage() {
             {
               rank: 1,
               name: user?.fullName || user?.name || "Esakki Muthu",
-              college: user?.college || "College of Engineering",
-              eventsJoined: user?.eventsJoined || 1,
-              badges: 1,
-              points: Number(user?.points) || 50,
-              totalHours: Number(user?.totalHours) || 4,
+              college: user?.college || "Anna University, Chennai",
+              eventsJoined: Number(user?.eventsJoined) || 0,
+              badges: Number(user?.badgesEarned) || 0,
+              points: Number(user?.points) || 0,
+              totalHours: Number(user?.totalHours) || 0,
               avatar:
                 user?.avatar ||
                 "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80",

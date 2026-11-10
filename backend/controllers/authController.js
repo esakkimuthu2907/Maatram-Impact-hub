@@ -126,6 +126,10 @@ const login = async (req, res) => {
       });
     }
 
+    try {
+      await Storage.updateUser(user._id || user.id, { lastActiveAt: new Date() });
+    } catch (_) {}
+
     const token = generateToken(user._id || user.id);
 
     res.json({

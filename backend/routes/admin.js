@@ -46,5 +46,39 @@ router.get("/reports", getReports);
 router.get("/emails", getEmailLogs);
 router.post("/emails/test", sendTestEmail);
 
+// ── ALUMNI MANAGEMENT ROUTES ──────────────────────────────
+router.get("/alumni", async (req, res) => {
+  try {
+    const Storage = require("../services/storage");
+    const all = await Storage.getAllUsers({});
+    const alumni = all.filter(u => u.role === "alumni" || u.role === "Alumni");
+    res.json({ success: true, data: alumni });
+  } catch(err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+router.put("/alumni/:id/approve", async (req, res) => {
+  try {
+    const Storage = require("../services/storage");
+    const updated = await Storage.updateUser(req.params.id, { status: "active" });
+    if (!updated) return res.status(404).json({ success: false, message: "Alumni not found" });
+    res.json({ success: true, data: updated, message: "Alumni account approved successfully." });
+  } catch(err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+router.put("/alumni/:id/reject", async (req, res) => {
+  try {
+    const Storage = require("../services/storage");
+    const updated = await Storage.updateUser(req.params.id, { status: "inactive" });
+    if (!updated) return res.status(404).json({ success: false, message: "Alumni not found" });
+    res.json({ success: true, data: updated, message: "Alumni account rejected." });
+  } catch(err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 module.exports = router;
 

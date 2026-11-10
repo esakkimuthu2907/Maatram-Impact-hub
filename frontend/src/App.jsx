@@ -37,6 +37,7 @@ import AlumniDashboard from "./pages/student/AlumniDashboard";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminEventsPage from "./pages/admin/AdminEventsPage";
 import AdminUsersPage from "./pages/admin/AdminUsersPage";
+import AdminStudentProfilePage from "./pages/admin/AdminStudentProfilePage";
 import AdminAlumniPage from "./pages/admin/AdminAlumniPage";
 import AdminReportsPage from "./pages/admin/AdminReportsPage";
 
@@ -327,6 +328,16 @@ export default function App() {
                 <ProtectedRoute adminOnly={true}>
                   <AppLayout>
                     <AdminUsersPage />
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/users/:id"
+              element={
+                <ProtectedRoute adminOnly={true}>
+                  <AppLayout>
+                    <AdminStudentProfilePage />
                   </AppLayout>
                 </ProtectedRoute>
               }

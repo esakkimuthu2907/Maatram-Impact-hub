@@ -38,6 +38,8 @@ export default function ContributionsPage() {
     user,
     certificates = [],
     hourLogs = [],
+    fetchCertificates,
+    fetchHourLogs,
     submitHourLog,
     openLinkedInShare,
     openCertificate,
@@ -58,6 +60,8 @@ export default function ContributionsPage() {
   });
 
   useEffect(() => {
+    fetchCertificates?.();
+    fetchHourLogs?.();
     const fetchPoints = async () => {
       try {
         const res = await usersAPI.getPointsHistory();
@@ -67,7 +71,7 @@ export default function ContributionsPage() {
       } catch (err) {}
     };
     fetchPoints();
-  }, []);
+  }, [fetchCertificates, fetchHourLogs]);
 
   const totalPoints = user?.points ?? 0;
   const verifiedHours = user?.totalHours ?? 0;

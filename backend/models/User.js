@@ -43,6 +43,8 @@ const userSchema = new mongoose.Schema(
     completedEventsCount: { type: Number, default: 0 },
     badgesEarned:  { type: Number, default: 0 },
     streakDays:    { type: Number, default: 0 },
+    rating:        { type: Number, default: 4.8 },
+    lastActiveAt:  { type: Date, default: Date.now },
     fcmToken:      { type: String, default: "" },
   },
   { timestamps: true }
@@ -60,13 +62,25 @@ userSchema.pre("save", async function (next) {
   if (this.applicationId) return next();
 
   try {
-    const counter = await Counter.findByIdAndUpdate(
-      "applicationId",
-      { $inc: { seq: 1 } },
-      { new: true, upsert: true }
-    );
-    const padded = String(counter.seq).padStart(3, "0");
-    this.applicationId = `MAA${padded}`;
+    if (this.role === "alumni") {
+      // Alumni IDs: ALU000, ALU001, ALU002 …
+      const counter = await Counter.findByIdAndUpdate(
+        "alumniId",
+        { $inc: { seq: 1 } },
+        { new: true, upsert: true }
+      );
+      // seq starts at 1 after first increment; we want 000 = first alumni
+      const padded = String(counter.seq - 1).padStart(3, "0");
+      this.applicationId = `ALU${padded}`;
+    } else {
+      const counter = await Counter.findByIdAndUpdate(
+        "applicationId",
+        { $inc: { seq: 1 } },
+        { new: true, upsert: true }
+      );
+      const padded = String(counter.seq).padStart(3, "0");
+      this.applicationId = `MAA${padded}`;
+    }
     next();
   } catch (err) {
     next(err);

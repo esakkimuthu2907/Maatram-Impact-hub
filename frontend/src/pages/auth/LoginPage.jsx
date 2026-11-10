@@ -94,10 +94,13 @@ export default function LoginPage() {
           batch: "2022-2026",
           role: "student",
           status: "active",
-          points: 350,
-          totalHours: 36,
-          eventsJoined: 10,
-          completedEventsCount: 8,
+          points: 0,
+          totalHours: 0,
+          eventsJoined: 0,
+          completedEventsCount: 0,
+          badgesEarned: 0,
+          streakDays: 0,
+          tier: "Bronze",
           token: "local-student-token-" + Date.now(),
         };
         setAuthUser(studentUser, studentUser.token);

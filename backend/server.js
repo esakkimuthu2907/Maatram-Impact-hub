@@ -132,7 +132,7 @@ app.use((err, req, res, next) => {
 // Server configuration
 const PORT = process.env.PORT || 5000;
 
-const server = app.listen(PORT, "0.0.0.0", () => {
+const server = app.listen(PORT, () => {
   console.log("--------------------------------------");
   console.log("🚀 MAATRAM IMPACT HUB BACKEND");
   console.log("--------------------------------------");
@@ -154,6 +154,7 @@ connectDB()
 
 // Handle server errors
 server.on("error", (error) => {
+  console.error("❌ Server error details:", error.code, error.syscall, error.address, error.port);
   if (error.code === "EADDRINUSE") {
     console.error(`❌ Port ${PORT} is already in use.`);
     console.error("Stop the previous backend process before restarting.");

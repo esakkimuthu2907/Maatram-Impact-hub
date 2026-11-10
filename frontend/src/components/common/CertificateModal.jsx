@@ -1,17 +1,20 @@
 // frontend/src/components/common/CertificateModal.jsx
+// Official Hackforge Participation Certificate Implementation
+// Faithful to the official Maatram Foundation Reference Design (media_1794282309128_391c3175.jpg)
+
 import React, { useRef } from "react";
 import {
   Download,
   Printer,
   Share2,
   X,
-  Award,
   ShieldCheck,
   CheckCircle2,
   Calendar,
-  Clock,
   Sparkles,
+  Award,
 } from "lucide-react";
+import certFooterImg from "../../assets/cert_footer_official.png";
 import "./CertificateModal.css";
 
 export default function CertificateModal({
@@ -26,19 +29,19 @@ export default function CertificateModal({
 
   const {
     certificateId = "MF-CERT-2026-1042",
-    volunteerName = "Student Volunteer",
+    volunteerName = "Esakkimuthu.S",
     college = "Anna University, Chennai",
-    eventTitle = "Govt School Career Orientation & Mentorship Drive",
-    eventCategory = "School Visits",
-    verifiedHours = 4,
-    pointsAwarded = 50,
+    eventTitle = "Hackforge Hackathon 2025",
+    eventCategory = "Hackathon",
+    verifiedHours = 24,
+    pointsAwarded = 100,
     issueDate = new Date().toLocaleDateString("en-IN", {
       day: "2-digit",
       month: "short",
       year: "numeric",
     }),
-    signatoryName = "Sujith Kumar",
-    signatoryTitle = "Founder & Managing Trustee, Maatram Foundation",
+    signatoryName = "SUJITH KUMAR",
+    signatoryTitle = "Founder & Managing Trustee",
   } = certificate;
 
   const handlePrint = () => {
@@ -59,6 +62,7 @@ export default function CertificateModal({
 
           <div className="toolbar-actions">
             <button
+              type="button"
               className="cert-btn cert-btn-linkedin"
               onClick={() => onOpenLinkedInShare?.(certificate)}
               title="Share this achievement to LinkedIn"
@@ -66,113 +70,109 @@ export default function CertificateModal({
               <Share2 size={15} /> Share to LinkedIn
             </button>
 
-            <button className="cert-btn cert-btn-print" onClick={handlePrint} title="Print or Save as PDF">
-              <Printer size={15} /> Print / Save PDF
+            <button
+              type="button"
+              className="cert-btn cert-btn-print"
+              onClick={handlePrint}
+              title="Print or Save as PDF"
+            >
+              <Printer size={15} /> Print / Download PDF
             </button>
 
-            <button className="cert-modal-close-btn" onClick={onClose} aria-label="Close certificate">
+            <button
+              type="button"
+              className="cert-modal-close-btn"
+              onClick={onClose}
+              aria-label="Close certificate"
+            >
               <X size={20} />
             </button>
           </div>
         </div>
 
-        {/* PRINTABLE CERTIFICATE CANVAS */}
-        <div className="certificate-frame-container" ref={printAreaRef} id="printable-certificate">
-          <div className="certificate-inner-border">
-            {/* Corner Decorative Accents */}
-            <div className="cert-corner top-left" />
-            <div className="cert-corner top-right" />
-            <div className="cert-corner bottom-left" />
-            <div className="cert-corner bottom-right" />
+        {/* PRINTABLE HACKFORGE CERTIFICATE CANVAS (Strictly follows Reference Image) */}
+        <div
+          className="hackforge-cert-container"
+          ref={printAreaRef}
+          id="printable-certificate"
+        >
+          {/* Cyber / Binary Matrix Background Pattern */}
+          <div className="cert-matrix-bg" aria-hidden="true">
+            <div className="matrix-column col-1">0 1 1 0 1 0 0 1 1 0 1 1 0 1 0 1 1 0 0 1 0 1 0 0 1 1 1 0 1 0 1 1 0</div>
+            <div className="matrix-column col-2">1 0 1 1 0 1 0 0 1 1 0 0 1 1 1 0 0 1 0 1 1 0 1 1 0 0 1 0 1 1 0 1 0</div>
+            <div className="matrix-column col-3">0 0 1 0 1 1 1 0 1 0 1 0 0 1 1 0 1 0 1 1 0 1 0 0 1 1 0 1 0 0 1 1 1</div>
+            <div className="matrix-column col-4">1 1 0 1 0 0 1 1 0 1 0 1 1 0 0 1 0 1 0 0 1 1 0 1 0 1 1 0 1 0 1 0 0</div>
+            <div className="matrix-column col-5">0 1 0 1 1 0 0 1 0 1 1 0 1 0 1 1 0 0 1 0 1 1 0 0 1 0 1 1 0 1 0 1 1</div>
+            <div className="matrix-column col-6">1 0 1 0 0 1 1 0 1 0 0 1 1 1 0 1 0 1 0 0 1 0 1 1 0 1 0 0 1 1 0 1 0</div>
+            <div className="matrix-column col-7">0 1 1 0 1 0 1 1 0 1 0 0 1 0 1 0 1 1 0 1 0 0 1 1 0 1 0 1 0 1 1 0 0</div>
+            <div className="matrix-column col-8">1 1 0 1 0 1 0 0 1 1 0 1 0 1 1 0 0 1 0 1 1 0 1 0 0 1 1 0 1 0 1 1 0</div>
+          </div>
 
-            {/* Certificate Header */}
-            <div className="cert-header">
-              <div className="cert-logo-wrapper">
-                <div className="cert-logo-pill">MAATRAM FOUNDATION</div>
-                <div className="cert-tamil-subtitle">மாற்றம் அறக்கட்டளை &bull; கல்வி மற்றும் சமூக மேம்பாட்டு அறக்கட்டளை</div>
-              </div>
-              <div className="cert-tagline">
-                Educational & Charitable Trust &bull; Registered NGO, Tamil Nadu
-              </div>
-            </div>
-
-            {/* Certificate Title */}
-            <div className="cert-title-section">
-              <h1 className="cert-main-heading">CERTIFICATE OF APPRECIATION</h1>
-              <p className="cert-sub-heading">FOR EXEMPLARY VOLUNTEERING SERVICE & SOCIAL LEADERSHIP</p>
-            </div>
-
-            {/* Certificate Body */}
-            <div className="cert-body-section">
-              <p className="cert-intro-text">This is proudly presented to certify that</p>
-              
-              <div className="cert-recipient-name">{volunteerName}</div>
-              
-              <div className="cert-recipient-org">
-                of <strong>{college}</strong>
-              </div>
-
-              <p className="cert-description-text">
-                has actively participated and successfully completed <strong>{verifiedHours} Verified Hours</strong> of dedicated on-ground community service in the initiative:
-              </p>
-
-              <div className="cert-event-title-box">
-                <span className="event-box-cat">{eventCategory}</span>
-                <h3 className="event-box-title">&ldquo;{eventTitle}&rdquo;</h3>
-              </div>
-
-              {/* Mandatory Thank You Quote */}
-              <div className="cert-quote-box">
-                &ldquo;Thank you for being part of the Maatram community. Your contribution is helping us build a better tomorrow!&rdquo;
+          <div className="hackforge-cert-content">
+            {/* 1. Header: MAATRAM FOUNDATION with attractive, prestigious typography */}
+            <div className="cert-top-header">
+              <span className="cert-top-subtext">EDUCATIONAL & CHARITABLE TRUST</span>
+              <h1 className="cert-foundation-title">MAATRAM FOUNDATION</h1>
+              <div className="cert-gold-flourish">
+                <span className="flourish-line" />
+                <span className="flourish-diamond">&#9670;</span>
+                <span className="flourish-line" />
               </div>
             </div>
 
-            {/* Certificate Footer with Signatures & Official Seal */}
-            <div className="cert-footer-section">
-              {/* Left: Issue Date & Verification ID */}
-              <div className="cert-footer-col left">
-                <div className="cert-meta-item">
-                  <span className="meta-label">Date of Issue:</span>
-                  <strong className="meta-val">{issueDate}</strong>
-                </div>
-                <div className="cert-meta-item">
-                  <span className="meta-label">Certificate ID:</span>
-                  <strong className="meta-val font-mono">{certificateId}</strong>
-                </div>
-                <div className="cert-meta-item">
-                  <span className="meta-label">Verified Contribution:</span>
-                  <strong className="meta-val text-blue">{verifiedHours} Hours ({pointsAwarded} pts)</strong>
-                </div>
+            {/* 2. Gold Circular Participation Certificate Seal with Blue Ribbon tails */}
+            <div className="cert-seal-wrapper">
+              <div className="cert-seal-ribbons">
+                <span className="ribbon-tail left-tail" />
+                <span className="ribbon-tail right-tail" />
               </div>
-
-              {/* Center: Gold Official Seal */}
-              <div className="cert-footer-col center">
-                <div className="official-gold-seal">
-                  <div className="seal-outer-ring">
-                    <div className="seal-inner-circle">
-                      <Sparkles size={24} color="#B45309" />
-                      <span className="seal-text-top">MAATRAM</span>
-                      <span className="seal-text-mid">OFFICIAL</span>
-                      <span className="seal-text-bot">SEAL</span>
-                    </div>
+              <div className="cert-gold-seal-disc">
+                <div className="seal-serrated-border">
+                  <div className="seal-inner-circle">
+                    <span className="seal-text-part">PARTICIPATION</span>
+                    <span className="seal-text-cert">CERTIFICATE</span>
                   </div>
                 </div>
               </div>
-
-              {/* Right: Authorised Signature */}
-              <div className="cert-footer-col right">
-                <div className="signature-line-box">
-                  <div className="digital-signature-font">Sujith Kumar</div>
-                  <div className="sig-rule" />
-                  <div className="signatory-name-text">{signatoryName}</div>
-                  <div className="signatory-title-text">{signatoryTitle}</div>
-                </div>
-              </div>
             </div>
 
-            {/* Bottom Security Watermark */}
-            <div className="cert-security-bar">
-              <span>Verified digital credential issued via Maatram Impact Hub &bull; Document hash validated</span>
+            {/* 3. "This Certificate is awarded to" */}
+            <div className="cert-award-intro">
+              <p className="award-intro-text">This Certificate is awarded to</p>
+            </div>
+
+            {/* 4. Student Name Highlighted in Radiant Gold */}
+            <div className="cert-recipient-section">
+              <h2 className="recipient-gold-name">{volunteerName}</h2>
+              <div className="recipient-name-divider" />
+            </div>
+
+            {/* 5. Participation Description */}
+            <div className="cert-description-section">
+              <p className="cert-desc-paragraph">
+                for <strong>Participating</strong> in {eventTitle}, organized by Maatram Foundation.
+              </p>
+            </div>
+
+            {/* Spacer / Divider before footer */}
+            <div className="cert-mid-divider" />
+
+            {/* 6. Crisp White Footer Section using the exact official attached graphic */}
+            <div className="cert-white-footer-card">
+              <img
+                src={certFooterImg}
+                alt="Maatram Foundation - Sujith Kumar, Founder & Managing Trustee"
+                className="cert-official-footer-strip"
+              />
+            </div>
+
+            {/* Bottom Verification & ID Tag */}
+            <div className="cert-meta-footnote">
+              <span>Certificate ID: {certificateId}</span>
+              <span>&bull;</span>
+              <span>Issue Date: {issueDate}</span>
+              <span>&bull;</span>
+              <span>Verified via Maatram Foundation Impact Hub</span>
             </div>
           </div>
         </div>

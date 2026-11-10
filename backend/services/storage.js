@@ -129,13 +129,14 @@ const Storage = {
       if (data.role === "admin") {
         assignedAppId = "ADMIN001";
       } else if (data.role === "alumni") {
+        // Alumni IDs start at ALU000 — find next available sequence
         const existingAluSeqs = db.users
           .map((u) => {
             const m = (u.applicationId || "").match(/^ALU(\d+)$/);
-            return m ? parseInt(m[1], 10) : 0;
+            return m ? parseInt(m[1], 10) : -1;
           })
-          .filter((n) => n > 0);
-        const maxAlu = Math.max(0, ...(existingAluSeqs.length ? existingAluSeqs : [0]));
+          .filter((n) => n >= 0);
+        const maxAlu = existingAluSeqs.length > 0 ? Math.max(...existingAluSeqs) : -1;
         assignedAppId = `ALU${String(maxAlu + 1).padStart(3, "0")}`;
       } else {
         const existingSeqs = db.users
@@ -201,7 +202,7 @@ const Storage = {
       "graduationYear", "zone", "batch", "status", "assignedWorks", "assignedEvent",
       "assignedRole", "workDescription", "assignedDate",
       "totalHours", "completedEventsCount", "eventsJoined", "points", "badgesEarned", "streakDays",
-      "rating", "tier"
+      "rating", "tier", "lastActiveAt"
     ];
     const update = {};
     for (const k of allowedFields) {
@@ -575,10 +576,20 @@ const Storage = {
     }
 
     const idStr = id.toString();
+    const isMarkingCompleted = update.eventStatus === "Completed" || update.status === "Completed";
+
     if (getIsConnected()) {
       try {
         if (mongoose.isValidObjectId(idStr)) {
           const e = await Event.findByIdAndUpdate(idStr, update, { new: true }).lean();
+          if (isMarkingCompleted) {
+            try {
+              await Application.updateMany(
+                { eventId: idStr, status: { $in: ["Approved", "Assigned"] } },
+                { $set: { status: "Completed" } }
+              );
+            } catch (_) {}
+          }
           if (e) return { ...e, id: e._id.toString() };
         }
       } catch {}
@@ -588,6 +599,14 @@ const Storage = {
     const idx = (db.events || []).findIndex((e) => (e.id || e._id || "").toString() === idStr);
     if (idx !== -1) {
       db.events[idx] = { ...db.events[idx], ...update, updatedAt: new Date().toISOString() };
+      if (isMarkingCompleted && Array.isArray(db.applications)) {
+        db.applications.forEach((a) => {
+          if ((a.eventId || a.opportunityId || "").toString() === idStr && (a.status === "Approved" || a.status === "Assigned")) {
+            a.status = "Completed";
+            a.updatedAt = new Date().toISOString();
+          }
+        });
+      }
       writeDB(db);
       return { ...db.events[idx], id: (db.events[idx].id || db.events[idx]._id).toString() };
     }
@@ -1714,6 +1733,7 @@ const Storage = {
         totalPoints,
         totalEvents: events.length,
         completedEvents: events.filter((e) => e.eventStatus === "Completed").length,
+        totalApplications: apps.length,
       },
       events: events.map((e) => ({
         id: (e.id || e._id).toString(),

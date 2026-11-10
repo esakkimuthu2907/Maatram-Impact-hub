@@ -1,0 +1,627 @@
+/* frontend/src/pages/admin/AdminUsersPage.css */
+/* Precise visual replication of media_733ff2e2.png and media_71dea7d8.jpg */
+
+.admin-users-page-container {
+  padding: 24px 32px;
+  max-width: 1380px;
+  margin: 0 auto;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  color: #0f172a;
+}
+
+/* ───────────────────────────────────────────────────────────── */
+/* A. 5 SUMMARY METRICS CARDS (Reference Image media_733ff2e2.png)*/
+/* ───────────────────────────────────────────────────────────── */
+
+.usr-summary-cards-row {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.usr-summary-card {
+  border-radius: 18px;
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid transparent;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.02);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.usr-summary-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
+}
+
+.usr-card-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.usr-card-icon-wrap {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.usr-card-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.usr-card-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 4px;
+}
+
+.usr-card-number {
+  font-family: "Georgia", "Times New Roman", serif;
+  font-size: 26px;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1;
+}
+
+.usr-card-arrow {
+  color: #0f172a;
+  opacity: 0.6;
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.usr-summary-card:hover .usr-card-arrow {
+  opacity: 1;
+}
+
+/* Card color themes matching reference */
+.usr-summary-card.theme-total {
+  background: #fefce8;
+  border-color: #fef08a;
+}
+.usr-summary-card.theme-total .usr-card-icon-wrap {
+  background: #fef08a;
+  color: #ca8a04;
+}
+
+.usr-summary-card.theme-active {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+.usr-summary-card.theme-active .usr-card-icon-wrap {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.usr-summary-card.theme-inactive {
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+.usr-summary-card.theme-inactive .usr-card-icon-wrap {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.usr-summary-card.theme-hours {
+  background: #fffbeb;
+  border-color: #fde68a;
+}
+.usr-summary-card.theme-hours .usr-card-icon-wrap {
+  background: #fef3c7;
+  color: #d97706;
+}
+
+.usr-summary-card.theme-points {
+  background: #fef9c3;
+  border-color: #fef08a;
+}
+.usr-summary-card.theme-points .usr-card-icon-wrap {
+  background: #fef08a;
+  color: #ca8a04;
+}
+
+/* ───────────────────────────────────────────────────────────── */
+/* B. SEARCH & FILTER TOOLBAR (Reference Image media_71dea7d8.jpg)*/
+/* ───────────────────────────────────────────────────────────── */
+
+.usr-search-filter-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.usr-search-input-wrap {
+  position: relative;
+  flex: 1;
+  max-width: 440px;
+  min-width: 280px;
+}
+
+.usr-search-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #64748b;
+  pointer-events: none;
+}
+
+.usr-search-input {
+  width: 100%;
+  padding: 10px 14px 10px 42px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  font-size: 14px;
+  color: #0f172a;
+  outline: none;
+  transition: all 0.2s;
+  box-sizing: border-box;
+}
+
+.usr-search-input:focus {
+  border-color: #eab308;
+  box-shadow: 0 0 0 3px rgba(234, 179, 8, 0.15);
+}
+
+.usr-filter-pills-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.usr-filter-pill-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 16px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.usr-pill-badge {
+  font-size: 11px;
+  font-weight: 800;
+  padding: 1px 7px;
+  border-radius: 10px;
+}
+
+/* Pill 1: All 15 (Dark black pill with yellow badge) */
+.usr-filter-pill-btn.all {
+  background: #0f172a;
+  color: #ffffff;
+}
+.usr-filter-pill-btn.all .usr-pill-badge {
+  background: #fde047;
+  color: #0f172a;
+}
+.usr-filter-pill-btn.all:hover {
+  background: #1e293b;
+}
+
+/* Pill 2: Active 13 (Green check icon pill) */
+.usr-filter-pill-btn.active-pill {
+  background: #f0fdf4;
+  color: #16a34a;
+  border-color: #bbf7d0;
+}
+.usr-filter-pill-btn.active-pill .usr-pill-badge {
+  background: #dcfce7;
+  color: #15803d;
+}
+.usr-filter-pill-btn.active-pill:hover,
+.usr-filter-pill-btn.active-pill.selected {
+  background: #dcfce7;
+  border-color: #86efac;
+}
+
+/* Pill 3: Inactive 2 (Red cross icon pill) */
+.usr-filter-pill-btn.inactive-pill {
+  background: #fef2f2;
+  color: #dc2626;
+  border-color: #fecaca;
+}
+.usr-filter-pill-btn.inactive-pill .usr-pill-badge {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+.usr-filter-pill-btn.inactive-pill:hover,
+.usr-filter-pill-btn.inactive-pill.selected {
+  background: #fee2e2;
+  border-color: #fca5a5;
+}
+
+.usr-actions-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* ───────────────────────────────────────────────────────────── */
+/* C. STUDENT TABLE (Reference Image media_71dea7d8.jpg)        */
+/* ───────────────────────────────────────────────────────────── */
+
+.usr-table-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.03);
+  margin-bottom: 24px;
+}
+
+.usr-data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+  text-align: left;
+}
+
+.usr-data-table thead th {
+  background: #f8fafc;
+  color: #475569;
+  font-weight: 700;
+  padding: 14px 18px;
+  border-bottom: 1px solid #e2e8f0;
+  white-space: nowrap;
+}
+
+.usr-data-table tbody tr {
+  border-bottom: 1px solid #f1f5f9;
+  transition: background 0.15s ease;
+  cursor: pointer;
+}
+
+.usr-data-table tbody tr:hover {
+  background: #fafafa;
+}
+
+.usr-data-table td {
+  padding: 14px 18px;
+  color: #334155;
+  vertical-align: middle;
+}
+
+/* Student column: initials avatar + name + batch */
+.usr-student-col {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.usr-avatar-badge {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: #0f172a;
+  color: #fbbf24;
+  border: 2px solid #eab308;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.usr-name-batch {
+  display: flex;
+  flex-direction: column;
+}
+
+.usr-student-name {
+  font-weight: 700;
+  color: #0f172a;
+  font-size: 14px;
+}
+
+.usr-student-batch {
+  font-size: 11.5px;
+  color: #64748b;
+  margin-top: 1px;
+}
+
+.usr-roll-no {
+  font-family: monospace;
+  font-weight: 700;
+  color: #334155;
+}
+
+.usr-college-name {
+  color: #334155;
+  max-width: 220px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.usr-zone-pill {
+  background: #fef9c3;
+  color: #854d0e;
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 14px;
+  display: inline-block;
+}
+
+.usr-dept-text {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.usr-status-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  font-size: 12.5px;
+}
+
+.usr-status-cell.active {
+  color: #16a34a;
+}
+
+.usr-status-cell.inactive {
+  color: #dc2626;
+}
+
+.usr-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.usr-status-cell.active .usr-status-dot {
+  background: #16a34a;
+}
+
+.usr-status-cell.inactive .usr-status-dot {
+  background: #dc2626;
+}
+
+.usr-points-val {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+/* Activity Badge (e.g. Active today, Active yesterday, Active 2 days ago) */
+.usr-activity-pill {
+  display: inline-block;
+  background: #f0fdf4;
+  color: #16a34a;
+  border: 1px solid #bbf7d0;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 14px;
+  white-space: nowrap;
+}
+
+.usr-row-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.usr-btn-action {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #334155;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.usr-btn-action:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.usr-btn-action.toggle-active {
+  color: #dc2626;
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.usr-btn-action.toggle-active:hover {
+  background: #fee2e2;
+}
+
+.usr-btn-action.toggle-inactive {
+  color: #16a34a;
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.usr-btn-action.toggle-inactive:hover {
+  background: #dcfce7;
+}
+
+/* Pagination bar at bottom */
+.usr-pagination-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.usr-page-nav-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #475569;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.usr-page-nav-btn:hover:not(:disabled) {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.usr-page-nav-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.usr-page-num-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #0f172a;
+  font-weight: 700;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.usr-page-num-btn.active {
+  background: #eab308;
+  color: #0f172a;
+  border-color: #ca8a04;
+}
+
+/* Responsiveness */
+@media (max-width: 1024px) {
+  .usr-summary-cards-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .admin-users-page-container {
+    padding: 16px;
+  }
+  .usr-summary-cards-row {
+    grid-template-columns: 1fr;
+  }
+  .usr-search-filter-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+/* Status Confirmation Modal Dialog */
+.status-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.status-modal-card {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 24px;
+  max-width: 440px;
+  width: 90%;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+}
+
+.status-modal-card h3 {
+  font-size: 18px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 10px 0;
+}
+
+.status-modal-card p {
+  font-size: 14px;
+  color: #475569;
+  line-height: 1.5;
+  margin: 0 0 20px 0;
+}
+
+.status-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.btn-cancel {
+  background: #f1f5f9;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-cancel:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.btn-confirm {
+  background: #eab308;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #0f172a;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-confirm:hover {
+  background: #ca8a04;
+}
+
+.btn-confirm.danger {
+  background: #dc2626;
+  color: #ffffff;
+}
+
+.btn-confirm.danger:hover {
+  background: #b91c1c;
+}
+

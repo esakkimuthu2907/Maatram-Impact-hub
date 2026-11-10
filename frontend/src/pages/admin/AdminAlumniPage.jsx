@@ -12,6 +12,8 @@ import {
   Edit2,
   Trash2,
   UserCheck,
+  Clock,
+  Check,
   Sparkles,
   ShieldCheck,
   X,
@@ -158,6 +160,26 @@ export default function AdminAlumniPage() {
     }
   };
 
+  const handleApproveAlumni = async (alum) => {
+    try {
+      await adminAPI.approveUser(alum.id);
+      showToast(`✅ Alumni ${alum.fullName} (${alum.applicationId}) has been approved!`);
+      loadAlumni();
+    } catch (err) {
+      showToast(err.message || "Failed to approve alumni", "error");
+    }
+  };
+
+  const handleRejectAlumni = async (alum) => {
+    try {
+      await adminAPI.toggleUserStatus(alum.id, "inactive");
+      showToast(`Alumni ${alum.fullName} marked as Inactive.`);
+      loadAlumni();
+    } catch (err) {
+      showToast(err.message || "Failed to update alumni status", "error");
+    }
+  };
+
   const handleRemoveAssignment = async (alumnus) => {
     if (window.confirm(`Remove work assignment for ${alumnus.fullName}?`)) {
       try {
@@ -259,14 +281,18 @@ export default function AdminAlumniPage() {
         </div>
 
         <div className="adm-alumni-filter-tabs">
-          {["All", "active"].map((st) => (
+          {[
+            { key: "All", label: `All Registered Alumni (${alumniList.length})` },
+            { key: "active", label: `Active Scholars (${alumniList.filter(a => a.status === 'active').length})` },
+            { key: "pending_approval", label: `Pending Approval (${alumniList.filter(a => a.status === 'pending_approval').length})` },
+          ].map((st) => (
             <button
-              key={st}
+              key={st.key}
               type="button"
-              className={`adm-filter-pill ${selectedStatus === st ? "active" : ""}`}
-              onClick={() => setSelectedStatus(st)}
+              className={`adm-filter-pill ${selectedStatus === st.key ? "active" : ""}`}
+              onClick={() => setSelectedStatus(st.key)}
             >
-              {st === "All" ? `All Registered Alumni (${alumniList.length})` : "Active Scholars"}
+              {st.label}
             </button>
           ))}
         </div>
@@ -418,14 +444,70 @@ export default function AdminAlumniPage() {
 
                     {/* Status */}
                     <td>
-                      <span className="status-badge-active">
-                        Active
-                      </span>
+                      {alum.status === "pending_approval" ? (
+                        <span style={{ background: "#FEF9C3", color: "#854D0E", padding: "4px 10px", borderRadius: 12, fontSize: 11.5, fontWeight: 700, border: "1px solid #FDE047", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                          <Clock size={12} /> Pending Approval
+                        </span>
+                      ) : alum.status === "inactive" ? (
+                        <span style={{ background: "#FEE2E2", color: "#991B1B", padding: "4px 10px", borderRadius: 12, fontSize: 11.5, fontWeight: 700, border: "1px solid #FCA5A5" }}>
+                          Inactive
+                        </span>
+                      ) : (
+                        <span className="status-badge-active">
+                          Active
+                        </span>
+                      )}
                     </td>
 
-                    {/* Actions: Assign Work Button + View + Edit + Delete */}
+                    {/* Actions: Approve/Reject for pending OR Assign Work Button + View + Edit + Delete */}
                     <td style={{ textAlign: "right" }}>
                       <div style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                        {alum.status === "pending_approval" ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => handleApproveAlumni(alum)}
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 4,
+                                padding: "6px 12px",
+                                background: "#10B981",
+                                color: "#FFF",
+                                border: "none",
+                                borderRadius: 8,
+                                fontSize: 12,
+                                fontWeight: 700,
+                                cursor: "pointer",
+                                boxShadow: "0 2px 6px rgba(16,185,129,0.3)",
+                              }}
+                              title="Approve Alumni Account"
+                            >
+                              <Check size={13} /> Approve
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleRejectAlumni(alum)}
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 4,
+                                padding: "6px 10px",
+                                background: "#EF4444",
+                                color: "#FFF",
+                                border: "none",
+                                borderRadius: 8,
+                                fontSize: 12,
+                                fontWeight: 700,
+                                cursor: "pointer",
+                              }}
+                              title="Reject Alumni Application"
+                            >
+                              <X size={13} /> Reject
+                            </button>
+                          </>
+                        ) : null}
+
                         <button
                           type="button"
                           className="table-action-btn"

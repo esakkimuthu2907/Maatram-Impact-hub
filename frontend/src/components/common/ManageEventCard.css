@@ -1,0 +1,552 @@
+/* frontend/src/components/common/ManageEventCard.css */
+/* Exact visual replication of media_ce20febf.jpg */
+
+.manage-event-card-container {
+  background: #ffffff;
+  border: 1.5px solid #facc15; /* Clean gold/yellow border matching Image 2 */
+  border-radius: 20px;
+  padding: 22px 24px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+  margin-bottom: 24px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  color: #0f172a;
+  transition: box-shadow 0.2s ease;
+}
+
+.manage-event-card-container:hover {
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.06);
+}
+
+/* ───────────────────────────────────────────────────────────── */
+/* 1. TOP HEADER SECTION (media_ce20febf.jpg)                    */
+/* ───────────────────────────────────────────────────────────── */
+
+.manage-event-top-box {
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+  margin-bottom: 20px;
+}
+
+/* Festive Party Popper / Megaphone inside yellow rounded square */
+.event-icon-avatar-wrap {
+  width: 62px;
+  height: 62px;
+  background: #fef08a; /* Soft golden yellow */
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30px;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(234, 179, 8, 0.2);
+}
+
+.party-popper-emoji {
+  line-height: 1;
+}
+
+.event-header-middle {
+  flex: 1;
+}
+
+.event-title-meta-line {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+.event-title-heading {
+  font-family: "Georgia", "Times New Roman", serif;
+  font-size: 20px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+  letter-spacing: -0.3px;
+}
+
+.event-meta-specs-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: #475569;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.meta-spec-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 500;
+}
+
+.meta-spec-sep {
+  color: #cbd5e1;
+}
+
+.event-short-desc {
+  font-size: 13.5px;
+  color: #64748b;
+  margin: 0;
+  line-height: 1.45;
+}
+
+.event-header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.event-status-pill-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.event-accordion-btn {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #334155;
+  transition: all 0.2s;
+}
+
+.event-accordion-btn:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+/* ───────────────────────────────────────────────────────────── */
+/* 2. STAT COUNTERS BAR (Exact match to media_ce20febf.jpg)      */
+/* ───────────────────────────────────────────────────────────── */
+
+.event-stats-counters-bar {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 14px;
+  margin-bottom: 22px;
+}
+
+.stat-counter-cell {
+  background: #f8fafc;
+  border: 1px solid #f1f5f9;
+  border-radius: 12px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.02);
+}
+
+.stat-cell-icon {
+  color: #0f172a;
+  flex-shrink: 0;
+}
+
+.stat-cell-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.stat-cell-number {
+  font-family: "Georgia", "Times New Roman", serif;
+  font-size: 18px;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1.1;
+}
+
+.stat-cell-label {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #64748b;
+  margin-top: 1px;
+}
+
+/* ───────────────────────────────────────────────────────────── */
+/* 3. ACCORDION WORKSPACE & TABS (media_ce20febf.jpg)            */
+/* ───────────────────────────────────────────────────────────── */
+
+.event-accordion-content-area {
+  border-top: 1px solid #f1f5f9;
+  padding-top: 18px;
+  animation: cardFadeIn 0.2s ease-out;
+}
+
+@keyframes cardFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.event-mgmt-actions-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.left-mgmt-buttons,
+.right-mgmt-buttons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mgmt-action-btn {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #334155;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s;
+}
+
+.mgmt-action-btn:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.mgmt-action-btn.complete-btn {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+  color: #059669;
+  font-weight: 700;
+}
+
+.mgmt-action-btn.complete-btn:hover {
+  background: #d1fae5;
+}
+
+.mgmt-icon-btn {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #64748b;
+  transition: all 0.2s;
+}
+
+.mgmt-icon-btn:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.mgmt-icon-btn.delete:hover {
+  background: #fef2f2;
+  color: #dc2626;
+  border-color: #fecaca;
+}
+
+/* Tabs Row matching media_ce20febf.jpg */
+.event-table-tabs-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.event-tab-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 18px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s ease;
+}
+
+/* Active yellow pill: "Volunteers Who Participated (120)" */
+.event-tab-pill.yellow {
+  background: #fde047;
+  color: #0f172a;
+  border: 1px solid #facc15;
+}
+
+.event-tab-pill.yellow.active {
+  background: #facc15;
+  box-shadow: 0 2px 6px rgba(234, 179, 8, 0.25);
+}
+
+/* Inactive grey pill: "Interested Volunteers (250)" */
+.event-tab-pill.grey {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+}
+
+.event-tab-pill.grey.active {
+  background: #0f172a;
+  color: #fbbf24;
+  border-color: #0f172a;
+}
+
+.event-tab-pill.blue {
+  background: #eff6ff;
+  color: #2563eb;
+  border: 1px solid #bfdbfe;
+}
+.event-tab-pill.blue.active {
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.event-tab-pill.green {
+  background: #ecfdf5;
+  color: #059669;
+  border: 1px solid #a7f3d0;
+}
+.event-tab-pill.green.active {
+  background: #059669;
+  color: #ffffff;
+}
+
+.event-tab-pill.purple {
+  background: #f5f3ff;
+  color: #7c3aed;
+  border: 1px solid #ddd6fe;
+}
+.event-tab-pill.purple.active {
+  background: #7c3aed;
+  color: #ffffff;
+}
+
+/* ───────────────────────────────────────────────────────────── */
+/* 4. VOLUNTEER PARTICIPATION TABLE (media_ce20febf.jpg)         */
+/* ───────────────────────────────────────────────────────────── */
+
+.event-table-wrapper {
+  overflow-x: auto;
+  border-radius: 12px;
+  border: 1px solid #f1f5f9;
+}
+
+.event-volunteer-data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+  text-align: left;
+}
+
+.event-volunteer-data-table thead th {
+  background: #f8fafc;
+  color: #475569;
+  font-weight: 700;
+  padding: 12px 16px;
+  border-bottom: 1px solid #e2e8f0;
+  white-space: nowrap;
+}
+
+.event-volunteer-data-table tbody tr {
+  border-bottom: 1px solid #f1f5f9;
+  transition: background 0.15s ease;
+}
+
+.event-volunteer-data-table tbody tr:hover {
+  background: #fafaf9;
+}
+
+.event-volunteer-data-table td {
+  padding: 12px 16px;
+  color: #334155;
+  vertical-align: middle;
+}
+
+/* Volunteer initials in black circle (Image 2) */
+.vol-name-avatar-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.vol-initial-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #0f172a;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.vol-full-name {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.vol-roll-no {
+  font-family: monospace;
+  font-weight: 600;
+  color: #475569;
+}
+
+.vol-college-name {
+  color: #334155;
+  max-width: 220px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.vol-zone-badge {
+  background: #fef9c3;
+  color: #854d0e;
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 12px;
+  display: inline-block;
+}
+
+.vol-batch-text {
+  color: #64748b;
+  font-size: 12.5px;
+}
+
+.vol-rating-text {
+  font-weight: 700;
+  color: #0f172a;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.star-gold {
+  color: #eab308;
+  font-size: 13px;
+}
+
+.vol-points-text {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+/* Actions in row */
+.vol-actions-flow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.flow-btn {
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.flow-btn.approve {
+  background: #ecfdf5;
+  color: #059669;
+  border-color: #a7f3d0;
+}
+.flow-btn.approve:hover {
+  background: #d1fae5;
+}
+
+.flow-btn.reject {
+  background: #fef2f2;
+  color: #dc2626;
+  border-color: #fecaca;
+}
+.flow-btn.reject:hover {
+  background: #fee2e2;
+}
+
+.flow-btn.assign {
+  background: #f5f3ff;
+  color: #7c3aed;
+  border-color: #ddd6fe;
+}
+.flow-btn.assign:hover {
+  background: #ede9fe;
+}
+
+.flow-btn.complete {
+  background: #0f172a;
+  color: #fbbf24;
+}
+.flow-btn.complete:hover {
+  background: #1e293b;
+}
+
+.flow-btn.cert {
+  background: #fef9c3;
+  color: #854d0e;
+  border-color: #fef08a;
+}
+.flow-btn.cert:hover {
+  background: #fef08a;
+}
+
+.flow-btn.reset {
+  background: #f1f5f9;
+  color: #64748b;
+  border-color: #e2e8f0;
+}
+
+.empty-table-cell {
+  text-align: center;
+  padding: 32px 16px;
+  color: #64748b;
+  font-size: 13px;
+}
+
+/* Responsiveness */
+@media (max-width: 900px) {
+  .event-stats-counters-bar {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .manage-event-top-box {
+    flex-direction: column;
+  }
+  .event-stats-counters-bar {
+    grid-template-columns: 1fr;
+  }
+}

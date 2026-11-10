@@ -182,12 +182,12 @@ export default function AdminReportsPage() {
   const summary = reportsData?.summary || {};
   const appStats = reportsData?.applicationStatistics || {};
 
-  // ---- Stat Cards
+  // ---- Stat Cards (All Real-time, defaulting to 0)
   const summaryCards = [
-    { label: "Total Students", value: summary.totalStudents ?? 3, icon: <Users size={22} />, color: "#4F46E5", bg: "#EEF2FF" },
-    { label: "Total Hours", value: summary.totalHours ?? 38, icon: <Clock size={22} />, color: "#0369A1", bg: "#E0F2FE", suffix: "hrs" },
-    { label: "Total Points", value: summary.totalPoints ?? 260, icon: <Award size={22} />, color: "#B45309", bg: "#FEF3C7", suffix: "pts" },
-    { label: "Total Applications", value: summary.totalApplications ?? 7, icon: <FileText size={22} />, color: "#059669", bg: "#D1FAE5" },
+    { label: "Total Students", value: summary.totalStudents ?? 0, icon: <Users size={22} />, color: "#4F46E5", bg: "#EEF2FF" },
+    { label: "Total Hours", value: summary.totalHours ?? 0, icon: <Clock size={22} />, color: "#0369A1", bg: "#E0F2FE", suffix: "hrs" },
+    { label: "Total Points", value: summary.totalPoints ?? 0, icon: <Award size={22} />, color: "#B45309", bg: "#FEF3C7", suffix: "pts" },
+    { label: "Total Applications", value: summary.totalApplications ?? 0, icon: <FileText size={22} />, color: "#059669", bg: "#D1FAE5" },
   ];
 
   if (loading) {

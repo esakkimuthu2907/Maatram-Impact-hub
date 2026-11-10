@@ -26,7 +26,10 @@ const eventSchema = new mongoose.Schema(
     contactEmail:     { type: String, default: "coordinator@maatramfoundation.com" },
     featured:         { type: Boolean, default: false },
     isActive:         { type: Boolean, default: true },
-    eventStatus:      { type: String, enum: ["Upcoming", "Ongoing", "Completed"], default: "Upcoming" },
+    eventStatus:      { type: String, enum: ["Upcoming", "Ongoing", "Completed", "Cancelled"], default: "Upcoming" },
+    interestedCount:  { type: Number, default: 0 },
+    emailsSent:       { type: Boolean, default: false },
+    reminderSent:     { type: Boolean, default: false },
     qrCodeToken:      { type: String, default: "" },
     attendanceOpen:   { type: Boolean, default: true },
     slots:            [

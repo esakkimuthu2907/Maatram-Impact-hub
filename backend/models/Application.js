@@ -15,7 +15,7 @@ const applicationSchema = new mongoose.Schema(
     slotName:         { type: String, default: "Standard Slot" },
     status:           {
       type: String,
-      enum: ["Pending", "Approved", "Rejected", "Completed", "Cancelled"],
+      enum: ["Applied", "Pending", "Approved", "Assigned", "Completed", "Rejected", "Cancelled"],
       default: "Pending",
     },
     attendanceStatus: {

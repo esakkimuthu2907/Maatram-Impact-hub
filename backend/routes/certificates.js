@@ -11,6 +11,7 @@ const { protect, adminOnly } = require("../middleware/auth");
 
 router.get("/my", protect, getMyCertificates);
 router.get("/all", protect, adminOnly, getAllCertificates);
+router.get("/verify/:id", getCertificateById); // Public verification endpoint
 router.get("/:id", getCertificateById); // Publicly viewable/verifiable by ID
 
 // Admin manual issuance

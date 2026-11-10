@@ -1,5 +1,5 @@
 // frontend/src/pages/admin/AdminEventsPage.jsx
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
 import {
   CalendarPlus,
@@ -42,12 +42,19 @@ import {
   Upload,
   Image as ImageIcon,
   RotateCcw,
+  User,
+  Bell,
+  Heart,
+  UserCheck,
 } from "lucide-react";
 
 import { useApp } from "../../context/AppContext";
 import { CATEGORIES } from "../../data/mockData";
 import { adminAPI } from "../../api/adminAPI";
+import { certificatesAPI } from "../../api/certificatesAPI";
 import BadgeShowcase from "../../components/common/BadgeShowcase";
+import ManageEventCard from "../../components/common/ManageEventCard";
+import EventCalendar from "../../components/common/EventCalendar";
 import "./AdminEventsPage.css";
 
 export const DEFAULT_ALUMNI_MENTORS = [
@@ -120,7 +127,44 @@ export default function AdminEventsPage() {
     verifyHourLog,
     emailLogs = [],
     fetchEmailLogs,
+    openCertificate,
   } = useApp();
+
+  const [usersList, setUsersList] = useState([]);
+
+  const totalStudentsCount = useMemo(() => usersList.filter(u => u.role === "student").length, [usersList]);
+  const activeVolunteersCount = useMemo(() => usersList.filter(u => u.role === "student" && u.status === "active").length, [usersList]);
+  const registeredAlumniCount = useMemo(() => usersList.filter(u => u.role === "alumni" || u.role === "Alumni").length, [usersList]);
+  const alumniUsers = useMemo(() => usersList.filter(u => u.role === "alumni" || u.role === "Alumni"), [usersList]);
+  const [showAdminCalendar, setShowAdminCalendar] = useState(false);
+  const [modalTab, setModalTab] = useState("participated");
+
+  useEffect(() => {
+    adminAPI
+      .getUsers()
+      .then((res) => {
+        if (res?.data) setUsersList(res.data);
+      })
+      .catch(() => {});
+  }, []);
+
+  const eventStatusSummary = useMemo(() => {
+    const totalEvents = opportunities.length;
+    const upcomingEvents = opportunities.filter((o) => (o.eventStatus || "Upcoming") === "Upcoming").length;
+    const pendingAppsCount = applications.filter((a) => a.status === "Pending" || a.status === "Applied").length;
+    const approvedVolunteersCount = applications.filter((a) => a.status === "Approved").length;
+    const assignedVolunteersCount = applications.filter((a) => a.status === "Assigned").length;
+    const completedEvents = opportunities.filter((o) => o.eventStatus === "Completed").length;
+
+    return {
+      totalEvents,
+      upcomingEvents,
+      pendingAppsCount,
+      approvedVolunteersCount,
+      assignedVolunteersCount,
+      completedEvents,
+    };
+  }, [opportunities, applications]);
 
   const isAdmin = user?.role === "admin";
 
@@ -563,28 +607,28 @@ export default function AdminEventsPage() {
             Welcome, <span className="adm-hero-highlight">{user?.fullName || "Admin"}</span>!
           </h1>
           <p className="adm-hero-subtitle">
-            You have {opportunities.length || 3} open events, 3 active volunteers, and 2 registered alumni leads.
+            You have {opportunities.length} open events, {activeVolunteersCount} active volunteers, and {registeredAlumniCount} registered alumni leads.
           </p>
         </div>
         <div className="adm-hero-glass-stats">
           <div className="adm-glass-stat">
             <Calendar size={18} />
             <div className="adm-glass-stat-text">
-              <strong>{opportunities.length || 3}</strong>
+              <strong>{opportunities.length}</strong>
               <span>Events</span>
             </div>
           </div>
           <div className="adm-glass-stat">
             <Users size={18} />
             <div className="adm-glass-stat-text">
-              <strong>{applications.length || 3}</strong>
+              <strong>{applications.length}</strong>
               <span>Interests</span>
             </div>
           </div>
           <div className="adm-glass-stat">
             <Star size={18} />
             <div className="adm-glass-stat-text">
-              <strong>3</strong>
+              <strong>{activeVolunteersCount}</strong>
               <span>Active</span>
             </div>
           </div>
@@ -598,7 +642,7 @@ export default function AdminEventsPage() {
             <GraduationCap size={22} />
           </div>
           <div className="adm-quick-content">
-            <strong className="adm-quick-number">3</strong>
+            <strong className="adm-quick-number">{totalStudentsCount}</strong>
             <span className="adm-quick-label">Total Students</span>
           </div>
         </div>
@@ -608,7 +652,7 @@ export default function AdminEventsPage() {
             <Users size={22} />
           </div>
           <div className="adm-quick-content">
-            <strong className="adm-quick-number">3</strong>
+            <strong className="adm-quick-number">{activeVolunteersCount}</strong>
             <span className="adm-quick-label">Active Volunteers</span>
           </div>
         </div>
@@ -618,7 +662,7 @@ export default function AdminEventsPage() {
             <Award size={22} />
           </div>
           <div className="adm-quick-content">
-            <strong className="adm-quick-number">2</strong>
+            <strong className="adm-quick-number">{registeredAlumniCount}</strong>
             <span className="adm-quick-label">Registered Alumni</span>
           </div>
         </div>
@@ -628,7 +672,7 @@ export default function AdminEventsPage() {
             <FileText size={22} />
           </div>
           <div className="adm-quick-content">
-            <strong className="adm-quick-number">{applications.length || 3}</strong>
+            <strong className="adm-quick-number">{applications.length}</strong>
             <span className="adm-quick-label">Event Interests</span>
           </div>
         </div>
@@ -695,6 +739,84 @@ export default function AdminEventsPage() {
       {/* ============================================================== */}
       {activeTab === "events" && (
         <section className="admin-content-section">
+          {/* ───────────────────────────────────────────────────────────── */}
+          {/* PHASE 3D: EVENT STATUS SUMMARY (6 Attractive Metric Cards)   */}
+          {/* ───────────────────────────────────────────────────────────── */}
+          <div className="adm-event-summary-grid">
+            <div className="adm-sum-card total">
+              <span className="adm-sum-label">Total Events</span>
+              <span className="adm-sum-number">{eventStatusSummary.totalEvents}</span>
+              <span className="adm-sum-sub">All created drives</span>
+            </div>
+
+            <div className="adm-sum-card upcoming">
+              <span className="adm-sum-label">Upcoming Events</span>
+              <span className="adm-sum-number">{eventStatusSummary.upcomingEvents}</span>
+              <span className="adm-sum-sub">Scheduled on calendar</span>
+            </div>
+
+            <div className="adm-sum-card pending">
+              <span className="adm-sum-label">Pending Applications</span>
+              <span className="adm-sum-number">{eventStatusSummary.pendingAppsCount}</span>
+              <span className="adm-sum-sub">Awaiting admin review</span>
+            </div>
+
+            <div className="adm-sum-card approved">
+              <span className="adm-sum-label">Approved Volunteers</span>
+              <span className="adm-sum-number">{eventStatusSummary.approvedVolunteersCount}</span>
+              <span className="adm-sum-sub">Accepted to participate</span>
+            </div>
+
+            <div className="adm-sum-card assigned">
+              <span className="adm-sum-label">Assigned Volunteers</span>
+              <span className="adm-sum-number">{eventStatusSummary.assignedVolunteersCount}</span>
+              <span className="adm-sum-sub">Assigned to drive duties</span>
+            </div>
+
+            <div className="adm-sum-card completed">
+              <span className="adm-sum-label">Completed Events</span>
+              <span className="adm-sum-number">{eventStatusSummary.completedEvents}</span>
+              <span className="adm-sum-sub">Successfully conducted</span>
+            </div>
+          </div>
+
+          {/* ───────────────────────────────────────────────────────────── */}
+          {/* PHASE 2B: ADMIN CALENDAR TOGGLE & VIEW                        */}
+          {/* ───────────────────────────────────────────────────────────── */}
+          <div style={{ marginBottom: 20 }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: 12,
+              }}
+            >
+              <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: "#0F172A" }}>
+                {showAdminCalendar ? "Hide Event Calendar" : "Show Admin Monthly Calendar"}
+              </h3>
+              <button
+                type="button"
+                className="dash-btn dash-btn-outline"
+                onClick={() => setShowAdminCalendar(!showAdminCalendar)}
+                style={{ padding: "6px 14px", fontSize: 13 }}
+              >
+                <Calendar size={14} /> {showAdminCalendar ? "Collapse Calendar" : "View Interactive Calendar"}
+              </button>
+            </div>
+
+            {showAdminCalendar && (
+              <div style={{ marginBottom: 24 }}>
+                <EventCalendar
+                  mode="admin"
+                  events={opportunities}
+                  applications={applications}
+                  onSelectEvent={(ev) => setManagingEvent(ev)}
+                />
+              </div>
+            )}
+          </div>
+
           {/* SEARCH & FILTERS BAR */}
           <div className="admin-toolbar">
             <div className="admin-search-box">
@@ -748,7 +870,6 @@ export default function AdminEventsPage() {
                 const isShortlisted = opp.status === "Shortlisted";
                 const statusClass = isCompleted ? "completed" : isShortlisted ? "shortlisted" : "open";
                 const statusText = isCompleted ? "Completed" : isShortlisted ? "Shortlisted" : "Open";
-
                 const filled = (opp.volunteersNeeded || 10) - (opp.slotsAvailable || 0);
 
                 return (
@@ -759,13 +880,18 @@ export default function AdminEventsPage() {
                         src={getEventImage(opp)}
                         alt={opp.title}
                         className="adm-event-card-img"
-                        onError={(e) => { e.target.src = "https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?auto=format&fit=crop&w=600&q=80"; }}
+                        onError={(e) => {
+                          e.target.src = "https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?auto=format&fit=crop&w=600&q=80";
+                        }}
                       />
                       <div className="adm-media-floating-actions">
                         <button
                           type="button"
                           className="adm-media-icon-btn"
-                          onClick={(e) => { e.stopPropagation(); openQRAttendance(opp); }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openQRAttendance(opp);
+                          }}
                           title="QR Attendance Roster"
                         >
                           <QrCode size={13} />
@@ -773,7 +899,10 @@ export default function AdminEventsPage() {
                         <button
                           type="button"
                           className="adm-media-icon-btn"
-                          onClick={(e) => { e.stopPropagation(); sendEventReminder(oppId); }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            sendEventReminder(oppId);
+                          }}
                           title="Send Email Reminder"
                         >
                           <Mail size={13} />
@@ -786,7 +915,7 @@ export default function AdminEventsPage() {
 
                     {/* Card Body */}
                     <div className="adm-event-card-body">
-                      <h3 className="adm-event-title" onClick={() => setManagingEvent(opp)} title={opp.title}>
+                      <h3 className="adm-event-title" onClick={() => setManagingEvent(opp)} title={opp.title} style={{ cursor: "pointer" }}>
                         {opp.title}
                       </h3>
                       <p className="adm-event-desc">
@@ -811,21 +940,30 @@ export default function AdminEventsPage() {
                         </div>
                       </div>
 
-                      {/* Counts Row: Interested / Selected with vertical divider */}
+                      {/* Counts Row - Real Time Data */}
                       <div className="adm-event-counts-row">
                         <div>
                           <Users size={14} color="#64748B" />
-                          <span><strong>{opp.applicationsCount || (applications.filter(a => a.opportunityId === oppId).length) || 12}</strong> Interested</span>
+                          <span>
+                            <strong>
+                              {applications.filter((a) => String(a.opportunityId?._id || a.opportunityId?.id || a.opportunityId || "") === String(oppId) || String(a.opportunityTitle || "").trim().toLowerCase() === String(opp.title || "").trim().toLowerCase()).length}
+                            </strong>{" "}
+                            Interested
+                          </span>
                         </div>
                         <div>
                           <CheckCircle2 size={14} color="#16A34A" />
-                          <span><strong>{Math.max(0, filled)}/{opp.volunteersNeeded || 10}</strong> Selected</span>
+                          <span>
+                            <strong>
+                              {applications.filter((a) => (String(a.opportunityId?._id || a.opportunityId?.id || a.opportunityId || "") === String(oppId) || String(a.opportunityTitle || "").trim().toLowerCase() === String(opp.title || "").trim().toLowerCase()) && (a.status === "Approved" || a.status === "Completed")).length}/{opp.volunteersNeeded || 12}
+                            </strong>{" "}
+                            Selected
+                          </span>
                         </div>
                       </div>
 
-                      {/* Actions Row matching Image 2 & 3: Manage, Edit, Delete (3 buttons only, zero horizontal overflow) */}
+                      {/* Actions Row */}
                       <div className="adm-event-actions-row">
-                        {/* Yellow Manage Button */}
                         <button
                           type="button"
                           className={`adm-card-btn-manage ${isCompleted ? "completed" : ""}`}
@@ -835,7 +973,6 @@ export default function AdminEventsPage() {
                           <Eye size={14} /> {isCompleted ? "View" : "Manage"}
                         </button>
 
-                        {/* White/Green Outline Edit Button */}
                         <button
                           type="button"
                           className="adm-card-btn-edit"
@@ -845,7 +982,6 @@ export default function AdminEventsPage() {
                           <Edit3 size={13} /> Edit
                         </button>
 
-                        {/* Red Delete Button */}
                         <button
                           type="button"
                           className="adm-card-btn-delete"
@@ -861,7 +997,7 @@ export default function AdminEventsPage() {
               })}
             </div>
           )}
-        </section>
+          </section>
       )}
 
       {/* ============================================================== */}
@@ -1881,13 +2017,23 @@ export default function AdminEventsPage() {
 
                 let resolvedApps = [...rawApps, ...matchingExtra];
 
-                const currentApps = resolvedApps.map((a) => ({
+                const allCurrentApps = resolvedApps.map((a) => ({
                   ...a,
                   status: eventLocalApps[a.id || a._id] || a.status || "Pending",
                 }));
 
-                const approvedCount = currentApps.filter((a) => a.status === "Approved" || a.status === "Completed").length;
+                const approvedCount = allCurrentApps.filter((a) => a.status === "Approved" || a.status === "Completed").length;
                 const isCompleted = managingEvent.eventStatus === "Completed" || managingEvent.status === "Completed";
+
+                // Filter by selected modal tab
+                const currentApps = (() => {
+                  if (modalTab === "participated") return allCurrentApps.filter(a => a.status === "Completed");
+                  if (modalTab === "pending") return allCurrentApps.filter(a => a.status === "Pending" || a.status === "Applied");
+                  if (modalTab === "approved") return allCurrentApps.filter(a => a.status === "Approved");
+                  if (modalTab === "assigned") return allCurrentApps.filter(a => a.status === "Assigned");
+                  // "interested" – show all (we don't have separate "interested" vs "applied" data)
+                  return allCurrentApps;
+                })();
 
                 return (
                   <div>
@@ -1917,6 +2063,45 @@ export default function AdminEventsPage() {
                       </div>
                     </div>
 
+                    {/* ── 5 STAT BOXES (matching user reference image) ── */}
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 10, marginTop: 14, marginBottom: 14 }}>
+                      <div style={{ background: "#F8FAFC", border: "1.5px solid #E2E8F0", borderRadius: 12, padding: "12px 10px", display: "flex", alignItems: "center", gap: 8 }}>
+                        <Users size={16} color="#0F172A" style={{ flexShrink: 0 }} />
+                        <div>
+                          <div style={{ fontSize: 16, fontWeight: 800, color: "#0F172A", lineHeight: 1 }}>{allCurrentApps.length}</div>
+                          <div style={{ fontSize: 10.5, color: "#64748B", fontWeight: 600, marginTop: 2 }}>Interested</div>
+                        </div>
+                      </div>
+                      <div style={{ background: "#F8FAFC", border: "1.5px solid #E2E8F0", borderRadius: 12, padding: "12px 10px", display: "flex", alignItems: "center", gap: 8 }}>
+                        <User size={16} color="#0F172A" style={{ flexShrink: 0 }} />
+                        <div>
+                          <div style={{ fontSize: 16, fontWeight: 800, color: "#0F172A", lineHeight: 1 }}>{approvedCount} / {managingEvent.volunteersNeeded || 8}</div>
+                          <div style={{ fontSize: 10.5, color: "#64748B", fontWeight: 600, marginTop: 2 }}>Volunteers</div>
+                        </div>
+                      </div>
+                      <div style={{ background: "#F8FAFC", border: "1.5px solid #E2E8F0", borderRadius: 12, padding: "12px 10px", display: "flex", alignItems: "center", gap: 8 }}>
+                        <Clock size={16} color="#0F172A" style={{ flexShrink: 0 }} />
+                        <div>
+                          <div style={{ fontSize: 16, fontWeight: 800, color: "#0F172A", lineHeight: 1 }}>{approvedCount * (managingEvent.durationHours || 4)}</div>
+                          <div style={{ fontSize: 10.5, color: "#64748B", fontWeight: 600, marginTop: 2 }}>Total Hours</div>
+                        </div>
+                      </div>
+                      <div style={{ background: "#F8FAFC", border: "1.5px solid #E2E8F0", borderRadius: 12, padding: "12px 10px", display: "flex", alignItems: "center", gap: 8 }}>
+                        <Mail size={16} color="#0F172A" style={{ flexShrink: 0 }} />
+                        <div>
+                          <div style={{ fontSize: 16, fontWeight: 800, color: "#0F172A", lineHeight: 1 }}>{managingEvent.emailsSent !== false ? "Yes" : "No"}</div>
+                          <div style={{ fontSize: 10.5, color: "#64748B", fontWeight: 600, marginTop: 2 }}>Emails Sent</div>
+                        </div>
+                      </div>
+                      <div style={{ background: "#F8FAFC", border: "1.5px solid #E2E8F0", borderRadius: 12, padding: "12px 10px", display: "flex", alignItems: "center", gap: 8 }}>
+                        <Bell size={16} color="#0F172A" style={{ flexShrink: 0 }} />
+                        <div>
+                          <div style={{ fontSize: 16, fontWeight: 800, color: "#0F172A", lineHeight: 1 }}>{managingEvent.reminderSent !== false ? "Yes" : "No"}</div>
+                          <div style={{ fontSize: 10.5, color: "#64748B", fontWeight: 600, marginTop: 2 }}>Reminder Sent</div>
+                        </div>
+                      </div>
+                    </div>
+
                     {/* Assigned Alumni Mentor Executive Card */}
                     <div style={{ marginTop: 16, padding: "14px 20px", background: "linear-gradient(135deg, #EFF6FF 0%, #F0FDF4 100%)", border: "1.5px solid #BFDBFE", borderRadius: 14, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -1940,15 +2125,41 @@ export default function AdminEventsPage() {
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                         <span style={{ fontSize: 12, color: "#475569", fontWeight: 700 }}>Reassign:</span>
                         <select
-                          value={managingEvent.assignedAlumni || "Sundar R (Senior SDE @ Zoho)"}
-                          onChange={(e) => {
+                          value={managingEvent.assignedAlumni || (alumniUsers.length > 0 ? `${alumniUsers[0].fullName} (${alumniUsers[0].designation || alumniUsers[0].role || 'Alumni Leader'} @ ${alumniUsers[0].organization || alumniUsers[0].company || 'Zoho'})` : "Sundar R (Senior SDE @ Zoho)")}
+                          onChange={async (e) => {
                             const newAlumni = e.target.value;
                             setManagingEvent({ ...managingEvent, assignedAlumni: newAlumni });
-                            updateOpportunity(managingEvent.id || managingEvent._id, { assignedAlumni: newAlumni });
+                            await updateOpportunity(managingEvent.id || managingEvent._id, { assignedAlumni: newAlumni });
+                            
+                            // Find matching registered alumni user
+                            const matchedAlum = alumniUsers.find((a) => {
+                              const label = `${a.fullName} (${a.designation || a.role || "Alumni Leader"} @ ${a.organization || a.company || "Zoho"})`;
+                              return label === newAlumni || a.fullName === newAlumni;
+                            });
+                            if (matchedAlum) {
+                              try {
+                                await adminAPI.assignWork(matchedAlum.id || matchedAlum._id, {
+                                  targetEvent: managingEvent.title,
+                                  targetRole: "Event Lead & Supervisor",
+                                  targetDate: managingEvent.date || new Date().toISOString().split("T")[0],
+                                  targetDesc: `Lead and supervise on-ground student drive for "${managingEvent.title}".`,
+                                });
+                              } catch (err) {
+                                console.warn("Could not sync assignWork to alumni:", err);
+                              }
+                            }
                             showToast(`Assigned event to Alumni: ${newAlumni}`, "success");
                           }}
                           style={{ padding: "7px 14px", fontSize: 12.5, borderRadius: 8, border: "1.5px solid #93C5FD", background: "#FFFFFF", color: "#1E3A8A", fontWeight: 700, cursor: "pointer" }}
                         >
+                          {alumniUsers.map((a) => {
+                            const label = `${a.fullName} (${a.designation || a.role || "Alumni Leader"} @ ${a.organization || a.company || "Zoho"})`;
+                            return (
+                              <option key={a.id || a._id} value={label}>
+                                {a.fullName} ({a.applicationId || "ALU"} - {a.designation || a.role || "Alumni"} @ {a.organization || a.company || "Zoho"})
+                              </option>
+                            );
+                          })}
                           <option value="Sundar R (Senior SDE @ Zoho)">Sundar R (Senior SDE @ Zoho)</option>
                           <option value="Deepika K (Civil Services Aspirant & Public Policy Fellow)">Deepika K (Civil Services Aspirant &amp; Public Policy Fellow)</option>
                           <option value="Direct Admin Supervised">Direct Admin Supervised</option>
@@ -1958,6 +2169,35 @@ export default function AdminEventsPage() {
 
                     {/* Participants list */}
                     <div style={{ marginTop: 22 }}>
+                      {/* ── VOLUNTEER CATEGORY TABS ── */}
+                      <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
+                        {[
+                          { key: "participated", label: "Volunteers Who Participated", count: currentApps.filter(a => a.status === "Completed").length, color: "#CA8A04", bg: "#FEF9C3" },
+                          { key: "interested", label: "Interested Volunteers", count: allCurrentApps.length, color: "#2563EB", bg: "#DBEAFE" },
+                          { key: "pending", label: "Pending Applications", count: currentApps.filter(a => a.status === "Pending" || a.status === "Applied").length, color: "#D97706", bg: "#FEF3C7" },
+                          { key: "approved", label: "Approved Volunteers", count: approvedCount, color: "#16A34A", bg: "#DCFCE7" },
+                          { key: "assigned", label: "Assigned", count: currentApps.filter(a => a.status === "Assigned").length, color: "#7C3AED", bg: "#EDE9FE" },
+                        ].map(tab => (
+                          <button
+                            key={tab.key}
+                            type="button"
+                            onClick={() => setModalTab(tab.key)}
+                            style={{
+                              display: "inline-flex", alignItems: "center", gap: 6,
+                              padding: "7px 14px", borderRadius: 24, fontSize: 12.5, fontWeight: 700, cursor: "pointer",
+                              transition: "all 0.15s",
+                              background: modalTab === tab.key ? tab.bg : "#F8FAFC",
+                              color: modalTab === tab.key ? tab.color : "#64748B",
+                              border: modalTab === tab.key ? `1.5px solid ${tab.color}55` : "1.5px solid #E2E8F0",
+                            }}
+                          >
+                            {tab.label}
+                            <span style={{ background: modalTab === tab.key ? tab.color : "#E2E8F0", color: modalTab === tab.key ? "#fff" : "#64748B", borderRadius: 12, padding: "1px 7px", fontSize: 11, fontWeight: 800 }}>
+                              {tab.count}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
                         <h4 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: "#0F172A", display: "flex", alignItems: "center", gap: 8 }}>
                           <Users size={18} color="#2563EB" /> Registered Volunteers &amp; Applications ({currentApps.length})
@@ -2034,8 +2274,8 @@ export default function AdminEventsPage() {
                                         <Award size={12} /> +{managingEvent.points || 50} pts
                                       </span>
                                     ) : (
-                                      <span style={{ background: "#FEF3C7", color: "#B45309", padding: "4px 10px", borderRadius: 14, fontSize: 11.5, fontWeight: 700, border: "1px solid #FDE68A", display: "inline-flex", alignItems: "center", gap: 4 }}>
-                                        <Clock size={12} /> Pending
+                                      <span style={{ background: "#FEF9C3", color: "#854D0E", padding: "4px 12px", borderRadius: 16, fontSize: 12, fontWeight: 700, border: "1px solid #FDE047", display: "inline-flex", alignItems: "center", gap: 5 }}>
+                                        <Clock size={12} color="#854D0E" /> Pending
                                       </span>
                                     )}
                                   </td>
@@ -2046,14 +2286,14 @@ export default function AdminEventsPage() {
                                           <button
                                             type="button"
                                             onClick={() => handleApproveEventVolunteer(app)}
-                                            style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "5px 12px", background: "#10B981", color: "#FFF", border: "none", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer", transition: "all 0.15s ease" }}
+                                            style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 14px", background: "#10B981", color: "#FFF", border: "none", borderRadius: 8, fontSize: 12.5, fontWeight: 700, cursor: "pointer", transition: "all 0.15s ease", boxShadow: "0 2px 6px rgba(16,185,129,0.3)" }}
                                           >
                                             <Check size={13} /> Approve
                                           </button>
                                           <button
                                             type="button"
                                             onClick={() => handleRejectEventVolunteer(app)}
-                                            style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "5px 10px", background: "#EF4444", color: "#FFF", border: "none", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer", transition: "all 0.15s ease" }}
+                                            style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 14px", background: "#EF4444", color: "#FFF", border: "none", borderRadius: 8, fontSize: 12.5, fontWeight: 700, cursor: "pointer", transition: "all 0.15s ease", boxShadow: "0 2px 6px rgba(239,68,68,0.3)" }}
                                           >
                                             <X size={13} /> Reject
                                           </button>
@@ -2067,27 +2307,19 @@ export default function AdminEventsPage() {
                                               display: "inline-flex",
                                               alignItems: "center",
                                               gap: 5,
-                                              padding: "5px 11px",
-                                              background: "#FFF1F2",
-                                              color: "#E11D48",
-                                              border: "1.5px solid #FECDD3",
+                                              padding: "6px 14px",
+                                              background: "#F1F5F9",
+                                              color: "#475569",
+                                              border: "1px solid #CBD5E1",
                                               borderRadius: 8,
                                               fontSize: 12,
                                               fontWeight: 700,
                                               cursor: "pointer",
                                               transition: "all 0.15s ease",
                                             }}
-                                            title="Remove approval and reset back to Pending"
+                                            title="Reconsider and reset back to Pending"
                                           >
-                                            <RotateCcw size={12} /> Remove Approval
-                                          </button>
-                                          <button
-                                            type="button"
-                                            className="table-action-btn table-action-view"
-                                            onClick={() => showToast(`Volunteer ${name} (${appId}) is currently approved and attending.`, "info")}
-                                            title="View Verified Application"
-                                          >
-                                            <Eye size={14} />
+                                            <RotateCcw size={12} /> Reconsider
                                           </button>
                                         </>
                                       ) : (

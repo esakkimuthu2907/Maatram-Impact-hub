@@ -37,6 +37,8 @@ import {
 
 import { useApp } from "../../context/AppContext";
 import { usersAPI } from "../../api/usersAPI";
+import HorizontalEventCarousel from "../../components/common/HorizontalEventCarousel";
+import EventCalendar from "../../components/common/EventCalendar";
 import "./StudentDashboard.css";
 
 // 6 Tier System
@@ -101,6 +103,7 @@ export default function StudentDashboard() {
     certificates = [],
     openCertificate,
     openLinkedInShare,
+    applyForOpportunity,
     cancelApplication,
     showToast,
   } = useApp();
@@ -215,19 +218,19 @@ export default function StudentDashboard() {
           allPoints.reduce((a, b) => a + b, 0) /
             allPoints.length
         )
-      : 380;
+      : 0;
 
   const topScore =
     allPoints.length > 0
       ? Math.max(...allPoints)
-      : 1200;
+      : 0;
 
-  const myRank =
-    peerLeaderboard.findIndex(
-      (u) =>
-        u.applicationId === user?.applicationId ||
-        u.email === user?.email
-    ) + 1 || 5;
+  const myRankIndex = peerLeaderboard.findIndex(
+    (u) =>
+      (u.applicationId && u.applicationId === user?.applicationId) ||
+      (u.email && u.email === user?.email)
+  );
+  const myRank = myRankIndex !== -1 ? myRankIndex + 1 : "–";
 
   const currentDate = new Date().toLocaleDateString(
     "en-GB",
@@ -456,11 +459,11 @@ export default function StudentDashboard() {
 
             <div className="stat-value-row">
               <span className="stat-value">
-                #{myRank}
+                {myRank === "–" ? "–" : `#${myRank}`}
               </span>
 
               <span className="stat-subtext">
-                of {peerLeaderboard.length || 6}
+                of {peerLeaderboard.length}
               </span>
             </div>
 
@@ -618,246 +621,23 @@ export default function StudentDashboard() {
       ══════════════════════════════════════════════════════════════════════ */}
       {dashboardSection === "overview" && (
         <>
-      {/* SECTION: VOLUNTEER OPPORTUNITIES HUB */}
-
-      <div
-        style={{
-          marginTop: 24,
-          marginBottom: 24,
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: 14,
-            flexWrap: "wrap",
-            gap: 10,
+      {/* PHASE 4: HORIZONTAL UPCOMING EVENTS CAROUSEL (Left-to-Right Scrolling) */}
+      <div style={{ marginTop: 20, marginBottom: 24 }}>
+        <HorizontalEventCarousel
+          events={opportunities}
+          applications={applications}
+          onRegister={async (event) => {
+            try {
+              await applyForOpportunity(event.id || event._id, {
+                motivation: "Eager to contribute and volunteer for this drive.",
+              });
+              showToast(`Successfully registered for "${event.title}"! Application submitted for review.`);
+            } catch (err) {
+              showToast(err.message || "Failed to submit application", "error");
+            }
           }}
-        >
-          <div>
-            <h2
-              style={{
-                fontSize: 18,
-                fontWeight: 900,
-                color: "#0F172A",
-                margin: 0,
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-              }}
-            >
-              <span>🌟</span>
-              Volunteer Opportunities Hub
-            </h2>
-
-            <p
-              style={{
-                margin: "2px 0 0",
-                fontSize: 13,
-                color: "#64748B",
-              }}
-            >
-              Explore core foundation streams, event
-              committees, special projects, and mentorship
-              roles
-            </p>
-          </div>
-
-          <Link
-            to="/opportunities"
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 6,
-              fontSize: 13,
-              fontWeight: 700,
-              color: "#2563EB",
-              textDecoration: "none",
-            }}
-          >
-            View All Drives <ArrowRight size={14} />
-          </Link>
-        </div>
-
-        {/* Responsive Opportunities Grid */}
-
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns:
-              "repeat(auto-fit, minmax(260px, 1fr))",
-            gap: 14,
-          }}
-        >
-          {recommendedOpportunities.length > 0 ? (
-            recommendedOpportunities.map((opp) => {
-              const oppId = opp.id || opp._id;
-
-              return (
-                <div
-                  key={oppId}
-                  style={{
-                    background: "#FFFFFF",
-                    border: "1px solid #E2E8F0",
-                    borderRadius: 14,
-                    overflow: "hidden",
-                    boxShadow:
-                      "0 3px 12px rgba(15, 23, 42, 0.05)",
-                  }}
-                >
-                  <img
-                    src={
-                      opp.image ||
-                      "https://images.unsplash.com/photo-1531206715517-5c0ba140b2b8?auto=format&fit=crop&w=700&q=80"
-                    }
-                    alt={
-                      opp.title || "Volunteer opportunity"
-                    }
-                    style={{
-                      width: "100%",
-                      height: 140,
-                      objectFit: "cover",
-                      display: "block",
-                    }}
-                  />
-
-                  <div style={{ padding: 16 }}>
-                    <div
-                      style={{
-                        display: "flex",
-                        gap: 8,
-                        flexWrap: "wrap",
-                        marginBottom: 8,
-                      }}
-                    >
-                      <span
-                        style={{
-                          background: "#EFF6FF",
-                          color: "#1D4ED8",
-                          padding: "4px 8px",
-                          borderRadius: 20,
-                          fontSize: 11,
-                          fontWeight: 700,
-                        }}
-                      >
-                        {opp.category || "Volunteer Drive"}
-                      </span>
-
-                      <span
-                        style={{
-                          background: "#F0FDF4",
-                          color: "#15803D",
-                          padding: "4px 8px",
-                          borderRadius: 20,
-                          fontSize: 11,
-                          fontWeight: 700,
-                        }}
-                      >
-                        {opp.mode || "Offline"}
-                      </span>
-                    </div>
-
-                    <h3
-                      style={{
-                        margin: "0 0 8px",
-                        color: "#0F172A",
-                        fontSize: 15,
-                        fontWeight: 800,
-                      }}
-                    >
-                      {opp.title || "Volunteer Opportunity"}
-                    </h3>
-
-                    <p
-                      style={{
-                        margin: "0 0 12px",
-                        color: "#64748B",
-                        fontSize: 12.5,
-                        lineHeight: 1.5,
-                      }}
-                    >
-                      {opp.description ||
-                        "Be part of this initiative and create a positive impact in the community."}
-                    </p>
-
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        gap: 8,
-                        flexWrap: "wrap",
-                      }}
-                    >
-                      <span
-                        style={{
-                          color: "#64748B",
-                          fontSize: 11.5,
-                        }}
-                      >
-                        <Calendar
-                          size={12}
-                          style={{
-                            verticalAlign: "-2px",
-                          }}
-                        />{" "}
-                        {opp.date || "Date to be announced"}
-                      </span>
-
-                      <Link
-                        to={`/opportunities/${oppId}`}
-                        style={{
-                          color: "#2563EB",
-                          fontSize: 12.5,
-                          fontWeight: 800,
-                          textDecoration: "none",
-                        }}
-                      >
-                        Explore{" "}
-                        <ArrowRight
-                          size={13}
-                          style={{
-                            verticalAlign: "-2px",
-                          }}
-                        />
-                      </Link>
-                    </div>
-                  </div>
-                </div>
-              );
-            })
-          ) : (
-            <div
-              style={{
-                gridColumn: "1 / -1",
-                padding: 20,
-                textAlign: "center",
-                background: "#F8FAFC",
-                border: "1px dashed #CBD5E1",
-                borderRadius: 14,
-              }}
-            >
-              <Compass
-                size={26}
-                color="#64748B"
-                style={{ marginBottom: 6 }}
-              />
-
-              <p
-                style={{
-                  margin: 0,
-                  color: "#64748B",
-                  fontSize: 13,
-                }}
-              >
-                More volunteering streams will appear here
-                when opportunities are available.
-              </p>
-            </div>
-          )}
-        </div>
+          onViewDetails={(event) => navigate(`/opportunities/${event.id || event._id}`)}
+        />
       </div>
 
       {/* SECTION C: VOLUNTEER RANKING & POINTS PROGRESS */}
@@ -1399,6 +1179,25 @@ export default function StudentDashboard() {
             </div>
           </div>
 
+          {/* PHASE 2A: STUDENT INTERACTIVE EVENT CALENDAR */}
+          <div className="dash-section-card">
+            <div className="section-card-header">
+              <div>
+                <h2>Interactive Event Calendar</h2>
+                <p>
+                  Track registered drives, pending applications, and upcoming event dates.
+                </p>
+              </div>
+            </div>
+
+            <EventCalendar
+              mode="student"
+              events={opportunities}
+              applications={applications}
+              onSelectEvent={(ev) => navigate(`/opportunities/${ev.id || ev._id}`)}
+            />
+          </div>
+
           {/* RECENT POINTS TRANSACTIONS */}
 
           <div className="dash-section-card">
@@ -1641,6 +1440,16 @@ export default function StudentDashboard() {
       ══════════════════════════════════════════════════════════════════════ */}
       {dashboardSection === "events" && (
         <div style={{ marginTop: 8 }}>
+          {/* Monthly Event Calendar View */}
+          <div style={{ marginBottom: 24 }}>
+            <EventCalendar
+              mode="student"
+              events={opportunities}
+              applications={applications}
+              onSelectEvent={(ev) => navigate(`/opportunities/${ev.id || ev._id}`)}
+            />
+          </div>
+
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
             <div>
               <h2 style={{ fontSize: 20, fontWeight: 800, margin: "0 0 4px", color: "#0F172A" }}>
