@@ -24,11 +24,19 @@ import {
   ChevronRight,
   Eye,
   Plus,
+  Users,
+  Trophy,
+  ChevronDown,
+  Ban,
+  RotateCcw,
+  Mail,
+  Phone,
 } from "lucide-react";
 import { useApp } from "../../context/AppContext";
 import { adminAPI } from "../../api/adminAPI";
 import authService from "../../services/authService";
 import "./AdminAlumniPage.css";
+
 
 export default function AdminAlumniPage() {
   const { opportunities = [], updateOpportunity, showToast } = useApp();
@@ -37,18 +45,41 @@ export default function AdminAlumniPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("All");
+  const [sortBy, setSortBy] = useState("newest"); // newest | oldest | name
+  const [showFilter, setShowFilter] = useState(false);
+  const [deptFilter, setDeptFilter] = useState("All");
 
-  const loadAlumni = async () => {
+  // Tab & Review State
+  const [pageTab, setPageTab] = useState("roster"); // "roster" | "assigned" | "review"
+  const [assignmentRequests, setAssignmentRequests] = useState([]);
+  const [loadingAssignments, setLoadingAssignments] = useState(false);
+  const [assignmentFilter, setAssignmentFilter] = useState("All");
+
+  const loadAssignments = async () => {
     try {
-      setLoading(true);
+      setLoadingAssignments(true);
+      const res = await adminAPI.getAlumniAssignments();
+      if (res && res.data) {
+        setAssignmentRequests(res.data);
+      }
+    } catch (err) {
+      console.warn("Could not load alumni assignment requests:", err);
+    } finally {
+      setLoadingAssignments(false);
+    }
+  };
+
+  const loadAlumni = async (silent = false) => {
+    try {
+      if (!silent) setLoading(true);
       const res = await adminAPI.getUsers();
       const rawUsers = Array.isArray(res?.data)
         ? res.data
         : Array.isArray(res?.users)
-        ? res.users
-        : Array.isArray(res)
-        ? res
-        : [];
+          ? res.users
+          : Array.isArray(res)
+            ? res
+            : [];
 
       const alumniUsers = rawUsers.filter((u) => u && (u.role === "alumni" || u.role === "Alumni"));
       const mapped = alumniUsers.map((u) => ({
@@ -64,6 +95,7 @@ export default function AdminAlumniPage() {
         role: u.designation || u.role || "Alumni Leader",
         avatar: u.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(u.fullName || "Alumni")}`,
         status: u.status || "active",
+        createdAt: u.createdAt || u.created_at || null,
         assignedEvent: u.assignedEvent || null,
         assignedRole: u.assignedRole || null,
         assignedDate: u.assignedDate || null,
@@ -81,7 +113,49 @@ export default function AdminAlumniPage() {
 
   useEffect(() => {
     loadAlumni();
+    loadAssignments();
+    // Keep counts & rows live: quiet refresh every 30s
+    const t = setInterval(() => {
+      loadAlumni(true);
+      loadAssignments();
+    }, 30000);
+    return () => clearInterval(t);
   }, []);
+
+  const handleApproveAssignment = async (req) => {
+    try {
+      await adminAPI.approveAlumniAssignment(req.id || req._id);
+      showToast(`✅ Approved! ${req.alumniName} has been assigned to "${req.eventTitle}" and notified by email.`);
+      loadAssignments();
+      loadAlumni();
+    } catch (err) {
+      showToast(err.message || "Failed to approve assignment", "error");
+    }
+  };
+
+  const handleRejectAssignment = async (req) => {
+    const reason = window.prompt("Reason for rejecting assignment request:", "Schedule conflict or role filled.");
+    if (reason === null) return;
+    try {
+      await adminAPI.rejectAlumniAssignment(req.id || req._id, reason);
+      showToast(`Assignment request for ${req.alumniName} marked as Rejected.`);
+      loadAssignments();
+    } catch (err) {
+      showToast(err.message || "Failed to reject assignment", "error");
+    }
+  };
+
+  // View details modal + status toggle (deactivate / reactivate)
+  const [viewAlum, setViewAlum] = useState(null);
+  const handleToggleAlumniStatus = async (alum, nextStatus) => {
+    try {
+      await adminAPI.toggleUserStatus(alum.id, nextStatus);
+      showToast(nextStatus === "active" ? `${alum.fullName} reactivated.` : `${alum.fullName} deactivated.`);
+      loadAlumni(true);
+    } catch (err) {
+      showToast(err.message || "Failed to update status", "error");
+    }
+  };
 
   // Assign Work Modal
   const [assignModal, setAssignModal] = useState(null); // alumnus object
@@ -116,6 +190,24 @@ export default function AdminAlumniPage() {
       (a.assignedEvent && (a.assignedEvent || "").toLowerCase().includes(s));
     return matchStatus && matchSearch;
   });
+
+  // Department filter + sorting (Filter / "Sort by" controls)
+  const departments = ["All", ...Array.from(new Set((alumniList || []).map((a) => a.department).filter(Boolean)))];
+  const visibleAlumni = filteredAlumni
+    .filter((a) => deptFilter === "All" || a.department === deptFilter)
+    .sort((a, b) => {
+      if (sortBy === "name") return (a.fullName || "").localeCompare(b.fullName || "");
+      const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return sortBy === "oldest" ? ta - tb : tb - ta;
+    });
+
+  const initialsOf = (name = "") =>
+    name.split(" ").filter(Boolean).slice(0, 2).map((w) => w[0]).join("").toUpperCase() || "AL";
+  const handleAvatarError = (e) => {
+    e.currentTarget.style.display = "none";
+    if (e.currentTarget.nextSibling) e.currentTarget.nextSibling.style.display = "flex";
+  };
 
   const assignedAlumniList = (alumniList || []).filter(
     (a) => a && a.assignedEvent && a.assignedEvent !== "Unassigned"
@@ -224,7 +316,7 @@ export default function AdminAlumniPage() {
       if (res.user?.id) {
         try {
           await adminAPI.approveUser(res.user.id);
-        } catch (_) {}
+        } catch (_) { }
       }
 
       showToast(`Alumni account for ${newAlumni.fullName} created successfully!`);
@@ -245,462 +337,415 @@ export default function AdminAlumniPage() {
     }
   };
 
+  const pendingReviewCount = assignmentRequests.filter((r) => r.status === "Pending").length;
+
+  const StatusPill = ({ status }) =>
+    status === "pending_approval" ? (
+      <span className="alm-status pending"><i /> Pending Approval</span>
+    ) : status === "inactive" ? (
+      <span className="alm-status inactive"><i /> Inactive</span>
+    ) : (
+      <span className="alm-status active"><i /> Active</span>
+    );
+
+  const Avatar = ({ alum, size = 44 }) => (
+    <span className="alm-avatar-wrap" style={{ width: size, height: size }}>
+      <img src={alum.avatar} alt={alum.fullName} onError={handleAvatarError} />
+      <span className="alm-avatar-fallback" style={{ display: "none" }}>{initialsOf(alum.fullName)}</span>
+    </span>
+  );
+
   return (
     <div className="adm-alumni-page">
       {/* ── HERO BANNER ────────────────────────────────────────── */}
-      <div className="adm-alumni-hero">
-        <div className="adm-alumni-hero-content">
-          <div className="adm-alumni-badge">
-            <ShieldCheck size={14} /> Administrator Control Center
-          </div>
-          <h1>Alumni Leadership &amp; Work Assignment</h1>
-          <p>
-            Review registered Maatram alumni scholar accounts and assign them to lead on-ground student drives, technical clinics, and school visits.
-          </p>
+      <div className="alm-hero">
+        <div className="alm-hero-text">
+          <h1>
+            Alumni Leadership &amp; <span>Work Assignment</span>
+          </h1>
         </div>
-
-        <button
-          type="button"
-          className="adm-add-alumni-btn"
-          onClick={() => setShowAddModal(true)}
-        >
-          <PlusCircle size={18} /> Register New Alumni
+        <button type="button" className="alm-hero-btn" onClick={() => setShowAddModal(true)}>
+          <Plus size={22} strokeWidth={2.6} /> Register New Alumni
         </button>
       </div>
 
-      {/* ── TOOLBAR & STATS SUMMARY ────────────────────────────── */}
-      <div className="adm-alumni-toolbar">
-        <div className="adm-alumni-search-box">
-          <Search size={18} color="#64748B" />
-          <input
-            type="text"
-            placeholder="Search alumni by name, company, college, or assigned event..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
-
-        <div className="adm-alumni-filter-tabs">
-          {[
-            { key: "All", label: `All Registered Alumni (${alumniList.length})` },
-            { key: "active", label: `Active Scholars (${alumniList.filter(a => a.status === 'active').length})` },
-            { key: "pending_approval", label: `Pending Approval (${alumniList.filter(a => a.status === 'pending_approval').length})` },
-          ].map((st) => (
-            <button
-              key={st.key}
-              type="button"
-              className={`adm-filter-pill ${selectedStatus === st.key ? "active" : ""}`}
-              onClick={() => setSelectedStatus(st.key)}
-            >
-              {st.label}
-            </button>
-          ))}
-        </div>
+      {/* ── VIEW SWITCH: ROSTER / ASSIGNMENT REQUESTS ───────────── */}
+      <div className="alm-view-switch">
+        <button type="button" className={pageTab === "roster" ? "on" : ""} onClick={() => setPageTab("roster")}>
+          <GraduationCap size={15} /> Alumni Roster ({alumniList.length})
+        </button>
+        <button type="button" className={pageTab === "assigned" ? "on" : ""} onClick={() => setPageTab("assigned")}>
+          <Trophy size={15} /> Assigned Works ({assignedAlumniList.length})
+        </button>
+        <button type="button" className={pageTab === "review" ? "on" : ""} onClick={() => setPageTab("review")}>
+          <UserCheck size={15} /> Assignment Requests
+          {pendingReviewCount > 0 && <b className="alm-badge">{pendingReviewCount}</b>}
+        </button>
       </div>
 
-      {/* ── ALUMNI REGISTERED DETAILS TABLE (MATCHING REGISTERED VOLUNTEERS TABLE) ── */}
-      <div className="modern-table-card">
-        {/* Table Top Header Bar with Search and Add Alumni Button */}
-        <div className="modern-table-header-bar">
-          <div className="modern-table-title">
-            <GraduationCap size={22} />
-            <span>Registered Alumni Volunteers</span>
+      {pageTab === "review" ? (
+        /* ── ASSIGNMENT REQUESTS (review) ───────────────────────── */
+        <div className="alm-card">
+          <div className="alm-card-head">
+            <div className="alm-title-box">
+              <span className="alm-title-pill"><UserCheck size={22} /> Event Alumni Assignment Requests</span>
+            </div>
+            <div className="alm-head-tools">
+              {["All", "Pending", "Approved", "Rejected"].map((st) => (
+                <button
+                  key={st}
+                  type="button"
+                  className={`alm-chip ${assignmentFilter === st ? "on" : ""}`}
+                  onClick={() => setAssignmentFilter(st)}
+                >
+                  {st} ({assignmentRequests.filter((r) => st === "All" || r.status === st).length})
+                </button>
+              ))}
+            </div>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-            <div className="modern-table-search-box">
-              <Search size={16} />
-              <input
-                type="text"
-                className="modern-table-search-input"
-                placeholder="Search alumni..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
+          <div className="alm-table-wrap">
+            <table className="alm-table compact">
+              <thead>
+                <tr>
+                  <th>Target Event Drive</th>
+                  <th>Alumni Leader</th>
+                  <th>Delegated Role</th>
+                  <th>Instructions &amp; Notes</th>
+                  <th>Status</th>
+                  <th className="right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {assignmentRequests
+                  .filter((r) => assignmentFilter === "All" || r.status === assignmentFilter)
+                  .map((req) => (
+                    <tr key={req.id || req._id}>
+                      <td>
+                        <div className="alm-strong">{req.eventTitle}</div>
+                        <div className="alm-sub">📅 {req.eventDate || "Upcoming"} &bull; 📍 {req.eventLocation || "Chennai"}</div>
+                      </td>
+                      <td>
+                        <div className="alm-strong">{req.alumniName}</div>
+                        <div className="alm-sub">{req.alumniApplicationId || "ALU"} &bull; {req.alumniEmail}</div>
+                      </td>
+                      <td><span className="alm-role-tag">{req.role}</span></td>
+                      <td className="alm-notes">{req.notes || "Event leadership, logistics coordination, and student volunteer supervision."}</td>
+                      <td>
+                        <span className={`alm-status ${req.status === "Approved" ? "active" : req.status === "Pending" ? "pending" : "inactive"}`}>
+                          <i /> {req.status}
+                        </span>
+                      </td>
+                      <td className="right">
+                        {req.status === "Pending" ? (
+                          <div className="alm-actions">
+                            <button type="button" className="alm-btn-green" onClick={() => handleApproveAssignment(req)}>
+                              <Check size={14} /> Approve
+                            </button>
+                            <button type="button" className="alm-btn-red" onClick={() => handleRejectAssignment(req)}>
+                              <X size={14} /> Reject
+                            </button>
+                          </div>
+                        ) : req.status === "Approved" ? (
+                          <span className="alm-ok-text">&check; Roster updated &amp; email sent</span>
+                        ) : (
+                          <span className="alm-bad-text">Rejected</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                {assignmentRequests.length === 0 && (
+                  <tr><td colSpan={6} className="alm-empty">No alumni assignment requests yet.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : pageTab === "assigned" ? (
+        /* ── ASSIGNED ALUMNI WORKS & EVENT LEADERSHIP (own section) ── */
+        <div className="alm-card">
+          <div className="alm-card-head slim">
+            <div className="alm-title-box">
+              <span className="alm-title-pill">
+                <Trophy size={22} /> Assigned Alumni Works &amp; Event Leadership ({assignedAlumniList.length})
+              </span>
+            </div>
+          </div>
+
+          <div className="alm-table-wrap">
+            <table className="alm-table compact fixed">
+              <colgroup>
+                <col style={{ width: "4%" }} /><col style={{ width: "20%" }} /><col style={{ width: "19%" }} />
+                <col style={{ width: "21%" }} /><col style={{ width: "12%" }} /><col style={{ width: "10%" }} />
+                <col style={{ width: "14%" }} />
+              </colgroup>
+              <thead>
+                <tr>
+                  <th className="num">#</th>
+                  <th>Alumni Leader</th>
+                  <th>Assigned Event Drive</th>
+                  <th>Delegated Role &amp; Scope</th>
+                  <th>Assignment Date</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {assignedAlumniList.length === 0 ? (
+                  <tr><td colSpan={7} className="alm-empty">No alumni currently assigned to event works.</td></tr>
+                ) : (
+                  assignedAlumniList.map((alum, idx) => (
+                    <tr key={alum.id}>
+                      <td className="num">{idx + 1}</td>
+                      <td>
+                        <div className="alm-person">
+                          <Avatar alum={alum} size={32} />
+                          <div>
+                            <div className="alm-strong">{alum.fullName}</div>
+                            <div className="alm-sub">{alum.email}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td><span className="alm-event-link">{alum.assignedEvent}</span></td>
+                      <td>
+                        <div className="alm-strong">{alum.assignedRole}</div>
+                        {alum.workDescription && <div className="alm-role">({alum.workDescription})</div>}
+                      </td>
+                      <td>
+                        <span className="alm-date">
+                          <Calendar size={16} /> {alum.assignedDate || "Active"}
+                        </span>
+                      </td>
+                      <td><span className="alm-status active"><i /> Active Lead</span></td>
+                      <td>
+                        <div className="alm-actions">
+                          <button type="button" className="alm-reassign" onClick={() => handleOpenAssignModal(alum)}>
+                            Reassign
+                          </button>
+                          <button type="button" className="alm-ico view" title="View details" onClick={() => setViewAlum(alum)}>
+                            <Eye size={18} />
+                          </button>
+                          <button type="button" className="alm-ico del" title="Remove event assignment" onClick={() => handleRemoveAssignment(alum)}>
+                            <Trash2 size={17} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* ── ALUMNI DIRECTORY (table like Student Directory) ───── */}
+          <div className="alm-dir">
+            <div className="alm-dir-head">
+              <div className="alm-title-box"><span className="alm-title-pill"><GraduationCap size={22} /> Alumni Directory</span></div>
+              <div className="alm-dir-badges">
+                {[
+                  { key: "All", label: "ALL", cls: "blue", n: alumniList.length },
+                  { key: "active", label: "ACTIVE", cls: "green", n: alumniList.filter((a) => a.status === "active").length },
+                  { key: "pending_approval", label: "PENDING", cls: "yellow", n: alumniList.filter((a) => a.status === "pending_approval").length },
+                  { key: "inactive", label: "INACTIVE", cls: "gray", n: alumniList.filter((a) => a.status === "inactive").length },
+                ].map((t) => (
+                  <button
+                    key={t.key}
+                    type="button"
+                    className={`alm-tag ${t.cls} ${selectedStatus === t.key ? "on" : ""}`}
+                    onClick={() => setSelectedStatus(t.key)}
+                    title={`Show ${t.label.toLowerCase()} alumni`}
+                  >
+                    {t.label} {t.n}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            <button
-              type="button"
-              className="modern-btn-add"
-              onClick={() => setShowAddModal(true)}
-            >
-              <PlusCircle size={16} /> Add Alumni
-            </button>
-          </div>
-        </div>
+            <div className="alm-dir-filters">
+              <div className="alm-f">
+                <label>STATUS</label>
+                <select value={selectedStatus} onChange={(e) => setSelectedStatus(e.target.value)}>
+                  <option value="All">All Alumni</option>
+                  <option value="active">Active</option>
+                  <option value="pending_approval">Pending Approval</option>
+                  <option value="inactive">Inactive</option>
+                </select>
+              </div>
+              <div className="alm-f">
+                <label>DEPARTMENT</label>
+                <select value={deptFilter} onChange={(e) => setDeptFilter(e.target.value)}>
+                  {departments.map((d) => <option key={d} value={d}>{d}</option>)}
+                </select>
+              </div>
+              <div className="alm-f">
+                <label>SORT</label>
+                <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+                  <option value="newest">Newest First</option>
+                  <option value="oldest">Oldest First</option>
+                  <option value="name">Name (A–Z)</option>
+                </select>
+              </div>
+              <div className="alm-f grow">
+                <label>SEARCH</label>
+                <input
+                  type="text"
+                  placeholder="Name, company, college, department..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+            </div>
 
-        {/* The Clean Structured Table matching Registered Volunteers */}
-        <div style={{ overflowX: "auto" }}>
-          <table className="admin-table">
-            <thead>
-              <tr>
-                <th style={{ width: 45 }}>#</th>
-                <th>NAME</th>
-                <th>COLLEGE</th>
-                <th>BATCH</th>
-                <th>DEPT</th>
-                <th>COMPANY &amp; DESIGNATION</th>
-                <th>ASSIGNMENT STATUS</th>
-                <th>STATUS</th>
-                <th style={{ textAlign: "right", minWidth: 160 }}>ACTIONS</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredAlumni.length === 0 ? (
-                <tr>
-                  <td colSpan={9} style={{ padding: "40px 20px", textAlign: "center", color: "#64748B" }}>
-                    No alumni records matched the search query.
-                  </td>
-                </tr>
-              ) : (
-                filteredAlumni.map((alum, idx) => (
-                  <tr key={alum.id}>
-                    {/* # Index */}
-                    <td style={{ fontWeight: 700, color: "#64748B" }}>{idx + 1}</td>
-
-                    {/* Name */}
-                    <td>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <img
-                          src={alum.avatar}
-                          alt={alum.fullName}
-                          style={{
-                            width: 34,
-                            height: 34,
-                            borderRadius: "50%",
-                            objectFit: "cover",
-                            border: "1.5px solid #CBD5E1",
-                          }}
-                        />
-                        <div>
-                          <div style={{ fontWeight: 700, color: "#0F172A", fontSize: 13.5 }}>
-                            {alum.fullName}
-                          </div>
-                          <div style={{ fontSize: 11, color: "#64748B" }}>
-                            {alum.applicationId} • {alum.email}
-                          </div>
+            <div className="alm-table-wrap">
+              <table className="alm-table compact fixed">
+                <colgroup>
+                  <col style={{ width: "8%" }} /><col style={{ width: "13%" }} /><col style={{ width: "18%" }} />
+                  <col style={{ width: "9%" }} /><col style={{ width: "10%" }} /><col style={{ width: "16%" }} />
+                  <col style={{ width: "9%" }} /><col style={{ width: "9%" }} /><col style={{ width: "8%" }} />
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th>ALUMNI ID</th>
+                    <th>NAME</th>
+                    <th>COLLEGE</th>
+                    <th>BATCH</th>
+                    <th>DEPT</th>
+                    <th>COMPANY &amp; DESIGNATION</th>
+                    <th>STATUS</th>
+                    <th>ASSIGNED</th>
+                    <th>ACTIONS</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {loading ? (
+                    <tr><td colSpan={9} className="alm-empty">Loading alumni...</td></tr>
+                  ) : visibleAlumni.length === 0 ? (
+                    <tr>
+                      <td colSpan={9} className="alm-empty">
+                        <div className="alm-empty-box">
+                          <Users size={28} />
+                          <strong>No alumni records found</strong>
+                          <button type="button" className="alm-empty-btn" onClick={() => setShowAddModal(true)}>
+                            <Plus size={15} /> Register New Alumni
+                          </button>
                         </div>
-                      </div>
-                    </td>
-
-                    {/* College */}
-                    <td style={{ color: "#334155" }}>
-                      {alum.college}
-                    </td>
-
-                    {/* Batch */}
-                    <td style={{ color: "#475569" }}>
-                      {alum.batch}
-                    </td>
-
-                    {/* Dept */}
-                    <td style={{ fontWeight: 600, color: "#1E293B" }}>
-                      {alum.department}
-                    </td>
-
-                    {/* Company & Role */}
-                    <td style={{ color: "#334155" }}>
-                      <strong style={{ color: "#0F172A", display: "block" }}>{alum.role}</strong>
-                      <span style={{ fontSize: 12, color: "#2563EB", fontWeight: 600 }}>
-                        {alum.company}
-                      </span>
-                    </td>
-
-                    {/* Assignment Status (Clean Badge, detailed assigned work is shown in the dedicated table below) */}
-                    <td>
-                      {alum.assignedEvent && alum.assignedEvent !== "Unassigned" ? (
-                        <span
-                          style={{
-                            background: "#DCFCE7",
-                            color: "#15803D",
-                            padding: "4px 10px",
-                            borderRadius: 12,
-                            fontSize: 11.5,
-                            fontWeight: 700,
-                            border: "1px solid #86EFAC",
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: 4,
-                          }}
-                        >
-                          <CheckCircle2 size={12} /> Assigned
-                        </span>
-                      ) : (
-                        <span
-                          style={{
-                            background: "#F1F5F9",
-                            color: "#64748B",
-                            padding: "4px 10px",
-                            borderRadius: 12,
-                            fontSize: 11.5,
-                            fontWeight: 700,
-                            border: "1px solid #E2E8F0",
-                          }}
-                        >
-                          Unassigned (Available)
-                        </span>
-                      )}
-                    </td>
-
-                    {/* Status */}
-                    <td>
-                      {alum.status === "pending_approval" ? (
-                        <span style={{ background: "#FEF9C3", color: "#854D0E", padding: "4px 10px", borderRadius: 12, fontSize: 11.5, fontWeight: 700, border: "1px solid #FDE047", display: "inline-flex", alignItems: "center", gap: 4 }}>
-                          <Clock size={12} /> Pending Approval
-                        </span>
-                      ) : alum.status === "inactive" ? (
-                        <span style={{ background: "#FEE2E2", color: "#991B1B", padding: "4px 10px", borderRadius: 12, fontSize: 11.5, fontWeight: 700, border: "1px solid #FCA5A5" }}>
-                          Inactive
-                        </span>
-                      ) : (
-                        <span className="status-badge-active">
-                          Active
-                        </span>
-                      )}
-                    </td>
-
-                    {/* Actions: Approve/Reject for pending OR Assign Work Button + View + Edit + Delete */}
-                    <td style={{ textAlign: "right" }}>
-                      <div style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                        {alum.status === "pending_approval" ? (
-                          <>
+                      </td>
+                    </tr>
+                  ) : (
+                    visibleAlumni.map((alum) => (
+                      <tr key={alum.id}>
+                        <td className="mono">{alum.applicationId}</td>
+                        <td>
+                          <button type="button" className="alm-name-link" onClick={() => handleOpenAssignModal(alum)}>
+                            {alum.fullName}
+                          </button>
+                        </td>
+                        <td>{alum.college}</td>
+                        <td>{alum.batch}</td>
+                        <td>{alum.department}</td>
+                        <td>
+                          <div className="alm-strong">{alum.company}</div>
+                          <div className="alm-sub">{alum.role}</div>
+                        </td>
+                        <td>
+                          <span className={`alm-mini ${alum.status === "active" ? "green" : alum.status === "pending_approval" ? "yellow" : "gray"}`}>
+                            {alum.status === "pending_approval" ? "PENDING" : alum.status === "inactive" ? "INACTIVE" : "ACTIVE"}
+                          </span>
+                        </td>
+                        <td>
+                          {alum.assignedEvent && alum.assignedEvent !== "Unassigned" ? (
+                            <span className="alm-mini blue">ASSIGNED</span>
+                          ) : (
+                            <span className="alm-dash">—</span>
+                          )}
+                        </td>
+                        <td>
+                          <div className="alm-actions">
+                            {alum.status === "pending_approval" && (
+                              <>
+                                <button type="button" className="alm-sq ok" title="Approve" onClick={() => handleApproveAlumni(alum)}><Check size={14} /></button>
+                                <button type="button" className="alm-sq warn" title="Reject" onClick={() => handleRejectAlumni(alum)}><X size={14} /></button>
+                              </>
+                            )}
+                            <button type="button" className="alm-sq view" title="View details" onClick={() => setViewAlum(alum)}><Eye size={14} /></button>
+                            <button type="button" className="alm-sq edit" title="Edit / assign work" onClick={() => handleOpenAssignModal(alum)}><Edit2 size={13} /></button>
+                            {alum.status === "active" && (
+                              <button type="button" className="alm-sq warn" title="Deactivate" onClick={() => handleToggleAlumniStatus(alum, "inactive")}><Ban size={13} /></button>
+                            )}
+                            {alum.status === "inactive" && (
+                              <button type="button" className="alm-sq ok" title="Reactivate" onClick={() => handleToggleAlumniStatus(alum, "active")}><RotateCcw size={13} /></button>
+                            )}
                             <button
                               type="button"
-                              onClick={() => handleApproveAlumni(alum)}
-                              style={{
-                                display: "inline-flex",
-                                alignItems: "center",
-                                gap: 4,
-                                padding: "6px 12px",
-                                background: "#10B981",
-                                color: "#FFF",
-                                border: "none",
-                                borderRadius: 8,
-                                fontSize: 12,
-                                fontWeight: 700,
-                                cursor: "pointer",
-                                boxShadow: "0 2px 6px rgba(16,185,129,0.3)",
+                              className="alm-sq del"
+                              title="Remove alumni"
+                              onClick={() => {
+                                if (window.confirm(`Remove ${alum.fullName} from active alumni list?`)) {
+                                  setAlumniList(alumniList.filter((a) => a.id !== alum.id));
+                                  showToast(`Alumni ${alum.fullName} removed.`);
+                                }
                               }}
-                              title="Approve Alumni Account"
                             >
-                              <Check size={13} /> Approve
+                              <Trash2 size={13} />
                             </button>
-                            <button
-                              type="button"
-                              onClick={() => handleRejectAlumni(alum)}
-                              style={{
-                                display: "inline-flex",
-                                alignItems: "center",
-                                gap: 4,
-                                padding: "6px 10px",
-                                background: "#EF4444",
-                                color: "#FFF",
-                                border: "none",
-                                borderRadius: 8,
-                                fontSize: 12,
-                                fontWeight: 700,
-                                cursor: "pointer",
-                              }}
-                              title="Reject Alumni Application"
-                            >
-                              <X size={13} /> Reject
-                            </button>
-                          </>
-                        ) : null}
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
 
-                        <button
-                          type="button"
-                          className="table-action-btn"
-                          onClick={() => handleOpenAssignModal(alum)}
-                          style={{
-                            width: "auto",
-                            padding: "0 10px",
-                            height: 32,
-                            background: "#EFF6FF",
-                            color: "#2563EB",
-                            borderColor: "#BFDBFE",
-                            fontSize: 12,
-                            fontWeight: 700,
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: 5,
-                          }}
-                          title="Assign or reassign volunteering drive"
-                        >
-                          <Briefcase size={13} />
-                          <span>{alum.assignedEvent && alum.assignedEvent !== "Unassigned" ? "Reassign" : "Assign Work"}</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          className="table-action-btn table-action-view"
-                          onClick={() => handleOpenAssignModal(alum)}
-                          title="View Alumni Profile"
-                        >
-                          <Eye size={14} />
-                        </button>
-
-                        <button
-                          type="button"
-                          className="table-action-btn table-action-edit"
-                          onClick={() => handleOpenAssignModal(alum)}
-                          title="Edit Details"
-                        >
-                          <Edit2 size={13} />
-                        </button>
-
-                        <button
-                          type="button"
-                          className="table-action-btn table-action-delete"
-                          onClick={() => {
-                            if (window.confirm(`Remove ${alum.fullName} from active alumni list?`)) {
-                              setAlumniList(alumniList.filter((a) => a.id !== alum.id));
-                              showToast(`Alumni ${alum.fullName} removed.`);
-                            }
-                          }}
-                          title="Delete Alumni"
-                        >
-                          <Trash2 size={13} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Table Footer with Showing info and Pagination (Matching Image) */}
-        <div className="modern-table-pagination">
-          <span className="modern-table-showing">
-            Showing 1–{filteredAlumni.length} of {filteredAlumni.length} alumni
-          </span>
-          <div className="modern-pagination-pages">
-            <button type="button" className="modern-page-btn active">1</button>
+      {/* ── VIEW ALUMNI DETAILS MODAL ──────────────────────────── */}
+      {viewAlum && (
+        <div className="modal-backdrop" onClick={() => setViewAlum(null)}>
+          <div className="alm-view-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="alm-view-head">
+              <Avatar alum={viewAlum} size={52} />
+              <div>
+                <h3>{viewAlum.fullName}</h3>
+                <p>{viewAlum.role} &bull; {viewAlum.company}</p>
+              </div>
+              <span className={`alm-mini ${viewAlum.status === "active" ? "green" : viewAlum.status === "pending_approval" ? "yellow" : "gray"}`}>
+                {viewAlum.status === "pending_approval" ? "PENDING" : viewAlum.status === "inactive" ? "INACTIVE" : "ACTIVE"}
+              </span>
+              <button type="button" className="alm-sq del" onClick={() => setViewAlum(null)} title="Close"><X size={14} /></button>
+            </div>
+            <div className="alm-view-grid">
+              <div><label>ALUMNI ID</label><b>{viewAlum.applicationId}</b></div>
+              <div><label>BATCH</label><b>{viewAlum.batch}</b></div>
+              <div><label><Mail size={11} /> EMAIL</label><b>{viewAlum.email || "—"}</b></div>
+              <div><label><Phone size={11} /> PHONE</label><b>{viewAlum.phone || "—"}</b></div>
+              <div><label>COLLEGE</label><b>{viewAlum.college}</b></div>
+              <div><label>DEPARTMENT</label><b>{viewAlum.department}</b></div>
+              <div className="wide">
+                <label>CURRENT ASSIGNMENT</label>
+                <b>
+                  {viewAlum.assignedEvent && viewAlum.assignedEvent !== "Unassigned"
+                    ? `${viewAlum.assignedEvent} — ${viewAlum.assignedRole || ""}`
+                    : "Not assigned to any event yet"}
+                </b>
+              </div>
+            </div>
+            <div className="alm-view-foot">
+              <button type="button" className="alm-btn-soft" onClick={() => setViewAlum(null)}>Close</button>
+              <button
+                type="button"
+                className="alm-btn-blue"
+                onClick={() => { const a = viewAlum; setViewAlum(null); handleOpenAssignModal(a); }}
+              >
+                <Briefcase size={14} /> Assign Work
+              </button>
+            </div>
           </div>
         </div>
-      </div>
-
-      {/* ── NEW SECTION: ASSIGNED ALUMNI WORKS & EVENT LEADERSHIP TABLE ── */}
-      <div className="modern-table-card" style={{ marginTop: 28 }}>
-        <div className="modern-table-header-bar" style={{ background: "linear-gradient(135deg, #F8FAFC 0%, #EFF6FF 100%)" }}>
-          <div className="modern-table-title">
-            <Briefcase size={22} color="#D97706" />
-            <span>Assigned Alumni Works &amp; Event Leadership ({assignedAlumniList.length})</span>
-          </div>
-          <span style={{ fontSize: 12.5, color: "#64748B", fontWeight: 600 }}>
-            Real-time administrative event delegations &amp; mentor leadership
-          </span>
-        </div>
-
-        <div style={{ overflowX: "auto" }}>
-          <table className="admin-table">
-            <thead>
-              <tr>
-                <th style={{ width: 45 }}>#</th>
-                <th>ALUMNI LEADER</th>
-                <th>ASSIGNED EVENT DRIVE</th>
-                <th>DELEGATED ROLE &amp; SCOPE</th>
-                <th>ASSIGNMENT DATE</th>
-                <th>STATUS</th>
-                <th style={{ textAlign: "right", minWidth: 150 }}>ACTIONS</th>
-              </tr>
-            </thead>
-            <tbody>
-              {assignedAlumniList.length === 0 ? (
-                <tr>
-                  <td colSpan={7} style={{ padding: "40px 20px", textAlign: "center", color: "#64748B" }}>
-                    No alumni currently assigned to event works. Click "Assign Work" above to assign an alumnus to lead an event.
-                  </td>
-                </tr>
-              ) : (
-                assignedAlumniList.map((alum, idx) => (
-                  <tr key={alum.id}>
-                    <td style={{ fontWeight: 700, color: "#64748B" }}>{idx + 1}</td>
-                    <td>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <img
-                          src={alum.avatar}
-                          alt={alum.fullName}
-                          style={{
-                            width: 36,
-                            height: 36,
-                            borderRadius: "50%",
-                            objectFit: "cover",
-                            border: "1.5px solid #CBD5E1",
-                          }}
-                        />
-                        <div>
-                          <div style={{ fontWeight: 700, color: "#0F172A", fontSize: 13.5 }}>
-                            {alum.fullName}
-                          </div>
-                          <div style={{ fontSize: 11, color: "#2563EB", fontWeight: 600 }}>
-                            {alum.role} • {alum.company}
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td>
-                      <strong style={{ color: "#D97706", fontSize: 13, display: "flex", alignItems: "center", gap: 5 }}>
-                        <Sparkles size={13} color="#D97706" /> {alum.assignedEvent}
-                      </strong>
-                    </td>
-                    <td>
-                      <div style={{ display: "flex", flexDirection: "column", gap: 2, maxWidth: 300 }}>
-                        <strong style={{ fontSize: 12.5, color: "#1E293B" }}>{alum.assignedRole}</strong>
-                        <span style={{ fontSize: 11.5, color: "#64748B", lineHeight: 1.3 }}>{alum.workDescription}</span>
-                      </div>
-                    </td>
-                    <td style={{ color: "#475569", fontSize: 12.5 }}>
-                      <Calendar size={12} style={{ display: "inline", verticalAlign: "middle", marginRight: 4 }} />
-                      {alum.assignedDate || "Active"}
-                    </td>
-                    <td>
-                      <span className="status-badge-active" style={{ background: "#DCFCE7", color: "#15803D" }}>
-                        Active Lead
-                      </span>
-                    </td>
-                    <td style={{ textAlign: "right" }}>
-                      <div style={{ display: "inline-flex", gap: 6 }}>
-                        <button
-                          type="button"
-                          className="table-action-btn"
-                          onClick={() => handleOpenAssignModal(alum)}
-                          style={{
-                            width: "auto",
-                            padding: "0 10px",
-                            height: 32,
-                            background: "#EFF6FF",
-                            color: "#2563EB",
-                            borderColor: "#BFDBFE",
-                            fontSize: 12,
-                            fontWeight: 700,
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: 4,
-                          }}
-                          title="Reassign to another event"
-                        >
-                          <Edit2 size={13} /> Reassign
-                        </button>
-                        <button
-                          type="button"
-                          className="table-action-btn table-action-delete"
-                          onClick={() => handleRemoveAssignment(alum)}
-                          title="Remove event assignment"
-                        >
-                          <Trash2 size={13} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      )}
 
       {/* ── ASSIGN WORK MODAL ──────────────────────────────────── */}
       {assignModal && (

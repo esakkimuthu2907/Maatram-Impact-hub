@@ -26,10 +26,23 @@ const eventSchema = new mongoose.Schema(
     contactEmail:     { type: String, default: "coordinator@maatramfoundation.com" },
     featured:         { type: Boolean, default: false },
     isActive:         { type: Boolean, default: true },
+    status:           { type: String, default: "Upcoming" }, // Universal status alignment
     eventStatus:      { type: String, enum: ["Upcoming", "Ongoing", "Completed", "Cancelled"], default: "Upcoming" },
     interestedCount:  { type: Number, default: 0 },
     emailsSent:       { type: Boolean, default: false },
     reminderSent:     { type: Boolean, default: false },
+    reminder24hSent:  { type: Boolean, default: false },
+    reminder2hSent:   { type: Boolean, default: false },
+    assignedAlumni:   { type: String, default: "" },
+    assignedAlumniList: [
+      {
+        alumniId: { type: mongoose.Schema.Types.Mixed },
+        name: { type: String },
+        email: { type: String },
+        role: { type: String },
+        assignedAt: { type: Date, default: Date.now },
+      }
+    ],
     qrCodeToken:      { type: String, default: "" },
     attendanceOpen:   { type: Boolean, default: true },
     slots:            [

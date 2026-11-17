@@ -10,28 +10,6 @@ export const CATEGORIES = [
 
 export const INITIAL_OPPORTUNITIES = [];
 
-export const INITIAL_USER = {
-  id: "MAA001",
-  name: "Esakkimuthu S",
-  role: "Student Volunteer",
-  email: "esakkimuthu2907@gmail.com",
-  phone: "+91 7904577032",
-  college: "Velammal Engineering College,Chennai",
-  department: "Mechanical Engineering",
-  academicYear: "4th Year",
-  regNumber: "2025CS1001",
-  avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80",
-  memberSince: "Oct 2026",
-  bio: "Student volunteer ready to make a tangible social impact across school visits, rural mentoring, and community initiatives.",
-  skills: ["Public Speaking", "School Outreach", "Peer Mentoring", "Event Coordination"],
-  interests: ["Education", "Youth Development", "Environment", "Cyber Literacy"],
-  totalHours: 0,
-  eventsJoined: 0,
-  badgesEarned: 0,
-  streakDays: 0,
-  rank: "N/A",
-};
-
 export const INITIAL_APPLICATIONS = [];
 
 export const INITIAL_CONTRIBUTIONS = [];
@@ -56,7 +34,7 @@ export const MONTHLY_HOURS_TREND = [
 export const LEADERBOARD_USERS = [
   {
     rank: 1,
-    name: "Esakkimuthu S",
+    name: "Kavitha R",
     college: "PSG College of Technology, Coimbatore",
     verifiedHours: 120,
     eventsJoined: 18,

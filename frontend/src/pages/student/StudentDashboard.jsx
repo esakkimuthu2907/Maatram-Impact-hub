@@ -143,9 +143,46 @@ export default function StudentDashboard() {
     loadPeers();
   }, []);
 
+  // Unified certificates list: from certificates API + derived from completed applications
+  const allCertificates = useMemo(() => {
+    const certMap = new Map();
+    (certificates || []).forEach((c) => {
+      const k = c.certificateId || `${c.eventId}_${c.eventTitle}`;
+      certMap.set(k, c);
+    });
+    (applications || []).forEach((app) => {
+      const isCompleted =
+        app.status === "Completed" ||
+        Boolean(app.pointsAwarded && app.pointsAwarded > 0) ||
+        Boolean(app.certificateId) ||
+        Boolean(app.completedAt);
+      if (isCompleted) {
+        const title = app.opportunityTitle || "Volunteering Drive";
+        const cId = app.certificateId || `MF-CERT-2026-${String(app.referenceId || "8799").replace(/[^0-9]/g, "") || "8799"}`;
+        const k = cId || title;
+        if (!certMap.has(k) && !Array.from(certMap.values()).some((c) => (c.eventTitle || "").toLowerCase() === title.toLowerCase())) {
+          certMap.set(k, {
+            id: cId,
+            _id: cId,
+            certificateId: cId,
+            eventTitle: title,
+            eventCategory: app.category || "Maatram Core",
+            volunteerName: app.applicantDetails?.name || user?.fullName || "Student Volunteer",
+            volunteerEmail: app.applicantDetails?.email || user?.email || "",
+            verifiedHours: app.hours || 4,
+            pointsAwarded: app.pointsAwarded || 50,
+            issueDate: app.eventDate || "15 Nov 2026",
+            linkedInPost: `🌟 Proud to share that I have completed the volunteering initiative for "${title}" with Maatram Foundation! #MaatramFoundation #Volunteering #SocialImpact`,
+          });
+        }
+      }
+    });
+    return Array.from(certMap.values());
+  }, [certificates, applications, user?.fullName, user?.email]);
+
   // Filter registered upcoming events safely
   const myRegisteredEvents = (applications || []).filter(
-    (app) => app?.status !== "Cancelled"
+    (app) => app?.status !== "Cancelled" && app?.status !== "Rejected"
   );
 
   const upcomingOpportunities = (opportunities || []).slice(0, 2);
@@ -156,9 +193,14 @@ export default function StudentDashboard() {
 
   const verifiedHours = Number(user?.totalHours) || 0;
 
+  // Count completed events from applications state (always accurate, even after real-time update)
+  const completedAppsCount = (applications || []).filter(
+    (a) => a?.status === "Completed"
+  ).length;
   const eventsCount =
-    Number(user?.eventsJoined) ||
+    completedAppsCount ||
     Number(user?.completedEventsCount) ||
+    Number(user?.eventsJoined) ||
     0;
 
   const badgesCount = Number(user?.badgesEarned) || 0;
@@ -566,7 +608,7 @@ export default function StudentDashboard() {
         {[
           { key: "overview", label: "Overview", icon: Compass },
           { key: "events", label: "My Events", icon: Calendar, badge: myRegisteredEvents.length },
-          { key: "certificates", label: "My Certificates", icon: Award, badge: certificates.length },
+          { key: "certificates", label: "My Certificates", icon: Award, badge: allCertificates.length },
           { key: "linkedin", label: "My LinkedIn Content", icon: Share2 },
           { key: "points", label: "My Points", icon: Coins, badge: `${userPoints} pts` },
           { key: "history", label: "History", icon: History },
@@ -1139,22 +1181,34 @@ export default function StudentDashboard() {
                     className="my-event-card"
                   >
                     <div className="my-event-status-row">
-                      <span
-                        className={`status-pill ${
-                          app.status === "Approved"
-                            ? "approved"
-                            : "pending"
-                        }`}
-                      >
-                        {app.status === "Approved" ? (
-                          <>
-                            <CheckCircle2 size={12} />
-                            Approved
-                          </>
-                        ) : (
-                          "Pending Review"
-                        )}
-                      </span>
+                      {(() => {
+                        const isAppCompleted =
+                          app.status === "Completed" ||
+                          Boolean(app.pointsAwarded && app.pointsAwarded > 0) ||
+                          Boolean(app.certificateId) ||
+                          Boolean(app.completedAt);
+                        if (isAppCompleted) {
+                          return (
+                            <span className="status-pill completed" style={{ background: "#DCFCE7", color: "#15803D", borderColor: "#86EFAC" }}>
+                              <CheckCircle2 size={12} />
+                              Completed
+                            </span>
+                          );
+                        }
+                        if (app.status === "Approved") {
+                          return (
+                            <span className="status-pill approved">
+                              <CheckCircle2 size={12} />
+                              Approved
+                            </span>
+                          );
+                        }
+                        return (
+                          <span className="status-pill pending">
+                            Pending Review
+                          </span>
+                        );
+                      })()}
 
                       <span className="my-event-ref">
                         {app.referenceId}
@@ -1495,7 +1549,14 @@ export default function StudentDashboard() {
 
           {(() => {
             const filteredApps = applications.filter((app) => {
+              const appIsCompleted =
+                app.status === "Completed" ||
+                Boolean(app.pointsAwarded && app.pointsAwarded > 0) ||
+                Boolean(app.certificateId) ||
+                Boolean(app.completedAt);
               if (eventFilter === "All") return true;
+              if (eventFilter === "Completed") return appIsCompleted;
+              if (eventFilter === "Approved") return !appIsCompleted && app.status === "Approved";
               return (app.status || "").toLowerCase() === eventFilter.toLowerCase();
             });
 
@@ -1535,8 +1596,12 @@ export default function StudentDashboard() {
                 {filteredApps.map((app) => {
                   const ev = app.opportunity || app.event || {};
                   const eventId = app.opportunityId || app.eventId || ev._id || ev.id;
-                  const isApproved = app.status === "Approved";
-                  const isCompleted = app.status === "Completed";
+                  const isCompleted =
+                    app.status === "Completed" ||
+                    Boolean(app.pointsAwarded && app.pointsAwarded > 0) ||
+                    Boolean(app.certificateId) ||
+                    Boolean(app.completedAt);
+                  const isApproved = !isCompleted && app.status === "Approved";
                   const isPending = app.status === "Pending";
                   const isRejected = app.status === "Rejected";
 
@@ -1546,7 +1611,7 @@ export default function StudentDashboard() {
                       style={{
                         background: "#FFFFFF",
                         borderRadius: 16,
-                        border: isCompleted ? "1.5px solid #8B5CF6" : isApproved ? "1.5px solid #10B981" : "1px solid #E2E8F0",
+                        border: isCompleted ? "1.5px solid #22C55E" : isApproved ? "1.5px solid #10B981" : "1px solid #E2E8F0",
                         padding: 20,
                         boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
                         display: "flex",
@@ -1563,7 +1628,7 @@ export default function StudentDashboard() {
                           top: 0,
                           left: 0,
                           right: 0,
-                          background: isCompleted ? "#8B5CF6" : isApproved ? "#10B981" : isPending ? "#F59E0B" : "#EF4444",
+                          background: isCompleted ? "#22C55E" : isApproved ? "#10B981" : isPending ? "#F59E0B" : "#EF4444",
                         }}
                       />
                       <div>
@@ -1575,11 +1640,11 @@ export default function StudentDashboard() {
                               textTransform: "uppercase",
                               padding: "4px 10px",
                               borderRadius: 20,
-                              background: isCompleted ? "#EDE9FE" : isApproved ? "#DCFCE7" : isPending ? "#FEF3C7" : "#FEE2E2",
-                              color: isCompleted ? "#6D28D9" : isApproved ? "#15803D" : isPending ? "#B45309" : "#B91C1C",
+                              background: isCompleted ? "#DCFCE7" : isApproved ? "#DCFCE7" : isPending ? "#FEF3C7" : "#FEE2E2",
+                              color: isCompleted ? "#15803D" : isApproved ? "#15803D" : isPending ? "#B45309" : "#B91C1C",
                             }}
                           >
-                            {app.status || "Pending"}
+                            {isCompleted ? "✅ Completed" : (app.status || "Pending")}
                           </span>
                           <span style={{ fontSize: 11.5, color: "#94A3B8", fontWeight: 600 }}>
                             Ref: {app.referenceId || "MAT-" + String(app._id || app.id || "").slice(-4).toUpperCase()}
@@ -1604,6 +1669,25 @@ export default function StudentDashboard() {
                             <span><strong>+{ev.durationHours || 4} verified hours</strong> on completion</span>
                           </div>
                         </div>
+
+                        {/* Points awarded banner for completed */}
+                        {isCompleted && (
+                          <div style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8,
+                            background: "linear-gradient(135deg, #FFF7ED, #FFFBEB)",
+                            border: "1px solid #FDE68A",
+                            borderRadius: 8,
+                            padding: "7px 10px",
+                            marginBottom: 4,
+                            fontSize: 12,
+                            fontWeight: 700,
+                            color: "#92400E",
+                          }}>
+                            ⭐ +{app.pointsAwarded || 50} pts awarded · Certificate issued
+                          </div>
+                        )}
                       </div>
 
                       <div style={{ display: "flex", gap: 8, paddingTop: 14, borderTop: "1px solid #F1F5F9" }}>
@@ -1626,30 +1710,78 @@ export default function StudentDashboard() {
                           </Link>
                         )}
                         {isCompleted && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const matchingCert = certificates.find((c) => (c.eventId || "").toString() === (eventId || "").toString());
-                              if (matchingCert) {
-                                openCertificate?.(matchingCert);
-                              } else {
-                                setDashboardSection("certificates");
-                              }
-                            }}
-                            style={{
-                              flex: 1,
-                              background: "#8B5CF6",
-                              color: "#FFFFFF",
-                              border: "none",
-                              padding: "8px 12px",
-                              borderRadius: 8,
-                              fontSize: 12,
-                              fontWeight: 700,
-                              cursor: "pointer",
-                            }}
-                          >
-                            📜 Certificate
-                          </button>
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const matchingCert =
+                                  allCertificates.find(
+                                    (c) =>
+                                      (c.eventId || "").toString() === (eventId || "").toString() ||
+                                      (c.eventTitle || "").toLowerCase() === (app.opportunityTitle || "").toLowerCase()
+                                  ) || null;
+                                openCertificate?.(
+                                  matchingCert || {
+                                    volunteerName: user?.fullName || app.applicantDetails?.name || "Student Volunteer",
+                                    eventTitle: app.opportunityTitle || ev.title || "Volunteering Drive",
+                                    eventCategory: app.category || ev.category || "Maatram Core",
+                                    verifiedHours: app.hours || ev.durationHours || 4,
+                                    certificateId: app.certificateId || `MF-CERT-2026-${String(app.referenceId || "8799").replace(/[^0-9]/g, "") || "8799"}`,
+                                    issueDate: app.eventDate || ev.date || "15 Nov 2026",
+                                    pointsAwarded: app.pointsAwarded || 50,
+                                  }
+                                );
+                              }}
+                              style={{
+                                flex: 1,
+                                background: "linear-gradient(135deg, #FFD629, #FACC15)",
+                                color: "#151515",
+                                border: "1.5px solid #CA8A04",
+                                padding: "8px 12px",
+                                borderRadius: 8,
+                                fontSize: 12,
+                                fontWeight: 800,
+                                cursor: "pointer",
+                                boxShadow: "0 3px 10px rgba(234,179,8,0.25)",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                gap: 5,
+                              }}
+                            >
+                              <Award size={14} color="#000000" /> Certificate
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                openLinkedInShare?.({
+                                  volunteerName: user?.fullName || app.applicantDetails?.name || "Student Volunteer",
+                                  eventTitle: app.opportunityTitle || ev.title || "Volunteering Drive",
+                                  hours: app.hours || ev.durationHours || 4,
+                                  category: app.category || ev.category || "Maatram Core",
+                                  date: app.eventDate || ev.date || "15 Nov 2026",
+                                  certificateId: app.certificateId || `MF-CERT-2026-${String(app.referenceId || "8799").replace(/[^0-9]/g, "") || "8799"}`,
+                                });
+                              }}
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                gap: 5,
+                                background: "#0A66C2",
+                                color: "#FFFFFF",
+                                border: "none",
+                                padding: "8px 12px",
+                                borderRadius: 8,
+                                fontSize: 12,
+                                fontWeight: 800,
+                                cursor: "pointer",
+                                boxShadow: "0 3px 10px rgba(10,102,194,0.3)",
+                              }}
+                            >
+                              <Share2 size={13} /> LinkedIn
+                            </button>
+                          </>
                         )}
                         {isPending && (
                           <button
@@ -1715,7 +1847,7 @@ export default function StudentDashboard() {
                 🏆
               </div>
               <div>
-                <div style={{ fontSize: 22, fontWeight: 900, color: "#0F172A" }}>{certificates.length}</div>
+                <div style={{ fontSize: 22, fontWeight: 900, color: "#0F172A" }}>{allCertificates.length}</div>
                 <div style={{ fontSize: 12, color: "#64748B", fontWeight: 600 }}>Certificates Earned</div>
               </div>
             </div>
@@ -1742,7 +1874,7 @@ export default function StudentDashboard() {
           </div>
 
           {/* Certificates Grid */}
-          {certificates.length === 0 ? (
+          {allCertificates.length === 0 ? (
             <div style={{ background: "#FFFFFF", borderRadius: 16, border: "1px solid #E2E8F0", padding: "50px 20px", textAlign: "center", color: "#64748B" }}>
               <Award size={48} color="#CBD5E1" style={{ marginBottom: 12 }} />
               <h3 style={{ margin: "0 0 6px", color: "#1E293B", fontSize: 18, fontWeight: 800 }}>No Certificates Yet</h3>
@@ -1769,7 +1901,7 @@ export default function StudentDashboard() {
             </div>
           ) : (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: 20 }}>
-              {certificates.map((cert) => (
+              {allCertificates.map((cert) => (
                 <div
                   key={cert.certificateId || cert.id}
                   style={{
@@ -1938,6 +2070,22 @@ export default function StudentDashboard() {
 
           {(() => {
             const completedEvents = applications.filter((a) => a.status === "Completed");
+            const certPosts = (allCertificates || []).map((c, idx) => ({
+              id: `post_cert_${c.certificateId || idx}`,
+              tag: `Official Certificate • ${c.certificateId}`,
+              headline: `Participation Certificate: ${c.eventTitle}`,
+              content: c.linkedInPost || `I am proud to share that I have completed the volunteering initiative for "${c.eventTitle}" with Maatram Foundation! Dedicated ${c.verifiedHours || 4} hours to empower deserving youth. Grateful to be part of this impactful journey. Certificate ID: ${c.certificateId}. #MaatramFoundation #Volunteering #SocialImpact #StudentLeadership`,
+            }));
+
+            const eventPosts = completedEvents
+              .filter((a) => !certificates.some((c) => c.eventTitle === (a.opportunityTitle || a.event?.title)))
+              .map((a, idx) => ({
+                id: `post_event_${idx}`,
+                tag: "Event Completion",
+                headline: `Completed Initiative: ${a.opportunityTitle || a.event?.title || "Community Drive"}`,
+                content: `I am proud to share that I have successfully completed the volunteering initiative for "${a.opportunityTitle || a.event?.title || 'Community Service'}" with Maatram Foundation!\n\nDedicated ${a.event?.durationHours || 4} hours to creating meaningful community impact. Grateful to be part of the change!\n\n"Thank you for being part of the Maatram community. Your contribution is helping us build a better tomorrow!"\n\n#MaatramFoundation #Volunteering #SocialImpact #StudentLeadership`,
+              }));
+
             const postsToShare = [
               {
                 id: "post_summary",
@@ -1945,12 +2093,8 @@ export default function StudentDashboard() {
                 headline: `Milestone Achieved: ${userPoints} Points & ${verifiedHours} Verified Community Service Hours`,
                 content: `Proud to share my volunteering milestone with Maatram Foundation! 🌟\n\nOver the past months, I have dedicated ${verifiedHours} hours on-ground and earned ${userPoints} leadership points empowering deserving high school students and rural communities.\n\nVolunteering has helped me sharpen my communication, team coordination, and empathetic leadership skills.\n\nThank you to the mentors and coordinators at Maatram Foundation for building this platform! 🤝\n\n#MaatramFoundation #Volunteering #SocialImpact #StudentLeadership #CommunityFirst`,
               },
-              ...completedEvents.map((a, idx) => ({
-                id: `post_event_${idx}`,
-                tag: "Event Completion",
-                headline: `Completed Initiative: ${a.opportunityTitle || a.event?.title || "Community Drive"}`,
-                content: `I am proud to share that I have successfully completed the volunteering initiative for "${a.opportunityTitle || a.event?.title || 'Community Service'}" with Maatram Foundation!\n\nDedicated ${a.event?.durationHours || 4} hours to creating meaningful community impact. Grateful to be part of the change!\n\n"Thank you for being part of the Maatram community. Your contribution is helping us build a better tomorrow!"\n\n#MaatramFoundation #Volunteering #SocialImpact #StudentLeadership`,
-              })),
+              ...certPosts,
+              ...eventPosts,
             ];
 
             return (

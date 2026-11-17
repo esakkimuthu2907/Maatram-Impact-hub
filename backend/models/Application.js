@@ -24,6 +24,8 @@ const applicationSchema = new mongoose.Schema(
       default: "Unmarked",
     },
     pointsAwarded:    { type: Number, default: 0 },
+    certificateId:    { type: String, default: "" },
+    completedAt:      { type: String, default: "" },
     motivation:       { type: String, default: "" },
     experience:       { type: String, default: "" },
     skills:           { type: String, default: "" },

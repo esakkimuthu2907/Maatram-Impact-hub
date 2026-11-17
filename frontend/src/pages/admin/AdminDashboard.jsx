@@ -89,6 +89,15 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     loadDashboardData();
+    const handleSync = () => {
+      loadDashboardData();
+    };
+    window.addEventListener("storage", handleSync);
+    window.addEventListener("maatram_event_completed", handleSync);
+    return () => {
+      window.removeEventListener("storage", handleSync);
+      window.removeEventListener("maatram_event_completed", handleSync);
+    };
   }, []);
 
   const allOpps = opportunities.length > 0 ? opportunities : events;
@@ -105,7 +114,7 @@ export default function AdminDashboard() {
   const totalApplications = statsData?.kpis?.pendingApplications !== undefined
     ? ((statsData.kpis.pendingApplications || 0) + (statsData.kpis.approvedVolunteers || 0))
     : applications.length;
-  const openEventsCount = allOpps.filter((e) => e.status !== "Completed" && e.eventStatus !== "Completed").length;
+  const openEventsCount = allOpps.filter((e) => e.status !== "Completed" && e.eventStatus !== "Completed" && !e.pointsDistributed).length;
 
   const kpis = {
     totalRegisteredStudents,
@@ -115,7 +124,7 @@ export default function AdminDashboard() {
     totalInterests: totalApplications,
     pendingApplications: statsData?.kpis?.pendingApplications ?? applications.filter((a) => a.status === "Pending").length,
     approvedVolunteers: statsData?.kpis?.approvedVolunteers ?? applications.filter((a) => a.status === "Approved").length,
-    completedEvents: statsData?.kpis?.completedEvents ?? allOpps.filter((e) => e.status === "Completed" || e.eventStatus === "Completed").length,
+    completedEvents: allOpps.filter((e) => e.status === "Completed" || e.eventStatus === "Completed" || Boolean(e.pointsDistributed)).length,
     totalVolunteerContributions: statsData?.kpis?.totalVolunteerContributions ?? statsData?.kpis?.totalVerifiedHours ?? 0,
     totalPointsDistributed: statsData?.kpis?.totalPointsDistributed ?? 0,
   };
@@ -273,8 +282,8 @@ export default function AdminDashboard() {
           ) : (
             displayEvents.map((opp, idx) => {
             const oppId = opp.id || opp._id || `opp_${idx}`;
-            const isCompleted = opp.status === "Completed" || opp.eventStatus === "Completed" || idx === 3;
-            const isShortlisted = opp.status === "Shortlisted" || idx === 2;
+            const isCompleted = opp.status === "Completed" || opp.eventStatus === "Completed" || Boolean(opp.pointsDistributed);
+            const isShortlisted = opp.status === "Shortlisted";
             const statusClass = isCompleted ? "completed" : isShortlisted ? "shortlisted" : "open";
             const statusText = isCompleted ? "Completed" : isShortlisted ? "Shortlisted" : "Open";
 

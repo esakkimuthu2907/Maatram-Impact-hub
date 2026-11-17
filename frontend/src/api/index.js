@@ -3,22 +3,48 @@
 // Central API wrapper for Maatram Impact Hub
 // Supports Desktop, Mobile LAN and deployed environments.
 
-// Backend API configuration - auto-detects localhost, 127.0.0.1, or mobile LAN IP
-function resolveApiUrl() {
+// Backend API configuration - auto-detects localhost (5001, 5002, 5000), 127.0.0.1, or mobile LAN IP
+let activeApiBase = null;
+
+function resolveCandidateUrls() {
   if (typeof window !== "undefined") {
     const host = window.location.hostname;
+    // When running in the browser with Vite dev server or on local machine:
+    // 1. '/api' uses Vite's proxy (same origin, zero CORS / network issues)
+    // 2. Direct loopback URLs to port 5002, 5001, 5000 (127.0.0.1 prioritized over localhost to avoid IPv6 issues)
     if (host === "localhost" || host === "127.0.0.1") {
-      return "http://localhost:5000/api";
+      return [
+        "/api",
+        "http://127.0.0.1:5002/api",
+        "http://localhost:5002/api",
+        "http://127.0.0.1:5001/api",
+        "http://localhost:5001/api",
+        "http://127.0.0.1:5000/api",
+        "http://localhost:5000/api",
+      ];
     }
     if (/^\d+\.\d+\.\d+\.\d+$/.test(host)) {
-      return `http://${host}:5000/api`;
+      return [
+        "/api",
+        `http://${host}:5002/api`,
+        `http://${host}:5001/api`,
+        `http://${host}:5000/api`,
+        "http://127.0.0.1:5002/api",
+      ];
     }
   }
-  const envUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
-  return `${envUrl.replace(/\/+$/, "")}/api`;
+  const envUrl = (import.meta.env.VITE_API_URL || "http://127.0.0.1:5002").replace(/\/+$/, "");
+  return [
+    "/api",
+    `${envUrl}/api`,
+    "http://127.0.0.1:5002/api",
+    "http://localhost:5002/api",
+    "http://127.0.0.1:5001/api",
+    "http://localhost:5001/api",
+  ];
 }
 
-const BASE_URL = resolveApiUrl();
+const BASE_URL = resolveCandidateUrls()[0] || "http://localhost:5002/api";
 
 // Get authentication token
 function getToken() {
@@ -73,20 +99,26 @@ async function request(method, path, body = null) {
   }
 
   let response;
+  const candidateBases = activeApiBase
+    ? [activeApiBase, ...resolveCandidateUrls().filter((u) => u !== activeApiBase)]
+    : resolveCandidateUrls();
 
-  try {
-    console.log("Maatram API Request:", {
-      method,
-      url: `${BASE_URL}${path}`,
-    });
+  let lastNetworkError = null;
 
-    response = await fetch(`${BASE_URL}${path}`, options);
+  for (const base of candidateBases) {
+    try {
+      response = await fetch(`${base}${path}`, options);
+      activeApiBase = base; // Cache successful connection
+      break;
+    } catch (netErr) {
+      lastNetworkError = netErr;
+    }
+  }
 
-  } catch (error) {
-    console.error("Maatram API Network Error:", error);
-
+  if (!response) {
+    console.error("Maatram API Network Error (all candidate ports failed):", lastNetworkError);
     throw new Error(
-      "Unable to connect to the server. Please check your internet or network connection."
+      "Unable to connect to the server. Please check your network connection and ensure the backend is running."
     );
   }
 
@@ -110,10 +142,13 @@ async function request(method, path, body = null) {
 
   // Handle API errors
   if (!response.ok) {
-    const message =
-      typeof data === "object" && data?.message
-        ? data.message
-        : "Something went wrong. Please try again.";
+    let message = "Something went wrong. Please try again.";
+    if (typeof data === "object" && data !== null) {
+      message = data.message || data.error || data.msg || message;
+    } else if (typeof data === "string" && data.trim()) {
+      const clean = data.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+      if (clean) message = clean.slice(0, 180);
+    }
 
     const err = new Error(message);
 

@@ -1,47 +1,43 @@
-// backend/config/db.js
+
 const mongoose = require("mongoose");
 
-// Disable query buffering so Mongoose never hangs for 10000ms when disconnected
 mongoose.set("bufferCommands", false);
-
-let isConnected = false;
-
-// Attach error listener so unhandled connection errors don't terminate process
-mongoose.connection.on("error", (err) => {
-  console.warn(`⚠️ Mongoose connection notice: ${err.message}`);
-  isConnected = false;
-});
-
-mongoose.connection.on("disconnected", () => {
-  isConnected = false;
-});
 
 const connectDB = async () => {
   const uri = process.env.MONGO_URI;
+
   if (!uri) {
-    console.warn("⚠️ MONGO_URI not provided in .env. Using persistent local JSON database fallback.");
+    console.warn("⚠️ MONGO_URI missing. Using local JSON fallback.");
     return false;
   }
 
   try {
-    console.log("🔄 Connecting to MongoDB Database...");
+    console.log("🔄 Connecting to MongoDB Atlas...");
+
     await mongoose.connect(uri, {
-      serverSelectionTimeoutMS: 1500,
+      serverSelectionTimeoutMS: 10000,
+      connectTimeoutMS: 10000,
     });
-    isConnected = true;
-    console.log(`✅ MongoDB Atlas Connected Successfully: ${mongoose.connection.host}`);
+
+    console.log(
+      `✅ MongoDB Atlas Connected: ${mongoose.connection.host}`
+    );
+
     return true;
+
   } catch (error) {
-    console.warn(`⚠️ MongoDB Atlas Notice: ${error.message}`);
-    console.warn("ℹ️ Running in Dual-Mode: Using persistent backend storage (backend/data/db.json).");
-    isConnected = false;
-    try {
-      await mongoose.disconnect();
-    } catch {}
+    console.error("❌ MongoDB connection failed:", error.message);
+    console.warn("⚠️ Using local JSON fallback.");
+
     return false;
   }
 };
 
-const getIsConnected = () => isConnected && mongoose.connection.readyState === 1;
+const getIsConnected = () => {
+  return mongoose.connection.readyState === 1;
+};
 
-module.exports = { connectDB, getIsConnected };
+module.exports = {
+  connectDB,
+  getIsConnected,
+};

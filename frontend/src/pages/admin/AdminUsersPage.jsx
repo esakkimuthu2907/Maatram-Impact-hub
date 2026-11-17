@@ -24,11 +24,12 @@ import {
   AlertCircle,
   Trash2,
   Sliders,
+  Pause,
+  Play,
 } from "lucide-react";
 
 import { useApp } from "../../context/AppContext";
 import { adminAPI } from "../../api/adminAPI";
-import StudentProfileDrawer from "../../components/common/StudentProfileDrawer";
 import "./AdminUsersPage.css";
 import "./AdminEventsPage.css";
 
@@ -41,12 +42,15 @@ export default function AdminUsersPage() {
   const [loading, setLoading] = useState(true);
   const [activeStatusFilter, setActiveStatusFilter] = useState("all"); // "all" | "active" | "inactive" | "pending"
   const [searchQuery, setSearchQuery] = useState("");
+  const [deptFilter, setDeptFilter] = useState("All");
+  const [sortOrder, setSortOrder] = useState("newest"); // newest | name | points | hours
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 8;
 
-  // Drawer & Modals state
-  const [drawerStudent, setDrawerStudent] = useState(null);
-  const [showDrawer, setShowDrawer] = useState(false);
+  // Modals state
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [modalBusy, setModalBusy] = useState(false);
   const [statusConfirmModal, setStatusConfirmModal] = useState(null); // { user, nextStatus }
   const [showAddVolunteerModal, setShowAddVolunteerModal] = useState(false);
   const [addForm, setAddForm] = useState({
@@ -81,10 +85,10 @@ export default function AdminUsersPage() {
       const raw = Array.isArray(res?.data)
         ? res.data
         : Array.isArray(res?.users)
-        ? res.users
-        : Array.isArray(res)
-        ? res
-        : [];
+          ? res.users
+          : Array.isArray(res)
+            ? res
+            : [];
 
       // Filter student/volunteer users
       const students = raw
@@ -158,7 +162,7 @@ export default function AdminUsersPage() {
     if (activeStatusFilter === "active") {
       result = result.filter((u) => u.status === "active");
     } else if (activeStatusFilter === "inactive") {
-      result = result.filter((u) => u.status === "inactive");
+      result = result.filter((u) => u.status === "inactive" || u.status === "pending_approval");
     } else if (activeStatusFilter === "pending") {
       result = result.filter((u) => u.status === "pending_approval");
     }
@@ -178,8 +182,24 @@ export default function AdminUsersPage() {
       );
     }
 
+    if (deptFilter !== "All") {
+      result = result.filter((u) => u.department === deptFilter);
+    }
+
+    result.sort((a, b) => {
+      if (sortOrder === "name") return (a.fullName || "").localeCompare(b.fullName || "");
+      if (sortOrder === "points") return (b.points || 0) - (a.points || 0);
+      if (sortOrder === "hours") return (b.totalHours || 0) - (a.totalHours || 0);
+      return String(b.createdAt || "").localeCompare(String(a.createdAt || ""));
+    });
+
     return result;
-  }, [usersList, activeStatusFilter, searchQuery]);
+  }, [usersList, activeStatusFilter, searchQuery, deptFilter, sortOrder]);
+
+  const departmentOptions = useMemo(
+    () => ["All", ...Array.from(new Set(usersList.map((u) => u.department).filter(Boolean)))],
+    [usersList]
+  );
 
   // Paginated list
   const totalPages = Math.max(1, Math.ceil(filteredStudents.length / pageSize));
@@ -199,6 +219,30 @@ export default function AdminUsersPage() {
       setStatusConfirmModal(null);
     } catch (err) {
       showToast(err.message || "Failed to update account status", "error");
+    }
+  };
+
+  const deleteCode = deleteTarget
+    ? String(deleteTarget.applicationId || deleteTarget.rollNumber || deleteTarget.regNumber || "MAA001").trim()
+    : "";
+
+  const openProfile = (std) => navigate(`/admin/users/${std._id || std.id}`);
+
+  // Handle permanent delete (requires typing the roll number)
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      setModalBusy(true);
+      const targetId = deleteTarget._id || deleteTarget.id;
+      const res = await adminAPI.deleteUser(targetId);
+      showToast(res?.message || `${deleteTarget.fullName}'s account has been deleted. Historical records safely archived.`);
+      setUsersList((prev) => prev.filter((u) => (u._id || u.id) !== targetId));
+      setDeleteTarget(null);
+      setDeleteConfirmText("");
+    } catch (err) {
+      showToast(err.message || "Failed to delete account", "error");
+    } finally {
+      setModalBusy(false);
     }
   };
 
@@ -236,7 +280,7 @@ export default function AdminUsersPage() {
               <span className="usr-card-number">{summaryMetrics.totalStudents}</span>
             </div>
           </div>
-          <span className="usr-card-arrow">&rarr;</span>
+          <ArrowRight size={18} className="usr-card-arrow" />
         </div>
 
         {/* Card 2: Active Volunteers */}
@@ -256,7 +300,7 @@ export default function AdminUsersPage() {
               <span className="usr-card-number">{summaryMetrics.activeVolunteers}</span>
             </div>
           </div>
-          <span className="usr-card-arrow">&rarr;</span>
+          <ArrowRight size={18} className="usr-card-arrow" />
         </div>
 
         {/* Card 3: Inactive Volunteers */}
@@ -276,7 +320,7 @@ export default function AdminUsersPage() {
               <span className="usr-card-number">{summaryMetrics.inactiveVolunteers}</span>
             </div>
           </div>
-          <span className="usr-card-arrow">&rarr;</span>
+          <ArrowRight size={18} className="usr-card-arrow" />
         </div>
 
         {/* Card 4: Total Hours */}
@@ -290,7 +334,7 @@ export default function AdminUsersPage() {
               <span className="usr-card-number">{summaryMetrics.totalHours}h</span>
             </div>
           </div>
-          <span className="usr-card-arrow">&rarr;</span>
+          <ArrowRight size={18} className="usr-card-arrow" />
         </div>
 
         {/* Card 5: Community Points */}
@@ -304,83 +348,7 @@ export default function AdminUsersPage() {
               <span className="usr-card-number">{summaryMetrics.totalPoints.toLocaleString()}</span>
             </div>
           </div>
-          <span className="usr-card-arrow">&rarr;</span>
-        </div>
-      </div>
-
-      {/* ───────────────────────────────────────────────────────────── */}
-      {/* B. SEARCH & FILTER TOOLBAR (Exact match to media_71dea7d8.jpg)*/}
-      {/* ───────────────────────────────────────────────────────────── */}
-      <div className="usr-search-filter-row">
-        {/* Search Input */}
-        <div className="usr-search-input-wrap">
-          <Search size={18} className="usr-search-icon" />
-          <input
-            type="text"
-            className="usr-search-input"
-            placeholder="Search name, roll no, college, department..."
-            value={searchQuery}
-            onChange={(e) => {
-              setSearchQuery(e.target.value);
-              setCurrentPage(1);
-            }}
-          />
-        </div>
-
-        {/* Filter Pills matching media_71dea7d8.jpg */}
-        <div className="usr-filter-pills-wrap">
-          {/* All Pill */}
-          <button
-            type="button"
-            className={`usr-filter-pill-btn all ${activeStatusFilter === "all" ? "selected" : ""}`}
-            onClick={() => {
-              setActiveStatusFilter("all");
-              setCurrentPage(1);
-            }}
-          >
-            All <span className="usr-pill-badge">{summaryMetrics.totalStudents}</span>
-          </button>
-
-          {/* Active Pill */}
-          <button
-            type="button"
-            className={`usr-filter-pill-btn active-pill ${
-              activeStatusFilter === "active" ? "selected" : ""
-            }`}
-            onClick={() => {
-              setActiveStatusFilter("active");
-              setCurrentPage(1);
-            }}
-          >
-            <CheckCircle2 size={14} /> Active{" "}
-            <span className="usr-pill-badge">{summaryMetrics.activeVolunteers}</span>
-          </button>
-
-          {/* Inactive Pill */}
-          <button
-            type="button"
-            className={`usr-filter-pill-btn inactive-pill ${
-              activeStatusFilter === "inactive" ? "selected" : ""
-            }`}
-            onClick={() => {
-              setActiveStatusFilter("inactive");
-              setCurrentPage(1);
-            }}
-          >
-            <XCircle size={14} /> Inactive{" "}
-            <span className="usr-pill-badge">{summaryMetrics.inactiveVolunteers}</span>
-          </button>
-        </div>
-
-        <div className="usr-actions-right">
-          <button
-            type="button"
-            className="usr-btn-action"
-            onClick={loadUsers}
-            title="Refresh student list"
-          >
-            <RefreshCw size={14} className={loading ? "spin" : ""} /> Refresh
-          </button>
+          <ArrowRight size={18} className="usr-card-arrow" />
         </div>
       </div>
 
@@ -388,7 +356,80 @@ export default function AdminUsersPage() {
       {/* C. STUDENT TABLE (Exact match to media_71dea7d8.jpg)          */}
       {/* ───────────────────────────────────────────────────────────── */}
       <div className="usr-table-card">
-        <div style={{ overflowX: "auto" }}>
+        {/* Directory header */}
+        <div className="usr-dir-head">
+          <h2>Student Directory</h2>
+          <div className="usr-dir-badges">
+            <button
+              type="button"
+              className={`usr-dir-badge green ${activeStatusFilter === "active" ? "selected" : ""}`}
+              aria-pressed={activeStatusFilter === "active"}
+              title="Show active students"
+              onClick={() => { setActiveStatusFilter(activeStatusFilter === "active" ? "all" : "active"); setCurrentPage(1); }}
+            >
+              Active {summaryMetrics.activeVolunteers}
+            </button>
+            <button
+              type="button"
+              className={`usr-dir-badge red ${activeStatusFilter === "inactive" ? "selected" : ""}`}
+              aria-pressed={activeStatusFilter === "inactive"}
+              title="Show inactive students"
+              onClick={() => { setActiveStatusFilter(activeStatusFilter === "inactive" ? "all" : "inactive"); setCurrentPage(1); }}
+            >
+              Inactive {summaryMetrics.inactiveVolunteers}
+            </button>
+            <button type="button" className="usr-btn-action" onClick={loadUsers} title="Refresh student list">
+              <RefreshCw size={14} className={loading ? "spin" : ""} /> <span className="usr-btn-label">Refresh</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Filter bar */}
+        <div className="usr-filter-bar">
+          <label className="usr-field">
+            <span>Status</span>
+            <select
+              value={activeStatusFilter}
+              onChange={(e) => { setActiveStatusFilter(e.target.value); setCurrentPage(1); }}
+            >
+              <option value="all">All Students</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+              <option value="pending">Pending Approval</option>
+            </select>
+          </label>
+          <label className="usr-field">
+            <span>Department</span>
+            <select
+              value={deptFilter}
+              onChange={(e) => { setDeptFilter(e.target.value); setCurrentPage(1); }}
+            >
+              {departmentOptions.map((d) => (
+                <option key={d} value={d}>{d}</option>
+              ))}
+            </select>
+          </label>
+          <label className="usr-field">
+            <span>Sort</span>
+            <select value={sortOrder} onChange={(e) => { setSortOrder(e.target.value); setCurrentPage(1); }}>
+              <option value="newest">Newest First</option>
+              <option value="name">Name A–Z</option>
+              <option value="points">Most Points</option>
+              <option value="hours">Most Hours</option>
+            </select>
+          </label>
+          <label className="usr-field usr-field-search">
+            <span>Search</span>
+            <input
+              type="text"
+              placeholder="Name, roll no, college, department..."
+              value={searchQuery}
+              onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+            />
+          </label>
+        </div>
+
+        <div className="usr-table-scroll">
           <table className="usr-data-table">
             <thead>
               <tr>
@@ -434,10 +475,7 @@ export default function AdminUsersPage() {
                   return (
                     <tr
                       key={std._id || std.id || std.applicationId}
-                      onClick={() => {
-                        setDrawerStudent(std);
-                        setShowDrawer(true);
-                      }}
+                      onClick={() => openProfile(std)}
                     >
                       {/* 1. Student (initials avatar + name + batch) */}
                       <td>
@@ -508,13 +546,10 @@ export default function AdminUsersPage() {
                           <button
                             type="button"
                             className="usr-btn-action"
-                            title="View student profile drawer"
-                            onClick={() => {
-                              setDrawerStudent(std);
-                              setShowDrawer(true);
-                            }}
+                            title="Open full student profile"
+                            onClick={() => openProfile(std)}
                           >
-                            <Eye size={13} /> View
+                            <Eye size={13} /> <span className="usr-btn-label">View</span>
                           </button>
 
                           {std.status === "pending_approval" ? (
@@ -524,7 +559,7 @@ export default function AdminUsersPage() {
                               title="Approve registration"
                               onClick={() => handleApprove(std)}
                             >
-                              <CheckCircle2 size={13} /> Approve
+                              <CheckCircle2 size={13} /> <span className="usr-btn-label">Approve</span>
                             </button>
                           ) : isActive ? (
                             <button
@@ -538,7 +573,7 @@ export default function AdminUsersPage() {
                                 })
                               }
                             >
-                              <UserX size={13} /> Deactivate
+                              <UserX size={13} /> <span className="usr-btn-label">Deactivate</span>
                             </button>
                           ) : (
                             <button
@@ -552,9 +587,21 @@ export default function AdminUsersPage() {
                                 })
                               }
                             >
-                              <UserCheck size={13} /> Activate
+                              <UserCheck size={13} /> <span className="usr-btn-label">Activate</span>
                             </button>
                           )}
+
+                          <button
+                            type="button"
+                            className="usr-btn-action delete"
+                            title="Delete student account"
+                            onClick={() => {
+                              setDeleteConfirmText("");
+                              setDeleteTarget(std);
+                            }}
+                          >
+                            <Trash2 size={13} /> <span className="usr-btn-label">Delete</span>
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -600,50 +647,76 @@ export default function AdminUsersPage() {
         </div>
       </div>
 
-      {/* ───────────────────────────────────────────────────────────── */}
-      {/* D. STUDENT PROFILE DRAWER (Phase 6)                           */}
-      {/* ───────────────────────────────────────────────────────────── */}
-      <StudentProfileDrawer
-        isOpen={showDrawer}
-        onClose={() => setShowDrawer(false)}
-        student={drawerStudent}
-        onToggleStatus={(nextSt) => {
-          if (drawerStudent) {
-            setStatusConfirmModal({ user: drawerStudent, nextStatus: nextSt });
-          }
-        }}
-      />
-
-      {/* ───────────────────────────────────────────────────────────── */}
-      {/* E. CONFIRMATION MODAL FOR STATUS TOGGLE                      */}
-      {/* ───────────────────────────────────────────────────────────── */}
+      {/* Status toggle confirmation */}
       {statusConfirmModal && (
-        <div className="status-modal-overlay">
-          <div className="status-modal-card">
+        <div className="usr-overlay" onClick={() => setStatusConfirmModal(null)}>
+          <div className="usr-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+            <span className={`usr-modal-ico ${statusConfirmModal.nextStatus === "active" ? "green" : "amber"}`}>
+              {statusConfirmModal.nextStatus === "active" ? <Play size={16} /> : <Pause size={16} />}
+            </span>
             <h3>
               {statusConfirmModal.nextStatus === "active"
-                ? "Activate Student Account?"
-                : "Deactivate Student Account?"}
+                ? "Activate Account?"
+                : "Deactivate Account?"}
             </h3>
             <p>
               {statusConfirmModal.nextStatus === "active"
-                ? `Confirm activating ${statusConfirmModal.user.fullName}'s account. They will be granted full login access and drive participation permissions.`
-                : `Confirm deactivating ${statusConfirmModal.user.fullName}'s account. Login will be blocked immediately, but their volunteering records and points history will remain securely stored.`}
+                ? `Are you sure you want to activate ${statusConfirmModal.user.fullName}'s account? They will be able to log in and apply for drives.`
+                : `Are you sure you want to deactivate ${statusConfirmModal.user.fullName}'s account? Their existing records will remain preserved, but login will be blocked.`}
             </p>
-            <div className="status-modal-actions">
-              <button
-                type="button"
-                className="btn-cancel"
-                onClick={() => setStatusConfirmModal(null)}
-              >
+            <div className="usr-modal-actions">
+              <button type="button" className="usr-mbtn soft" onClick={() => setStatusConfirmModal(null)}>
                 Cancel
               </button>
               <button
                 type="button"
-                className={`btn-confirm ${statusConfirmModal.nextStatus}`}
+                className={`usr-mbtn ${statusConfirmModal.nextStatus === "active" ? "green" : "red"}`}
                 onClick={confirmToggleStatus}
               >
                 Confirm {statusConfirmModal.nextStatus === "active" ? "Activation" : "Deactivation"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Permanent delete confirmation */}
+      {deleteTarget && (
+        <div className="usr-overlay" onClick={() => !modalBusy && setDeleteTarget(null)}>
+          <div className="usr-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+            <span className="usr-modal-ico red"><Trash2 size={16} /></span>
+            <h3>Delete Account Permanently?</h3>
+            <p>
+              You are about to delete <strong>{deleteTarget.fullName} ({deleteCode})</strong>. This cannot be undone and will remove:
+            </p>
+            <ul className="usr-modal-list">
+              <li>Profile and login access</li>
+              <li>{deleteTarget.eventsJoined} events and {deleteTarget.totalHours} verified hours</li>
+              <li>{deleteTarget.points.toLocaleString()} community points and ledger</li>
+              <li>All issued certificates</li>
+            </ul>
+            <label className="usr-modal-label" htmlFor="usr-delete-confirm">
+              Type <strong>{deleteCode}</strong> to confirm
+            </label>
+            <input
+              id="usr-delete-confirm"
+              className={`usr-modal-input ${deleteConfirmText.trim().toLowerCase() === String(deleteCode).toLowerCase() ? "match" : ""}`}
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              autoComplete="off"
+              autoFocus
+            />
+            <div className="usr-modal-actions">
+              <button type="button" className="usr-mbtn soft" disabled={modalBusy} onClick={() => setDeleteTarget(null)}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="usr-mbtn red"
+                disabled={modalBusy || deleteConfirmText.trim().toLowerCase() !== String(deleteCode).toLowerCase()}
+                onClick={confirmDelete}
+              >
+                Delete Permanently
               </button>
             </div>
           </div>

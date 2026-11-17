@@ -276,8 +276,8 @@ async function seed() {
     }
   }
 
-  // Ensure Esakkimuthu's student account has status: 'active', points: 50
-  const student = await User.findOne({ email: "esakkimuthu2907@gmail.com" });
+  // Ensure active student account has status: 'active', points: 50
+  const student = await User.findOne({ email: "student@maatram.org" });
   if (student) {
     student.status = "active";
     student.points = 50;

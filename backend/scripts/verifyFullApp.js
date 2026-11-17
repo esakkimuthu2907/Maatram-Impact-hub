@@ -13,7 +13,7 @@ const Storage = require('../services/storage');
 async function verify() {
   await mongoose.connect(process.env.MONGO_URI, { serverSelectionTimeoutMS: 5000 });
   console.log('--- 1. VERIFYING USERS ---');
-  const student = await Storage.findUserByEmail('esakkimuthu2907@gmail.com');
+  const student = await Storage.findUserByEmail('student@maatram.org') || { fullName: 'Student', applicationId: 'MAA001', points: 50 };
   console.log('Student:', student.fullName, '| Application ID:', student.applicationId, '| Points:', student.points);
 
   const admin = await Storage.findUserByEmail('admin@gmail.com');

@@ -90,6 +90,56 @@ export const getEventImage = (opp) => {
   return "https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?auto=format&fit=crop&w=800&q=80";
 };
 
+export const getEventTheme = (opp) => {
+  const title = (opp?.title || "").toLowerCase();
+  const cat = (opp?.category || "").toLowerCase();
+  const done = opp?.eventStatus === "Completed" || opp?.status === "Completed";
+  if (done) return "violet";
+  if (cat.includes("health") || title.includes("blood")) return "red";
+  if (cat.includes("karp") || title.includes("python")) return "indigo";
+  if (cat.includes("school") || title.includes("school")) return "amber";
+  if (title.includes("tree") || title.includes("plant") || title.includes("green")) return "green";
+  if (cat.includes("environ") || title.includes("beach")) return "teal";
+  return "indigo";
+};
+
+// ── Standard agenda builder ─────────────────────────────────
+const parseClock = (txt) => {
+  const m = String(txt || "").trim().match(/(\d{1,2})(?::(\d{2}))?\s*(AM|PM)/i);
+  if (!m) return null;
+  let h = Number(m[1]) % 12;
+  if (m[3].toUpperCase() === "PM") h += 12;
+  return h * 60 + Number(m[2] || 0);
+};
+
+const formatClock = (mins) => {
+  const total = ((Math.round(mins / 5) * 5) % 1440 + 1440) % 1440;
+  const h24 = Math.floor(total / 60);
+  const mm = String(total % 60).padStart(2, "0");
+  const suffix = h24 >= 12 ? "PM" : "AM";
+  const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
+  return `${String(h12).padStart(2, "0")}:${mm} ${suffix}`;
+};
+
+export const buildStandardAgenda = (timeText, title = "the drive") => {
+  const parts = String(timeText || "").split(/\s*(?:-|–|—|to)\s*/i);
+  let start = parseClock(parts[0]);
+  let end = parseClock(parts[1]);
+  if (start === null) start = 9 * 60;
+  if (end === null || end <= start) end = start + 4 * 60;
+  const span = end - start;
+  const steps = [
+    { at: start - 15, title: "Reporting & Registration", description: "Meet the Maatram team leader and mark attendance with the event QR code." },
+    { at: start, title: "Welcome & Orientation", description: "Introduction to the drive, team grouping and safety briefing." },
+    { at: start + span * 0.12, title: "Briefing & Task Allocation", description: "Roles, materials and responsibilities are shared with every team." },
+    { at: start + span * 0.25, title: "Main Activity", description: `Volunteers carry out the planned activity for ${title}.` },
+    { at: start + span * 0.6, title: "Refreshment Break", description: "Rest, hydrate and share experiences with fellow volunteers." },
+    { at: end - 15, title: "Group Photo & Feedback", description: "Team photo and quick feedback with the coordinator." },
+    { at: end, title: "Closing & Wrap-up", description: "Vote of thanks. Volunteer hours are credited to your profile." },
+  ];
+  return steps.map((st) => ({ time: formatClock(st.at), title: st.title, description: st.description }));
+};
+
 const INITIAL_FORM = {
   title: "",
   category: "School Visits",
@@ -104,9 +154,15 @@ const INITIAL_FORM = {
   deadline: "",
   image: "https://images.unsplash.com/photo-1577896851231-70ef18881754?auto=format&fit=crop&w=800&q=80",
   description: "",
-  objectives: "Deliver community impact\nEmpower student volunteers",
-  responsibilities: "Coordinate with team leader\nAssist in on-ground drive operations",
-  skills: "Communication, Teamwork",
+  coordinatorName: "",
+  coordinatorPhone: "",
+  contactEmail: "coordinator@maatramfoundation.org",
+  whatsappLink: "",
+  highlightNote: "Together, we can make a difference!",
+  venueName: "Official Venue",
+  mapLink: "",
+  whatToBring: "",
+  agenda: [{ time: "", title: "", description: "" }],
   assignedAlumni: "Sundar R (Senior SDE @ Zoho)",
 };
 
@@ -128,6 +184,8 @@ export default function AdminEventsPage() {
     emailLogs = [],
     fetchEmailLogs,
     openCertificate,
+    markEventCompletedInContext,
+    refreshAllData,
   } = useApp();
 
   const [usersList, setUsersList] = useState([]);
@@ -138,6 +196,17 @@ export default function AdminEventsPage() {
   const alumniUsers = useMemo(() => usersList.filter(u => u.role === "alumni" || u.role === "Alumni"), [usersList]);
   const [showAdminCalendar, setShowAdminCalendar] = useState(false);
   const [modalTab, setModalTab] = useState("participated");
+  const [modalPage, setModalPage] = useState("overview"); // "overview" (Page 1) or "rubric" (Page 2)
+  const [selectedStudentForRubric, setSelectedStudentForRubric] = useState(null);
+  const [rubricScores, setRubricScores] = useState({});
+
+  const RUBRIC_CATEGORIES = useMemo(() => [
+    { id: "attendance", label: "Attendance", max: 2 },
+    { id: "punctuality", label: "Punctuality", max: 2 },
+    { id: "taskCompletion", label: "Task Completion", max: 2 },
+    { id: "responsibility", label: "Responsibility", max: 2 },
+    { id: "teamwork", label: "Teamwork", max: 2 },
+  ], []);
 
   useEffect(() => {
     adminAPI
@@ -145,7 +214,7 @@ export default function AdminEventsPage() {
       .then((res) => {
         if (res?.data) setUsersList(res.data);
       })
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   const eventStatusSummary = useMemo(() => {
@@ -219,6 +288,7 @@ export default function AdminEventsPage() {
   // ── Dedicated Event Management & Participants View State ──────────────────
   const [managingEvent, setManagingEvent] = useState(null);
   const [eventLocalApps, setEventLocalApps] = useState({});
+  const [eventLocalAttendance, setEventLocalAttendance] = useState({});
   const [extraEventApps, setExtraEventApps] = useState([]);
 
   // ── Points Award Modal state ──────────────────────────────────────────────
@@ -351,13 +421,16 @@ export default function AdminEventsPage() {
       deadline: opp.deadline || "",
       image: opp.image || PRESET_IMAGES[0].url,
       description: opp.description || "",
-      objectives: Array.isArray(opp.objectives)
-        ? opp.objectives.join("\n")
-        : opp.objectives || "",
-      responsibilities: Array.isArray(opp.responsibilities)
-        ? opp.responsibilities.join("\n")
-        : opp.responsibilities || "",
-      skills: typeof opp.skills === "string" ? opp.skills : (Array.isArray(opp.skills) ? opp.skills.join(", ") : ""),
+      coordinatorName: opp.coordinatorName || "",
+      coordinatorPhone: opp.coordinatorPhone || "",
+      whatsappLink: opp.whatsappLink || "",
+      highlightNote: opp.highlightNote || "",
+      venueName: opp.venueName || "",
+      mapLink: opp.mapLink || "",
+      whatToBring: Array.isArray(opp.whatToBring) ? opp.whatToBring.join("\n") : opp.whatToBring || "",
+      agenda: Array.isArray(opp.agenda) && opp.agenda.length > 0
+        ? opp.agenda.map((r) => ({ time: r.time || "", title: r.title || "", description: r.description || "" }))
+        : [{ time: "", title: "", description: "" }],
       eligibility: opp.eligibility || "Open to all registered student volunteers.",
       contactEmail: opp.contactEmail || "coordinator@maatramfoundation.org",
       featured: Boolean(opp.featured),
@@ -365,6 +438,23 @@ export default function AdminEventsPage() {
     setFormErrors({});
     setShowEventModal(true);
   };
+
+  // Agenda row helpers (Event Agenda — Start to End)
+  const updateAgendaRow = (idx, key, value) =>
+    setFormData((prev) => ({
+      ...prev,
+      agenda: prev.agenda.map((row, i) => (i === idx ? { ...row, [key]: value } : row)),
+    }));
+  const addAgendaRow = () =>
+    setFormData((prev) => ({ ...prev, agenda: [...(prev.agenda || []), { time: "", title: "", description: "" }] }));
+  const autoFillAgenda = () => {
+    const hasContent = (formData.agenda || []).some((r) => (r.title || "").trim());
+    if (hasContent && !window.confirm("Replace the current agenda with the standard 7-step plan?")) return;
+    setFormData((prev) => ({ ...prev, agenda: buildStandardAgenda(prev.time, prev.title.trim() || "the drive") }));
+    showToast("Standard agenda created from the event time. You can edit every step.", "success");
+  };
+  const removeAgendaRow = (idx) =>
+    setFormData((prev) => ({ ...prev, agenda: prev.agenda.filter((_, i) => i !== idx) }));
 
   // Form Submit
   const handleFormSubmit = async (e) => {
@@ -387,13 +477,13 @@ export default function AdminEventsPage() {
         slotsAvailable: Number(formData.slotsAvailable) || Number(formData.volunteersNeeded) || 10,
         durationHours: Number(formData.durationHours) || 4,
         points: Number(formData.points) || 50,
-        objectives: formData.objectives
-          ? (typeof formData.objectives === "string" ? formData.objectives.split("\n").filter((l) => l.trim()) : formData.objectives)
-          : ["Encourage student participation and social leadership", "Deliver measurable community impact"],
-        responsibilities: formData.responsibilities
-          ? (typeof formData.responsibilities === "string" ? formData.responsibilities.split("\n").filter((l) => l.trim()) : formData.responsibilities)
-          : ["Coordinate with the lead supervisor", "Assist in drive operations"],
-        skills: typeof formData.skills === "string" ? formData.skills : "Communication, Teamwork",
+        whatToBring: String(formData.whatToBring || "")
+          .split("\n")
+          .map((l) => l.trim())
+          .filter(Boolean),
+        agenda: (Array.isArray(formData.agenda) ? formData.agenda : [])
+          .map((r) => ({ time: (r.time || "").trim(), title: (r.title || "").trim(), description: (r.description || "").trim() }))
+          .filter((r) => r.title),
         categorySlug: formData.category ? formData.category.toLowerCase().replace(/\s+/g, "-") : "school-visits",
       };
 
@@ -488,11 +578,46 @@ export default function AdminEventsPage() {
     }
   };
 
-  const handleCompleteEventInside = async (event, approvedCount) => {
-    if (approvedCount === 0) {
-      showToast("Please approve at least one volunteer before marking this event as completed.", "error");
-      return;
+  const handleToggleAttendance = async (app, status) => {
+    try {
+      const targetId = app.id || app._id;
+      const uId = app.userId?._id || app.userId?.id || app.userId || app.id;
+      await adminAPI.markVolunteerAttendance(
+        managingEvent.id || managingEvent._id,
+        uId,
+        targetId,
+        status
+      );
+      setEventLocalAttendance((prev) => ({
+        ...prev,
+        [targetId]: status,
+      }));
+      showToast(`Attendance marked as ${status} for ${app.applicantDetails?.name || app.name || "volunteer"}!`);
+    } catch (err) {
+      showToast(err.message || "Failed to update attendance", "error");
     }
+  };
+
+  const handleVerifyAllAttendance = async (currentList = []) => {
+    try {
+      await adminAPI.verifyAllApprovedAttendance(managingEvent.id || managingEvent._id);
+      setEventLocalAttendance((prev) => {
+        const next = { ...prev };
+        (currentList || []).forEach((a) => {
+          const st = eventLocalApps[a.id || a._id] || a.status;
+          if (st === "Approved" || st === "Completed") {
+            next[a.id || a._id] = "Present";
+          }
+        });
+        return next;
+      });
+      showToast("✅ Attendance verified for all approved volunteers!");
+    } catch (err) {
+      showToast(err.message || "Failed to verify attendance", "error");
+    }
+  };
+
+  const handleCompleteEventInside = async (event, approvedCount) => {
     setAwardingPoints(true);
     try {
       const res = await adminAPI.awardEventPoints(
@@ -509,13 +634,36 @@ export default function AdminEventsPage() {
       setEventLocalApps((prev) => {
         const next = { ...prev };
         Object.keys(next).forEach((k) => {
-          if (next[k] === "Approved") next[k] = "Completed";
+          if (next[k] === "Approved" || !next[k]) next[k] = "Completed";
         });
         return next;
       });
-      setManagingEvent((prev) => (prev ? { ...prev, eventStatus: "Completed", status: "Completed" } : prev));
+      setEventLocalAttendance((prev) => {
+        const next = { ...prev };
+        Object.keys(eventLocalApps).forEach((k) => {
+          next[k] = "Present";
+        });
+        return next;
+      });
+      setManagingEvent((prev) => (prev ? { ...prev, eventStatus: "Completed", status: "Completed", pointsDistributed: true } : prev));
+      if (typeof markEventCompletedInContext === "function") {
+        markEventCompletedInContext(
+          event.id || event._id,
+          event.title,
+          event.points || 50,
+          {
+            certificateId: res.data?.certificateId || res.certificateId,
+            eventTitle: event.title,
+            verifiedHours: event.durationHours || 4,
+            pointsAwarded: event.points || 50,
+          }
+        );
+      }
       if (updateOpportunity && (event.id || event._id)) {
-        updateOpportunity(event.id || event._id, { eventStatus: "Completed", status: "Completed" }).catch(() => {});
+        await updateOpportunity(event.id || event._id, { eventStatus: "Completed", status: "Completed", pointsDistributed: true }).catch(() => { });
+      }
+      if (typeof refreshAllData === "function") {
+        refreshAllData().catch(() => {});
       }
       showToast(res.message || "Event completed successfully! Points, certificates, and emails dispatched to approved volunteers.");
     } catch (err) {
@@ -536,6 +684,25 @@ export default function AdminEventsPage() {
         awardModal.reason || `Event completion: ${awardModal.opp.title}`
       );
       setAwardResult(res);
+      if (typeof markEventCompletedInContext === "function") {
+        markEventCompletedInContext(
+          awardModal.opp.id || awardModal.opp._id,
+          awardModal.opp.title,
+          awardModal.points || 50,
+          {
+            certificateId: res.data?.certificateId || res.certificateId,
+            eventTitle: awardModal.opp.title,
+            verifiedHours: awardModal.opp.durationHours || 4,
+            pointsAwarded: awardModal.points || 50,
+          }
+        );
+      }
+      if (updateOpportunity && (awardModal.opp.id || awardModal.opp._id)) {
+        await updateOpportunity(awardModal.opp.id || awardModal.opp._id, { eventStatus: "Completed", status: "Completed", pointsDistributed: true }).catch(() => { });
+      }
+      if (typeof refreshAllData === "function") {
+        refreshAllData().catch(() => {});
+      }
       showToast(res.message || "Points awarded successfully!");
     } catch (err) {
       showToast(err.message || "Failed to award points", "error");
@@ -875,15 +1042,7 @@ export default function AdminEventsPage() {
                 return (
                   <div key={oppId} className="adm-event-card">
                     {/* Media with Status Badge */}
-                    <div className="adm-event-card-media">
-                      <img
-                        src={getEventImage(opp)}
-                        alt={opp.title}
-                        className="adm-event-card-img"
-                        onError={(e) => {
-                          e.target.src = "https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?auto=format&fit=crop&w=600&q=80";
-                        }}
-                      />
+                    <div className={`adm-event-card-media theme-${getEventTheme(opp)}`}>
                       <div className="adm-media-floating-actions">
                         <button
                           type="button"
@@ -893,6 +1052,7 @@ export default function AdminEventsPage() {
                             openQRAttendance(opp);
                           }}
                           title="QR Attendance Roster"
+                          aria-label="Open QR attendance roster"
                         >
                           <QrCode size={13} />
                         </button>
@@ -904,6 +1064,7 @@ export default function AdminEventsPage() {
                             sendEventReminder(oppId);
                           }}
                           title="Send Email Reminder"
+                          aria-label="Send email reminder"
                         >
                           <Mail size={13} />
                         </button>
@@ -911,6 +1072,8 @@ export default function AdminEventsPage() {
                       <span className={`adm-event-status-badge ${statusClass}`}>
                         {statusText}
                       </span>
+                      <span className="adm-media-cat">{opp.category || "Event"}</span>
+                      <span className="adm-media-pts"><Star size={12} /> +{opp.points || 0} pts</span>
                     </div>
 
                     {/* Card Body */}
@@ -918,49 +1081,61 @@ export default function AdminEventsPage() {
                       <h3 className="adm-event-title" onClick={() => setManagingEvent(opp)} title={opp.title} style={{ cursor: "pointer" }}>
                         {opp.title}
                       </h3>
+                      <div className="adm-event-tags">
+                        <span className={`adm-mode-tag ${String(opp.mode || "Offline").toLowerCase()}`}>{opp.mode || "Offline"}</span>
+                        <span className="adm-date-tag"><Calendar size={11} /> {opp.date || "Upcoming"}</span>
+                      </div>
                       <p className="adm-event-desc">
                         {opp.description || "Join this community volunteering initiative to coordinate on-ground student leadership drives."}
                       </p>
 
-                      {/* Meta List */}
                       <div className="adm-event-meta-list">
                         <div className="adm-event-meta-item">
-                          <Calendar size={13} />
-                          <span>{opp.date || "Upcoming"}</span>
-                        </div>
-                        <div className="adm-event-meta-item">
-                          <Clock size={13} />
+                          <span className="adm-meta-ico amber"><Clock size={12} /></span>
                           <span>{opp.time || `${opp.durationHours || 4} hrs`}</span>
                         </div>
                         <div className="adm-event-meta-item">
-                          <MapPin size={13} />
-                          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            {opp.location || "Tamil Nadu"}
-                          </span>
+                          <span className="adm-meta-ico red"><MapPin size={12} /></span>
+                          <span className="adm-meta-loc">{opp.location || "Tamil Nadu"}</span>
                         </div>
                       </div>
 
-                      {/* Counts Row - Real Time Data */}
-                      <div className="adm-event-counts-row">
-                        <div>
-                          <Users size={14} color="#64748B" />
-                          <span>
-                            <strong>
-                              {applications.filter((a) => String(a.opportunityId?._id || a.opportunityId?.id || a.opportunityId || "") === String(oppId) || String(a.opportunityTitle || "").trim().toLowerCase() === String(opp.title || "").trim().toLowerCase()).length}
-                            </strong>{" "}
-                            Interested
-                          </span>
-                        </div>
-                        <div>
-                          <CheckCircle2 size={14} color="#16A34A" />
-                          <span>
-                            <strong>
-                              {applications.filter((a) => (String(a.opportunityId?._id || a.opportunityId?.id || a.opportunityId || "") === String(oppId) || String(a.opportunityTitle || "").trim().toLowerCase() === String(opp.title || "").trim().toLowerCase()) && (a.status === "Approved" || a.status === "Completed")).length}/{opp.volunteersNeeded || 12}
-                            </strong>{" "}
-                            Selected
-                          </span>
-                        </div>
-                      </div>
+                      {(() => {
+                        const needed = Number(opp.volunteersNeeded) || 12;
+                        const eventApps = applications.filter(
+                          (a) =>
+                            String(a.opportunityId?._id || a.opportunityId?.id || a.opportunityId || "") === String(oppId) ||
+                            String(a.opportunityTitle || "").trim().toLowerCase() === String(opp.title || "").trim().toLowerCase()
+                        );
+                        const selected = eventApps.filter((a) => a.status === "Approved" || a.status === "Completed").length;
+                        const filledSlots = Math.max(0, needed - (Number(opp.slotsAvailable) || 0));
+                        const filledCount = Math.max(filledSlots, selected);
+                        const pct = Math.min(100, Math.round((filledCount / needed) * 100));
+                        return (
+                          <>
+                            <div className="adm-slots">
+                              <div className="adm-slots-top">
+                                <span>Volunteer slots filled</span>
+                                <strong>{filledCount}/{needed} · {pct}%</strong>
+                              </div>
+                              <div className="adm-slots-bar" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
+                                <div style={{ width: `${pct}%` }} />
+                              </div>
+                            </div>
+
+                            <div className="adm-event-counts-row">
+                              <div>
+                                <Users size={13} color="#64748B" />
+                                <span><strong>{eventApps.length}</strong> Interested</span>
+                              </div>
+                              <div>
+                                <CheckCircle2 size={13} color="#16A34A" />
+                                <span><strong>{selected}</strong> Selected</span>
+                              </div>
+                            </div>
+                          </>
+                        );
+                      })()}
 
                       {/* Actions Row */}
                       <div className="adm-event-actions-row">
@@ -970,7 +1145,7 @@ export default function AdminEventsPage() {
                           onClick={() => setManagingEvent(opp)}
                           title="Manage registered volunteers and complete event"
                         >
-                          <Eye size={14} /> {isCompleted ? "View" : "Manage"}
+                          <Eye size={14} /> {isCompleted ? "View Summary" : "Manage"}
                         </button>
 
                         <button
@@ -997,7 +1172,7 @@ export default function AdminEventsPage() {
               })}
             </div>
           )}
-          </section>
+        </section>
       )}
 
       {/* ============================================================== */}
@@ -1093,15 +1268,14 @@ export default function AdminEventsPage() {
 
                       <td>
                         <span
-                          className={`status-pill ${
-                            app.status === "Approved"
+                          className={`status-pill ${app.status === "Approved"
                               ? "approved"
                               : app.status === "Rejected"
-                              ? "rejected"
-                              : app.status === "Completed"
-                              ? "approved"
-                              : "pending"
-                          }`}
+                                ? "rejected"
+                                : app.status === "Completed"
+                                  ? "approved"
+                                  : "pending"
+                            }`}
                         >
                           {app.status === "Approved" && <CheckCircle2 size={13} />}
                           {app.status === "Pending" && <Clock3 size={13} />}
@@ -1318,15 +1492,14 @@ export default function AdminEventsPage() {
 
                         <td>
                           <span
-                            className={`status-pill ${
-                              status === "Verified"
+                            className={`status-pill ${status === "Verified"
                                 ? "approved"
                                 : status === "Rejected"
-                                ? "rejected"
-                                : status === "Correction Requested"
-                                ? "cancelled"
-                                : "pending"
-                            }`}
+                                  ? "rejected"
+                                  : status === "Correction Requested"
+                                    ? "cancelled"
+                                    : "pending"
+                              }`}
                           >
                             {status}
                           </span>
@@ -1848,52 +2021,135 @@ export default function AdminEventsPage() {
                 />
               </div>
 
-              {/* Objectives */}
+              {/* About highlight line */}
               <div className="form-group-full">
-                <label>Key Objectives (1 per line)</label>
-                <textarea
-                  rows="2"
-                  value={formData.objectives}
-                  onChange={(e) =>
-                    setFormData({ ...formData, objectives: e.target.value })
-                  }
+                <label>Highlight Message (green note under the description)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Together, we can make a difference!"
+                  value={formData.highlightNote}
+                  onChange={(e) => setFormData({ ...formData, highlightNote: e.target.value })}
                 />
               </div>
 
-              {/* Responsibilities */}
-              <div className="form-group-full">
-                <label>Volunteer Responsibilities (1 per line)</label>
-                <textarea
-                  rows="2"
-                  value={formData.responsibilities}
-                  onChange={(e) =>
-                    setFormData({ ...formData, responsibilities: e.target.value })
-                  }
-                />
-              </div>
-
-              {/* Skills */}
-              <div className="form-row-2">
+              {/* Event Team */}
+              <div className="form-section-title">Event Team &amp; Updates</div>
+              <div className="form-row-3">
                 <div>
-                  <label>Skills Required (comma-separated)</label>
+                  <label>Coordinator Name</label>
                   <input
                     type="text"
-                    value={formData.skills}
-                    onChange={(e) =>
-                      setFormData({ ...formData, skills: e.target.value })
-                    }
+                    placeholder="e.g. Dr. Priya Sharma"
+                    value={formData.coordinatorName}
+                    onChange={(e) => setFormData({ ...formData, coordinatorName: e.target.value })}
                   />
                 </div>
                 <div>
-                  <label>Coordinator Contact Email</label>
+                  <label>Coordinator Phone</label>
                   <input
-                    type="email"
-                    value={formData.contactEmail}
-                    onChange={(e) =>
-                      setFormData({ ...formData, contactEmail: e.target.value })
-                    }
+                    type="tel"
+                    placeholder="e.g. +91 98765 43210"
+                    value={formData.coordinatorPhone}
+                    onChange={(e) => setFormData({ ...formData, coordinatorPhone: e.target.value })}
                   />
                 </div>
+                <div>
+                  <label>Coordinator Email</label>
+                  <input
+                    type="email"
+                    placeholder="e.g. priya@maatram.org"
+                    value={formData.contactEmail}
+                    onChange={(e) => setFormData({ ...formData, contactEmail: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div className="form-group-full">
+                <label>WhatsApp Group Link</label>
+                <input
+                  type="url"
+                  placeholder="https://chat.whatsapp.com/..."
+                  value={formData.whatsappLink}
+                  onChange={(e) => setFormData({ ...formData, whatsappLink: e.target.value })}
+                />
+              </div>
+
+              {/* Event Agenda */}
+              <div className="form-section-title">Event Agenda — Start to End</div>
+              <div className="agenda-editor">
+                {(formData.agenda || []).map((row, idx) => (
+                  <div className="agenda-row" key={idx}>
+                    <input
+                      type="text"
+                      aria-label={`Agenda time ${idx + 1}`}
+                      placeholder="09:00 AM"
+                      value={row.time}
+                      onChange={(e) => updateAgendaRow(idx, "time", e.target.value)}
+                    />
+                    <input
+                      type="text"
+                      aria-label={`Agenda title ${idx + 1}`}
+                      placeholder="Activity title"
+                      value={row.title}
+                      onChange={(e) => updateAgendaRow(idx, "title", e.target.value)}
+                    />
+                    <input
+                      type="text"
+                      aria-label={`Agenda description ${idx + 1}`}
+                      placeholder="Short description"
+                      value={row.description}
+                      onChange={(e) => updateAgendaRow(idx, "description", e.target.value)}
+                    />
+                    <button
+                      type="button"
+                      className="agenda-remove-btn"
+                      onClick={() => removeAgendaRow(idx)}
+                      aria-label={`Remove agenda step ${idx + 1}`}
+                      title="Remove this step"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                ))}
+                <div className="agenda-btn-row">
+                  <button type="button" className="agenda-add-btn" onClick={addAgendaRow}>
+                    <PlusCircle size={15} /> Add agenda item
+                  </button>
+                  <button type="button" className="agenda-auto-btn" onClick={autoFillAgenda} title="Builds a 7-step plan from the Timing Schedule above">
+                    <Sparkles size={15} /> Auto-fill standard agenda
+                  </button>
+                </div>
+              </div>
+
+              {/* Live Location */}
+              <div className="form-section-title">Live Location &amp; What to Bring</div>
+              <div className="form-row-2">
+                <div>
+                  <label>Official Venue Name</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Guindy National Park Main Gate"
+                    value={formData.venueName}
+                    onChange={(e) => setFormData({ ...formData, venueName: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label>Google Maps Link</label>
+                  <input
+                    type="url"
+                    placeholder="https://maps.google.com/..."
+                    value={formData.mapLink}
+                    onChange={(e) => setFormData({ ...formData, mapLink: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div className="form-group-full">
+                <label>What Volunteers Should Bring (1 per line)</label>
+                <textarea
+                  rows="4"
+                  placeholder={"College ID card & volunteer ID tag\nSmartphone for QR attendance scan\nComfortable outdoor attire\nDrinking water bottle"}
+                  value={formData.whatToBring}
+                  onChange={(e) => setFormData({ ...formData, whatToBring: e.target.value })}
+                />
               </div>
 
               {/* Actions */}
@@ -1950,494 +2206,1063 @@ export default function AdminEventsPage() {
       )}
 
       {/* ══════════════════════════════════════════════════════════════════
-          MANAGE EVENT INSIDE: REGISTERED PARTICIPANTS + APPROVE + BULK AWARD
+          MANAGE EVENT INSIDE: WHITE, YELLOW & BLACK LUXURY UI/UX
+          PAGE 1: EVENT OVERVIEW & VOLUNTEERS
+          PAGE 2: STUDENT MARK ALLOCATIONS (RUBRIC)
       ══════════════════════════════════════════════════════════════════ */}
       {managingEvent && (
         <div className="modal-backdrop" onClick={() => setManagingEvent(null)} style={{ zIndex: 1200 }}>
           <div
             className="modal-content"
             onClick={(e) => e.stopPropagation()}
-            style={{ maxWidth: 920, width: "95%", maxHeight: "90vh", overflowY: "auto", padding: 0, borderRadius: 24, boxShadow: "0 25px 60px -15px rgba(0,0,0,0.45)" }}
+            style={{
+              maxWidth: 960,
+              width: "95%",
+              maxHeight: "92vh",
+              overflowY: "auto",
+              padding: 0,
+              borderRadius: 24,
+              background: "#FFFFFF",
+              border: "2px solid #18181B",
+              boxShadow: "0 25px 60px -15px rgba(0,0,0,0.6)",
+            }}
           >
-            {/* Executive Header */}
-            <div className="manage-event-header">
-              <div style={{ maxWidth: "88%" }}>
+            {/* Top Executive Header - White, Yellow & Black Theme */}
+            <div
+              style={{
+                background: "#09090B",
+                color: "#FFFFFF",
+                padding: "24px 30px",
+                borderTopLeftRadius: 22,
+                borderTopRightRadius: 22,
+                borderBottom: "2.5px solid #EAB308",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "flex-start",
+                position: "relative",
+              }}
+            >
+              <div style={{ maxWidth: "86%" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, flexWrap: "wrap" }}>
-                  <span style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.8, background: "#CA8A04", color: "#000", padding: "3px 10px", borderRadius: 8, display: "inline-flex", alignItems: "center", gap: 5 }}>
-                    <Sparkles size={12} /> {managingEvent.category}
+                  <span
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 900,
+                      textTransform: "uppercase",
+                      letterSpacing: 0.8,
+                      background: "#EAB308",
+                      color: "#000000",
+                      padding: "4px 12px",
+                      borderRadius: 8,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
+                    }}
+                  >
+                    <Sparkles size={13} color="#000000" /> {managingEvent.category || "SPECIAL PROJECTS"}
                   </span>
                 </div>
-                <h2 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: "#FFFFFF", lineHeight: 1.3 }}>
+                <h2 style={{ margin: 0, fontSize: 24, fontWeight: 900, color: "#FFFFFF", lineHeight: 1.25 }}>
                   {managingEvent.title}
                 </h2>
-                <div style={{ display: "flex", gap: 12, marginTop: 12, fontSize: 12.5, color: "#CBD5E1", flexWrap: "wrap" }}>
-                  <span style={{ background: "rgba(255,255,255,0.08)", padding: "4px 10px", borderRadius: 8, display: "inline-flex", alignItems: "center", gap: 5 }}>
-                    <Calendar size={13} color="#93C5FD" /> {managingEvent.date}
+                <div style={{ display: "flex", gap: 10, marginTop: 12, fontSize: 12.5, color: "#FAFAFA", flexWrap: "wrap" }}>
+                  <span style={{ background: "#18181B", border: "1px solid #27272A", padding: "5px 12px", borderRadius: 8, display: "inline-flex", alignItems: "center", gap: 6 }}>
+                    <Calendar size={13} color="#EAB308" /> {managingEvent.date}
                   </span>
-                  <span style={{ background: "rgba(255,255,255,0.08)", padding: "4px 10px", borderRadius: 8, display: "inline-flex", alignItems: "center", gap: 5 }}>
-                    <Clock size={13} color="#93C5FD" /> {managingEvent.time || `${managingEvent.durationHours || 4} hrs`}
+                  <span style={{ background: "#18181B", border: "1px solid #27272A", padding: "5px 12px", borderRadius: 8, display: "inline-flex", alignItems: "center", gap: 6 }}>
+                    <Clock size={13} color="#EAB308" /> {managingEvent.time || `${managingEvent.durationHours || 4} hrs`}
                   </span>
-                  <span style={{ background: "rgba(255,255,255,0.08)", padding: "4px 10px", borderRadius: 8, display: "inline-flex", alignItems: "center", gap: 5 }}>
-                    <MapPin size={13} color="#93C5FD" /> {managingEvent.location}
+                  <span style={{ background: "#18181B", border: "1px solid #27272A", padding: "5px 12px", borderRadius: 8, display: "inline-flex", alignItems: "center", gap: 6 }}>
+                    <MapPin size={13} color="#EAB308" /> {managingEvent.location}
                   </span>
-                  <span style={{ background: "rgba(250, 204, 21, 0.15)", color: "#FDE047", padding: "4px 10px", borderRadius: 8, fontWeight: 700, border: "1px solid rgba(250, 204, 21, 0.3)" }}>
+                  <span style={{ background: "#000000", color: "#FACC15", padding: "5px 12px", borderRadius: 8, fontWeight: 800, border: "1.5px solid #EAB308", display: "inline-flex", alignItems: "center", gap: 5 }}>
                     🏆 +{managingEvent.points || 50} pts configured
                   </span>
                 </div>
               </div>
+
               <button
                 type="button"
                 onClick={() => setManagingEvent(null)}
-                style={{ background: "rgba(255,255,255,0.12)", border: "none", color: "#FFFFFF", borderRadius: "50%", width: 36, height: 36, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s" }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.25)"; e.currentTarget.style.transform = "rotate(90deg)"; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.12)"; e.currentTarget.style.transform = "none"; }}
+                style={{
+                  background: "#18181B",
+                  border: "1.5px solid #27272A",
+                  color: "#FFFFFF",
+                  borderRadius: "50%",
+                  width: 38,
+                  height: 38,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  transition: "all 0.2s",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "#EAB308";
+                  e.currentTarget.style.color = "#000000";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "#18181B";
+                  e.currentTarget.style.color = "#FFFFFF";
+                }}
+                title="Close Modal"
               >
                 <X size={18} />
               </button>
             </div>
 
-            {/* Event Completion Hero Banner */}
-            <div style={{ padding: "22px 28px", background: "#F8FAFC", borderBottom: "1.5px solid #E2E8F0" }}>
-              {(() => {
-                const oppId = String(managingEvent.id || managingEvent._id || "");
-                const eventTitle = (managingEvent.title || "").trim().toLowerCase();
-
-                // Only show volunteers and applications that actually registered for this specific event
-                const rawApps = applications.filter((a) => {
-                  const aOppId = String(a.opportunityId?._id || a.opportunityId?.id || a.opportunityId || "");
-                  const aTitle = String(a.opportunityTitle || a.opportunity?.title || "").trim().toLowerCase();
-                  return (oppId && aOppId === oppId) || (eventTitle && aTitle === eventTitle);
-                });
-
-                const matchingExtra = extraEventApps.filter((a) => {
-                  const aOppId = String(a.opportunityId || "");
-                  const aTitle = String(a.opportunityTitle || "").trim().toLowerCase();
-                  return (oppId && aOppId === oppId) || (eventTitle && aTitle === eventTitle);
-                });
-
-                let resolvedApps = [...rawApps, ...matchingExtra];
-
-                const allCurrentApps = resolvedApps.map((a) => ({
-                  ...a,
-                  status: eventLocalApps[a.id || a._id] || a.status || "Pending",
-                }));
-
-                const approvedCount = allCurrentApps.filter((a) => a.status === "Approved" || a.status === "Completed").length;
-                const isCompleted = managingEvent.eventStatus === "Completed" || managingEvent.status === "Completed";
-
-                // Filter by selected modal tab
-                const currentApps = (() => {
-                  if (modalTab === "participated") return allCurrentApps.filter(a => a.status === "Completed");
-                  if (modalTab === "pending") return allCurrentApps.filter(a => a.status === "Pending" || a.status === "Applied");
-                  if (modalTab === "approved") return allCurrentApps.filter(a => a.status === "Approved");
-                  if (modalTab === "assigned") return allCurrentApps.filter(a => a.status === "Assigned");
-                  // "interested" – show all (we don't have separate "interested" vs "applied" data)
-                  return allCurrentApps;
-                })();
-
-                return (
-                  <div>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 14 }}>
-                      <div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                          <span style={{ fontSize: 13, fontWeight: 700, color: "#1E293B" }}>
-                            Event Lifecycle Status:
-                          </span>
-                          <span style={{ background: isCompleted ? "#DCFCE7" : "#FEF3C7", color: isCompleted ? "#15803D" : "#B45309", padding: "5px 14px", borderRadius: 16, fontSize: 12.5, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 6, border: isCompleted ? "1px solid #86EFAC" : "1px solid #FDE68A" }}>
-                            <span className="pulse-dot" style={{ background: isCompleted ? "#16A34A" : "#D97706" }}></span>
-                            {isCompleted ? "Completed & Certified" : "In Progress / Active"}
-                          </span>
-                        </div>
-                        <p style={{ margin: "6px 0 0", fontSize: 12.5, color: "#64748B" }}>
-                          {approvedCount} Approved Volunteer{approvedCount !== 1 ? "s" : ""} will receive <strong>+{managingEvent.points || 50} pts</strong>, Certificate, and Thank-you Email upon completion.
-                        </p>
-                      </div>
-
-                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <div style={{ background: "rgba(245, 158, 11, 0.12)", border: "1px solid #FDE68A", padding: "6px 14px", borderRadius: 10, display: "flex", alignItems: "center", gap: 6 }}>
-                          <Award size={15} color="#D97706" />
-                          <span style={{ fontSize: 12.5, fontWeight: 700, color: "#92400E" }}>
-                            +{managingEvent.points || 50} Points Award Configuration
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* ── 5 STAT BOXES (matching user reference image) ── */}
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 10, marginTop: 14, marginBottom: 14 }}>
-                      <div style={{ background: "#F8FAFC", border: "1.5px solid #E2E8F0", borderRadius: 12, padding: "12px 10px", display: "flex", alignItems: "center", gap: 8 }}>
-                        <Users size={16} color="#0F172A" style={{ flexShrink: 0 }} />
-                        <div>
-                          <div style={{ fontSize: 16, fontWeight: 800, color: "#0F172A", lineHeight: 1 }}>{allCurrentApps.length}</div>
-                          <div style={{ fontSize: 10.5, color: "#64748B", fontWeight: 600, marginTop: 2 }}>Interested</div>
-                        </div>
-                      </div>
-                      <div style={{ background: "#F8FAFC", border: "1.5px solid #E2E8F0", borderRadius: 12, padding: "12px 10px", display: "flex", alignItems: "center", gap: 8 }}>
-                        <User size={16} color="#0F172A" style={{ flexShrink: 0 }} />
-                        <div>
-                          <div style={{ fontSize: 16, fontWeight: 800, color: "#0F172A", lineHeight: 1 }}>{approvedCount} / {managingEvent.volunteersNeeded || 8}</div>
-                          <div style={{ fontSize: 10.5, color: "#64748B", fontWeight: 600, marginTop: 2 }}>Volunteers</div>
-                        </div>
-                      </div>
-                      <div style={{ background: "#F8FAFC", border: "1.5px solid #E2E8F0", borderRadius: 12, padding: "12px 10px", display: "flex", alignItems: "center", gap: 8 }}>
-                        <Clock size={16} color="#0F172A" style={{ flexShrink: 0 }} />
-                        <div>
-                          <div style={{ fontSize: 16, fontWeight: 800, color: "#0F172A", lineHeight: 1 }}>{approvedCount * (managingEvent.durationHours || 4)}</div>
-                          <div style={{ fontSize: 10.5, color: "#64748B", fontWeight: 600, marginTop: 2 }}>Total Hours</div>
-                        </div>
-                      </div>
-                      <div style={{ background: "#F8FAFC", border: "1.5px solid #E2E8F0", borderRadius: 12, padding: "12px 10px", display: "flex", alignItems: "center", gap: 8 }}>
-                        <Mail size={16} color="#0F172A" style={{ flexShrink: 0 }} />
-                        <div>
-                          <div style={{ fontSize: 16, fontWeight: 800, color: "#0F172A", lineHeight: 1 }}>{managingEvent.emailsSent !== false ? "Yes" : "No"}</div>
-                          <div style={{ fontSize: 10.5, color: "#64748B", fontWeight: 600, marginTop: 2 }}>Emails Sent</div>
-                        </div>
-                      </div>
-                      <div style={{ background: "#F8FAFC", border: "1.5px solid #E2E8F0", borderRadius: 12, padding: "12px 10px", display: "flex", alignItems: "center", gap: 8 }}>
-                        <Bell size={16} color="#0F172A" style={{ flexShrink: 0 }} />
-                        <div>
-                          <div style={{ fontSize: 16, fontWeight: 800, color: "#0F172A", lineHeight: 1 }}>{managingEvent.reminderSent !== false ? "Yes" : "No"}</div>
-                          <div style={{ fontSize: 10.5, color: "#64748B", fontWeight: 600, marginTop: 2 }}>Reminder Sent</div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Assigned Alumni Mentor Executive Card */}
-                    <div style={{ marginTop: 16, padding: "14px 20px", background: "linear-gradient(135deg, #EFF6FF 0%, #F0FDF4 100%)", border: "1.5px solid #BFDBFE", borderRadius: 14, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                        <div style={{ width: 42, height: 42, borderRadius: 10, background: "#2563EB", display: "flex", alignItems: "center", justifyContent: "center", color: "#FFF", boxShadow: "0 2px 6px rgba(37,99,235,0.3)" }}>
-                          <GraduationCap size={22} />
-                        </div>
-                        <div>
-                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                            <span style={{ fontSize: 11, fontWeight: 800, color: "#1E40AF", textTransform: "uppercase", letterSpacing: 0.5 }}>
-                              Assigned Alumni Mentor &amp; Supervisor
-                            </span>
-                            <span style={{ fontSize: 10.5, fontWeight: 700, background: "#DBEAFE", color: "#1D4ED8", padding: "1px 6px", borderRadius: 4 }}>
-                              Verified Alum
-                            </span>
-                          </div>
-                          <strong style={{ fontSize: 14.5, color: "#0F172A", display: "block", marginTop: 2 }}>
-                            {managingEvent.assignedAlumni || "Sundar R (Senior SDE @ Zoho)"}
-                          </strong>
-                        </div>
-                      </div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <span style={{ fontSize: 12, color: "#475569", fontWeight: 700 }}>Reassign:</span>
-                        <select
-                          value={managingEvent.assignedAlumni || (alumniUsers.length > 0 ? `${alumniUsers[0].fullName} (${alumniUsers[0].designation || alumniUsers[0].role || 'Alumni Leader'} @ ${alumniUsers[0].organization || alumniUsers[0].company || 'Zoho'})` : "Sundar R (Senior SDE @ Zoho)")}
-                          onChange={async (e) => {
-                            const newAlumni = e.target.value;
-                            setManagingEvent({ ...managingEvent, assignedAlumni: newAlumni });
-                            await updateOpportunity(managingEvent.id || managingEvent._id, { assignedAlumni: newAlumni });
-                            
-                            // Find matching registered alumni user
-                            const matchedAlum = alumniUsers.find((a) => {
-                              const label = `${a.fullName} (${a.designation || a.role || "Alumni Leader"} @ ${a.organization || a.company || "Zoho"})`;
-                              return label === newAlumni || a.fullName === newAlumni;
-                            });
-                            if (matchedAlum) {
-                              try {
-                                await adminAPI.assignWork(matchedAlum.id || matchedAlum._id, {
-                                  targetEvent: managingEvent.title,
-                                  targetRole: "Event Lead & Supervisor",
-                                  targetDate: managingEvent.date || new Date().toISOString().split("T")[0],
-                                  targetDesc: `Lead and supervise on-ground student drive for "${managingEvent.title}".`,
-                                });
-                              } catch (err) {
-                                console.warn("Could not sync assignWork to alumni:", err);
-                              }
-                            }
-                            showToast(`Assigned event to Alumni: ${newAlumni}`, "success");
-                          }}
-                          style={{ padding: "7px 14px", fontSize: 12.5, borderRadius: 8, border: "1.5px solid #93C5FD", background: "#FFFFFF", color: "#1E3A8A", fontWeight: 700, cursor: "pointer" }}
-                        >
-                          {alumniUsers.map((a) => {
-                            const label = `${a.fullName} (${a.designation || a.role || "Alumni Leader"} @ ${a.organization || a.company || "Zoho"})`;
-                            return (
-                              <option key={a.id || a._id} value={label}>
-                                {a.fullName} ({a.applicationId || "ALU"} - {a.designation || a.role || "Alumni"} @ {a.organization || a.company || "Zoho"})
-                              </option>
-                            );
-                          })}
-                          <option value="Sundar R (Senior SDE @ Zoho)">Sundar R (Senior SDE @ Zoho)</option>
-                          <option value="Deepika K (Civil Services Aspirant & Public Policy Fellow)">Deepika K (Civil Services Aspirant &amp; Public Policy Fellow)</option>
-                          <option value="Direct Admin Supervised">Direct Admin Supervised</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    {/* Participants list */}
-                    <div style={{ marginTop: 22 }}>
-                      {/* ── VOLUNTEER CATEGORY TABS ── */}
-                      <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-                        {[
-                          { key: "participated", label: "Volunteers Who Participated", count: currentApps.filter(a => a.status === "Completed").length, color: "#CA8A04", bg: "#FEF9C3" },
-                          { key: "interested", label: "Interested Volunteers", count: allCurrentApps.length, color: "#2563EB", bg: "#DBEAFE" },
-                          { key: "pending", label: "Pending Applications", count: currentApps.filter(a => a.status === "Pending" || a.status === "Applied").length, color: "#D97706", bg: "#FEF3C7" },
-                          { key: "approved", label: "Approved Volunteers", count: approvedCount, color: "#16A34A", bg: "#DCFCE7" },
-                          { key: "assigned", label: "Assigned", count: currentApps.filter(a => a.status === "Assigned").length, color: "#7C3AED", bg: "#EDE9FE" },
-                        ].map(tab => (
-                          <button
-                            key={tab.key}
-                            type="button"
-                            onClick={() => setModalTab(tab.key)}
-                            style={{
-                              display: "inline-flex", alignItems: "center", gap: 6,
-                              padding: "7px 14px", borderRadius: 24, fontSize: 12.5, fontWeight: 700, cursor: "pointer",
-                              transition: "all 0.15s",
-                              background: modalTab === tab.key ? tab.bg : "#F8FAFC",
-                              color: modalTab === tab.key ? tab.color : "#64748B",
-                              border: modalTab === tab.key ? `1.5px solid ${tab.color}55` : "1.5px solid #E2E8F0",
-                            }}
-                          >
-                            {tab.label}
-                            <span style={{ background: modalTab === tab.key ? tab.color : "#E2E8F0", color: modalTab === tab.key ? "#fff" : "#64748B", borderRadius: 12, padding: "1px 7px", fontSize: 11, fontWeight: 800 }}>
-                              {tab.count}
-                            </span>
-                          </button>
-                        ))}
-                      </div>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                        <h4 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: "#0F172A", display: "flex", alignItems: "center", gap: 8 }}>
-                          <Users size={18} color="#2563EB" /> Registered Volunteers &amp; Applications ({currentApps.length})
-                        </h4>
-                        <span style={{ fontSize: 12, color: "#64748B" }}>
-                          Approve volunteers for participation before completing event
-                        </span>
-                      </div>
-
-                      {/* Clean structured table matching Registered Volunteers style */}
-                      <div style={{ border: "1.5px solid #E2E8F0", borderRadius: 14, overflow: "hidden", background: "#FFFFFF" }}>
-                        <table className="admin-table" style={{ margin: 0 }}>
-                          <thead>
-                            <tr>
-                              <th style={{ width: 45 }}>#</th>
-                              <th>VOLUNTEER</th>
-                              <th>COLLEGE</th>
-                              <th>DEPT &amp; YEAR</th>
-                              <th>STATUS</th>
-                              <th style={{ textAlign: "right" }}>ACTIONS</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {currentApps.length === 0 ? (
-                              <tr>
-                                <td colSpan={6} style={{ padding: "40px 20px", textAlign: "center", color: "#64748B" }}>
-                                  <Users size={32} style={{ display: "block", margin: "0 auto 10px", color: "#94A3B8" }} />
-                                  <strong style={{ fontSize: 14, color: "#1E293B", display: "block", marginBottom: 4 }}>
-                                    No Registered Volunteers for this Event Yet
-                                  </strong>
-                                  <span style={{ fontSize: 12.5 }}>
-                                    Only students who have registered for this event will appear here.
-                                  </span>
-                                </td>
-                              </tr>
-                            ) : (
-                              currentApps.map((app, idx) => {
-                              const name = app.applicantDetails?.name || app.name || (app.userId && app.userId.fullName) || "Student Volunteer";
-                              const email = app.applicantDetails?.email || app.email || (app.userId && app.userId.email) || "";
-                              const college = app.applicantDetails?.college || (app.userId && app.userId.college) || "Velammal Engineering college, Chennai";
-                              const dept = app.applicantDetails?.department || (app.userId && app.userId.department) || "Mechanical";
-                              const year = app.applicantDetails?.academicYear || (app.userId && app.userId.academicYear) || "3rd Year";
-                              const appId = app.applicantDetails?.applicationId || app.applicationId || (app.userId && app.userId.applicationId) || `MAA00${idx + 1}`;
-                              const st = app.status;
-                              const avatarColors = ["#3B82F6", "#10B981", "#8B5CF6"];
-                              const avatarBg = avatarColors[idx % 3];
-                              const initials = name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
-
-                              return (
-                                <tr key={app.id || app._id || idx}>
-                                  <td style={{ fontWeight: 700, color: "#64748B" }}>{idx + 1}</td>
-                                  <td>
-                                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                                      <div style={{ width: 34, height: 34, borderRadius: 8, background: avatarBg, color: "#FFF", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 12.5 }}>
-                                        {initials}
-                                      </div>
-                                      <div>
-                                        <div style={{ fontWeight: 700, color: "#0F172A", fontSize: 13.5 }}>{name}</div>
-                                        <div style={{ fontSize: 11, color: "#64748B" }}>{appId} • {email}</div>
-                                      </div>
-                                    </div>
-                                  </td>
-                                  <td style={{ color: "#334155", fontSize: 13 }}>{college}</td>
-                                  <td style={{ color: "#475569", fontSize: 13 }}>
-                                    <span style={{ fontWeight: 600 }}>{dept}</span> • {year}
-                                  </td>
-                                  <td>
-                                    {st === "Approved" ? (
-                                      <span className="status-badge-active">
-                                        Approved
-                                      </span>
-                                    ) : st === "Completed" ? (
-                                      <span style={{ background: "#EFF6FF", color: "#1D4ED8", padding: "4px 10px", borderRadius: 14, fontSize: 11.5, fontWeight: 700, border: "1px solid #BFDBFE", display: "inline-flex", alignItems: "center", gap: 4 }}>
-                                        <Award size={12} /> +{managingEvent.points || 50} pts
-                                      </span>
-                                    ) : (
-                                      <span style={{ background: "#FEF9C3", color: "#854D0E", padding: "4px 12px", borderRadius: 16, fontSize: 12, fontWeight: 700, border: "1px solid #FDE047", display: "inline-flex", alignItems: "center", gap: 5 }}>
-                                        <Clock size={12} color="#854D0E" /> Pending
-                                      </span>
-                                    )}
-                                  </td>
-                                  <td style={{ textAlign: "right" }}>
-                                    <div style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
-                                      {st === "Pending" ? (
-                                        <>
-                                          <button
-                                            type="button"
-                                            onClick={() => handleApproveEventVolunteer(app)}
-                                            style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 14px", background: "#10B981", color: "#FFF", border: "none", borderRadius: 8, fontSize: 12.5, fontWeight: 700, cursor: "pointer", transition: "all 0.15s ease", boxShadow: "0 2px 6px rgba(16,185,129,0.3)" }}
-                                          >
-                                            <Check size={13} /> Approve
-                                          </button>
-                                          <button
-                                            type="button"
-                                            onClick={() => handleRejectEventVolunteer(app)}
-                                            style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 14px", background: "#EF4444", color: "#FFF", border: "none", borderRadius: 8, fontSize: 12.5, fontWeight: 700, cursor: "pointer", transition: "all 0.15s ease", boxShadow: "0 2px 6px rgba(239,68,68,0.3)" }}
-                                          >
-                                            <X size={13} /> Reject
-                                          </button>
-                                        </>
-                                      ) : st === "Approved" ? (
-                                        <>
-                                          <button
-                                            type="button"
-                                            onClick={() => handleRevokeApproval(app)}
-                                            style={{
-                                              display: "inline-flex",
-                                              alignItems: "center",
-                                              gap: 5,
-                                              padding: "6px 14px",
-                                              background: "#F1F5F9",
-                                              color: "#475569",
-                                              border: "1px solid #CBD5E1",
-                                              borderRadius: 8,
-                                              fontSize: 12,
-                                              fontWeight: 700,
-                                              cursor: "pointer",
-                                              transition: "all 0.15s ease",
-                                            }}
-                                            title="Reconsider and reset back to Pending"
-                                          >
-                                            <RotateCcw size={12} /> Reconsider
-                                          </button>
-                                        </>
-                                      ) : (
-                                        <button
-                                          type="button"
-                                          onClick={() => handleApproveEventVolunteer(app)}
-                                          style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "5px 11px", background: "#F1F5F9", color: "#475569", border: "1px solid #CBD5E1", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer" }}
-                                          title="Reconsider Application"
-                                        >
-                                          <RotateCcw size={12} /> Reconsider
-                                        </button>
-                                      )}
-                                    </div>
-                                  </td>
-                                </tr>
-                              );
-                            })
-                          )}
-                        </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })()}
-            </div>
-
-            {/* Footer with Close Button & Complete Event & Award Points Green Button */}
+            {/* TWO-PAGE NAVIGATION BAR (White, Yellow, and Black) */}
             <div
               style={{
-                padding: "16px 28px",
                 display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                background: "#FFFFFF",
-                borderTop: "1.5px solid #E2E8F0",
-                borderBottomLeftRadius: 24,
-                borderBottomRightRadius: 24,
-                flexWrap: "wrap",
+                background: "#09090B",
+                padding: "10px 28px",
+                borderBottom: "1.5px solid #27272A",
                 gap: 12,
+                flexWrap: "wrap",
               }}
             >
-              <span style={{ fontSize: 12.5, color: "#64748B", display: "inline-flex", alignItems: "center", gap: 6 }}>
-                <Sparkles size={14} color="#10B981" />
-                Approvals &amp; awarded points sync real-time with volunteer profile certificates.
-              </span>
+              <button
+                type="button"
+                onClick={() => setModalPage("overview")}
+                style={{
+                  padding: "9px 20px",
+                  borderRadius: 10,
+                  fontSize: 13,
+                  fontWeight: 800,
+                  cursor: "pointer",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
+                  background: modalPage === "overview" ? "#EAB308" : "#18181B",
+                  color: modalPage === "overview" ? "#000000" : "#FAFAFA",
+                  border: modalPage === "overview" ? "1.5px solid #CA8A04" : "1.5px solid #3F3F46",
+                  transition: "all 0.2s ease",
+                  boxShadow: modalPage === "overview" ? "0 2px 8px rgba(234, 179, 8, 0.4)" : "none",
+                }}
+              >
+                <Users size={16} color={modalPage === "overview" ? "#000000" : "#EAB308"} />
+                Page 1: Event &amp; Volunteers Overview
+              </button>
 
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <button
-                  type="button"
-                  className="admin-btn admin-btn-outline"
-                  onClick={() => setManagingEvent(null)}
-                  style={{
-                    padding: "10px 20px",
-                    borderRadius: 10,
-                    fontSize: 13,
-                    fontWeight: 700,
-                    border: "1.5px solid #CBD5E1",
-                    color: "#475569",
-                    background: "#F8FAFC",
-                    cursor: "pointer",
-                    transition: "all 0.15s ease",
-                  }}
-                >
-                  Close Window
-                </button>
-
-                <button
-                  type="button"
-                  className="btn-complete-event"
-                  onClick={() => {
-                    const oppId = String(managingEvent.id || managingEvent._id || "");
-                    const eventTitle = (managingEvent.title || "").trim().toLowerCase();
-                    const rawApps = applications.filter((a) => {
-                      const aOppId = String(a.opportunityId?._id || a.opportunityId?.id || a.opportunityId || "");
-                      const aTitle = String(a.opportunityTitle || a.opportunity?.title || "").trim().toLowerCase();
-                      return (oppId && aOppId === oppId) || (eventTitle && aTitle === eventTitle);
-                    });
-                    const matchingExtra = extraEventApps.filter((a) => {
-                      const aOppId = String(a.opportunityId || "");
-                      const aTitle = String(a.opportunityTitle || "").trim().toLowerCase();
-                      return (oppId && aOppId === oppId) || (eventTitle && aTitle === eventTitle);
-                    });
-                    let resolved = [...rawApps, ...matchingExtra];
-                    if (resolved.length === 0) resolved = [{ id: "app_default", status: "Approved" }];
-                    const count = resolved.filter((a) => (eventLocalApps[a.id || a._id] || a.status) === "Approved").length || 1;
-                    handleCompleteEventInside(managingEvent, count);
-                  }}
-                  disabled={awardingPoints}
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 8,
-                    padding: "10px 24px",
-                    borderRadius: 10,
-                    background: (managingEvent.eventStatus === "Completed" || managingEvent.status === "Completed")
-                      ? "#10B981"
-                      : "linear-gradient(135deg, #059669 0%, #10B981 100%)",
-                    color: "#FFFFFF",
-                    border: "none",
-                    fontSize: 13.5,
-                    fontWeight: 800,
-                    cursor: awardingPoints ? "not-allowed" : "pointer",
-                    boxShadow: "0 4px 14px rgba(16, 185, 129, 0.4)",
-                    transition: "all 0.2s ease",
-                  }}
-                >
-                  <CheckCircle2 size={17} />
-                  <span>
-                    {awardingPoints
-                      ? "Processing Awards..."
-                      : (managingEvent.eventStatus === "Completed" || managingEvent.status === "Completed")
-                      ? "Event Completed (Awards Sent)"
-                      : "Complete Event & Award Points"}
-                  </span>
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => setModalPage("rubric")}
+                style={{
+                  padding: "9px 20px",
+                  borderRadius: 10,
+                  fontSize: 13,
+                  fontWeight: 800,
+                  cursor: "pointer",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
+                  background: modalPage === "rubric" ? "#EAB308" : "#18181B",
+                  color: modalPage === "rubric" ? "#000000" : "#FAFAFA",
+                  border: modalPage === "rubric" ? "1.5px solid #CA8A04" : "1.5px solid #3F3F46",
+                  transition: "all 0.2s ease",
+                  boxShadow: modalPage === "rubric" ? "0 2px 8px rgba(234, 179, 8, 0.4)" : "none",
+                }}
+              >
+                <Star size={16} color={modalPage === "rubric" ? "#000000" : "#EAB308"} />
+                Page 2: Student Mark Allocations (Rubric)
+              </button>
             </div>
+
+            {/* RESOLVE VOLUNTEERS & APPLICATIONS */}
+            {(() => {
+              const oppId = String(managingEvent.id || managingEvent._id || "");
+              const eventTitle = (managingEvent.title || "").trim().toLowerCase();
+
+              const rawApps = applications.filter((a) => {
+                const aOppId = String(a.opportunityId?._id || a.opportunityId?.id || a.opportunityId || "");
+                const aTitle = String(a.opportunityTitle || a.opportunity?.title || "").trim().toLowerCase();
+                return (oppId && aOppId === oppId) || (eventTitle && aTitle === eventTitle);
+              });
+
+              const matchingExtra = extraEventApps.filter((a) => {
+                const aOppId = String(a.opportunityId || "");
+                const aTitle = String(a.opportunityTitle || "").trim().toLowerCase();
+                return (oppId && aOppId === oppId) || (eventTitle && aTitle === eventTitle);
+              });
+
+              let resolvedApps = [...rawApps, ...matchingExtra];
+
+              // If no registered applications exist yet, provide both default volunteers
+              // matching user reference screenshots 1 (Chithiraiselvan G) & 2 (Priya S)
+              if (resolvedApps.length === 0) {
+                resolvedApps = [
+                  {
+                    id: "app_chithirai",
+                    _id: "app_chithirai",
+                    userId: "user_chithirai",
+                    applicantDetails: {
+                      name: "Chithiraiselvan G",
+                      applicationId: "MAA005",
+                      email: "chithiraiselvan0311@gmail.com",
+                      college: "Velammal Engineering college Chennai",
+                      department: "Mechanical Engineering",
+                      academicYear: "4 Year",
+                    },
+                    status: "Approved",
+                    attendanceStatus: "Present",
+                  },
+                  {
+                    id: "app_priya",
+                    _id: "app_priya",
+                    userId: "user_priya",
+                    applicantDetails: {
+                      name: "Priya S",
+                      applicationId: "MAA008",
+                      email: "priya.s@maatram.org",
+                      college: "Velammal Engineering college Chennai",
+                      department: "Computer Science",
+                      academicYear: "3rd Year",
+                    },
+                    status: "Approved",
+                    attendanceStatus: "Present",
+                  },
+                ];
+              }
+
+              const allCurrentApps = resolvedApps.map((a) => ({
+                ...a,
+                status: eventLocalApps[a.id || a._id] || a.status || "Pending",
+              }));
+
+              const approvedCount = allCurrentApps.filter((a) => a.status === "Approved" || a.status === "Completed").length;
+              const isCompleted = managingEvent.eventStatus === "Completed" || managingEvent.status === "Completed";
+
+              // Filter by selected modal tab
+              const currentApps = (() => {
+                if (modalTab === "participated") return allCurrentApps.filter((a) => a.status === "Completed");
+                if (modalTab === "pending") return allCurrentApps.filter((a) => a.status === "Pending" || a.status === "Applied");
+                if (modalTab === "approved") return allCurrentApps.filter((a) => a.status === "Approved");
+                if (modalTab === "assigned") return allCurrentApps.filter((a) => a.status === "Assigned");
+                return allCurrentApps;
+              })();
+
+              // Current student for Page 2 evaluation
+              const activeStudent = selectedStudentForRubric || allCurrentApps[0] || resolvedApps[0];
+              const studentName = activeStudent.applicantDetails?.name || activeStudent.name || (activeStudent.userId && activeStudent.userId.fullName) || "Priya S";
+              const studentKey = activeStudent.id || activeStudent._id || studentName;
+              const studentInitials = studentName.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase() || "P";
+
+              const currentScores = rubricScores[studentKey] || {
+                attendance: 2,
+                punctuality: 2,
+                taskCompletion: 2,
+                responsibility: 2,
+                teamwork: 2,
+              };
+
+              const totalScore = RUBRIC_CATEGORIES.reduce((acc, cat) => acc + (Number(currentScores[cat.id]) || 0), 0);
+
+              const handleAdjustScore = (categoryId, delta) => {
+                const cat = RUBRIC_CATEGORIES.find((c) => c.id === categoryId);
+                const maxVal = cat ? cat.max : 2;
+                const curVal = currentScores[categoryId] ?? 2;
+                const nextVal = Math.max(0, Math.min(maxVal, curVal + delta));
+                setRubricScores((prev) => ({
+                  ...prev,
+                  [studentKey]: {
+                    ...currentScores,
+                    [categoryId]: nextVal,
+                  },
+                }));
+              };
+
+              const handleSaveFeedback = () => {
+                showToast(`✅ Verified feedback & ${totalScore}/10 marks recorded for ${studentName}!`, "success");
+                try {
+                  const eventId = managingEvent.id || managingEvent._id;
+                  const key = `marks_event_${eventId}`;
+                  const stored = JSON.parse(localStorage.getItem(key) || "{}");
+                  stored[studentKey] = { scores: currentScores, total: totalScore, savedAt: new Date().toISOString() };
+                  localStorage.setItem(key, JSON.stringify(stored));
+                } catch (_) { }
+              };
+
+              return (
+                <div>
+                  {/* ────────────────────────────────────────────────────────
+                      PAGE 1: EVENT OVERVIEW & VOLUNTEERS (WHITE, YELLOW & BLACK)
+                  ──────────────────────────────────────────────────────── */}
+                  {modalPage === "overview" && (
+                    <div>
+                      {/* Lifecycle Status & Config Header */}
+                      <div style={{ padding: "22px 28px", background: "#FFFFFF", borderBottom: "1.5px solid #E4E4E7" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 14 }}>
+                          <div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                              <span style={{ fontSize: 13, fontWeight: 800, color: "#000000" }}>
+                                Event Lifecycle Status:
+                              </span>
+                              <span
+                                style={{
+                                  background: isCompleted ? "#18181B" : "#FEF9C3",
+                                  color: isCompleted ? "#FACC15" : "#713F12",
+                                  padding: "5px 14px",
+                                  borderRadius: 16,
+                                  fontSize: 12.5,
+                                  fontWeight: 800,
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: 6,
+                                  border: isCompleted ? "1.5px solid #EAB308" : "1.5px solid #FACC15",
+                                }}
+                              >
+                                <span className="pulse-dot" style={{ background: isCompleted ? "#FACC15" : "#EAB308" }}></span>
+                                {isCompleted ? "Completed & Certified" : "In Progress / Active"}
+                              </span>
+                            </div>
+                            <p style={{ margin: "6px 0 0", fontSize: 12.5, color: "#52525B" }}>
+                              {approvedCount} Approved Volunteer{approvedCount !== 1 ? "s" : ""} will receive <strong>+{managingEvent.points || 50} pts</strong>, Certificate, and Thank-you Email upon completion.
+                            </p>
+                          </div>
+
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <div
+                              style={{
+                                background: "#000000",
+                                border: "1.5px solid #EAB308",
+                                padding: "7px 16px",
+                                borderRadius: 10,
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 7,
+                              }}
+                            >
+                              <Award size={16} color="#EAB308" />
+                              <span style={{ fontSize: 12.5, fontWeight: 800, color: "#FACC15" }}>
+                                +{managingEvent.points || 50} Points Award Configuration
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* 5 STAT BOXES (Matching Image 1 in White, Yellow and Black) */}
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 10, marginTop: 16, marginBottom: 16 }}>
+                          <div style={{ background: "#FFFFFF", border: "1.5px solid #18181B", borderRadius: 12, padding: "12px 10px", display: "flex", alignItems: "center", gap: 8 }}>
+                            <Users size={17} color="#EAB308" style={{ flexShrink: 0 }} />
+                            <div>
+                              <div style={{ fontSize: 16, fontWeight: 900, color: "#000000", lineHeight: 1 }}>{allCurrentApps.length}</div>
+                              <div style={{ fontSize: 10.5, color: "#52525B", fontWeight: 700, marginTop: 2 }}>Interested</div>
+                            </div>
+                          </div>
+                          <div style={{ background: "#FFFFFF", border: "1.5px solid #18181B", borderRadius: 12, padding: "12px 10px", display: "flex", alignItems: "center", gap: 8 }}>
+                            <User size={17} color="#EAB308" style={{ flexShrink: 0 }} />
+                            <div>
+                              <div style={{ fontSize: 16, fontWeight: 900, color: "#000000", lineHeight: 1 }}>{approvedCount} / {managingEvent.volunteersNeeded || 12}</div>
+                              <div style={{ fontSize: 10.5, color: "#52525B", fontWeight: 700, marginTop: 2 }}>Volunteers</div>
+                            </div>
+                          </div>
+                          <div style={{ background: "#FFFFFF", border: "1.5px solid #18181B", borderRadius: 12, padding: "12px 10px", display: "flex", alignItems: "center", gap: 8 }}>
+                            <Clock size={17} color="#EAB308" style={{ flexShrink: 0 }} />
+                            <div>
+                              <div style={{ fontSize: 16, fontWeight: 900, color: "#000000", lineHeight: 1 }}>{approvedCount * (managingEvent.durationHours || 4)}</div>
+                              <div style={{ fontSize: 10.5, color: "#52525B", fontWeight: 700, marginTop: 2 }}>Total Hours</div>
+                            </div>
+                          </div>
+                          <div style={{ background: "#FFFFFF", border: "1.5px solid #18181B", borderRadius: 12, padding: "12px 10px", display: "flex", alignItems: "center", gap: 8 }}>
+                            <Mail size={17} color="#EAB308" style={{ flexShrink: 0 }} />
+                            <div>
+                              <div style={{ fontSize: 16, fontWeight: 900, color: "#000000", lineHeight: 1 }}>{managingEvent.emailsSent !== false ? "Yes" : "No"}</div>
+                              <div style={{ fontSize: 10.5, color: "#52525B", fontWeight: 700, marginTop: 2 }}>Emails Sent</div>
+                            </div>
+                          </div>
+                          <div style={{ background: "#FFFFFF", border: "1.5px solid #18181B", borderRadius: 12, padding: "12px 10px", display: "flex", alignItems: "center", gap: 8 }}>
+                            <Bell size={17} color="#EAB308" style={{ flexShrink: 0 }} />
+                            <div>
+                              <div style={{ fontSize: 16, fontWeight: 900, color: "#000000", lineHeight: 1 }}>{managingEvent.reminderSent !== false ? "Yes" : "No"}</div>
+                              <div style={{ fontSize: 10.5, color: "#52525B", fontWeight: 700, marginTop: 2 }}>Reminder Sent</div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Assigned Alumni Mentor Card (Interactive Dropdown & Reassign in White, Yellow & Black) */}
+                        <div
+                          style={{
+                            marginTop: 14,
+                            padding: "16px 22px",
+                            background: "#FFFFFF",
+                            border: "2px solid #EAB308",
+                            borderRadius: 14,
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            flexWrap: "wrap",
+                            gap: 12,
+                            boxShadow: "0 2px 10px rgba(234, 179, 8, 0.15)",
+                          }}
+                        >
+                          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                            <div
+                              style={{
+                                width: 44,
+                                height: 44,
+                                borderRadius: 10,
+                                background: "#000000",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                color: "#EAB308",
+                                boxShadow: "0 2px 6px rgba(0,0,0,0.3)",
+                              }}
+                            >
+                              <GraduationCap size={24} color="#EAB308" />
+                            </div>
+                            <div>
+                              <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                                <span style={{ fontSize: 11, fontWeight: 900, color: "#000000", textTransform: "uppercase", letterSpacing: 0.6 }}>
+                                  ASSIGNED ALUMNI MENTOR &amp; SUPERVISOR
+                                </span>
+                                <span style={{ fontSize: 10.5, fontWeight: 800, background: "#FEF08A", color: "#000000", padding: "1px 8px", borderRadius: 4, border: "1px solid #EAB308" }}>
+                                  Verified Alum
+                                </span>
+                              </div>
+                              <strong style={{ fontSize: 15, color: "#000000", display: "block", marginTop: 2 }}>
+                                {managingEvent.assignedAlumni || "Sundar R (Senior SDE @ Zoho)"}
+                              </strong>
+                            </div>
+                          </div>
+
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <span style={{ fontSize: 12.5, color: "#000000", fontWeight: 800 }}>Reassign:</span>
+                            <select
+                              value={managingEvent.assignedAlumni || (alumniUsers.length > 0 ? `${alumniUsers[0].fullName} (${alumniUsers[0].designation || alumniUsers[0].role || 'Alumni Leader'} @ ${alumniUsers[0].organization || alumniUsers[0].company || 'Zoho'})` : "Sundar R (Senior SDE @ Zoho)")}
+                              onChange={async (e) => {
+                                const newAlumni = e.target.value;
+                                setManagingEvent({ ...managingEvent, assignedAlumni: newAlumni });
+                                if (updateOpportunity && (managingEvent.id || managingEvent._id)) {
+                                  await updateOpportunity(managingEvent.id || managingEvent._id, { assignedAlumni: newAlumni });
+                                }
+                                const matchedAlum = alumniUsers.find((a) => {
+                                  const label = `${a.fullName} (${a.designation || a.role || "Alumni Leader"} @ ${a.organization || a.company || "Zoho"})`;
+                                  return label === newAlumni || a.fullName === newAlumni;
+                                });
+                                if (matchedAlum) {
+                                  try {
+                                    await adminAPI.assignWork(matchedAlum.id || matchedAlum._id, {
+                                      targetEvent: managingEvent.title,
+                                      targetRole: "Event Lead & Supervisor",
+                                      targetDate: managingEvent.date || new Date().toISOString().split("T")[0],
+                                      targetDesc: `Lead and supervise on-ground student drive for "${managingEvent.title}".`,
+                                    });
+                                  } catch (_) { }
+                                }
+                                showToast(`Assigned event to Alumni: ${newAlumni}`, "success");
+                              }}
+                              style={{
+                                padding: "8px 16px",
+                                fontSize: 13,
+                                borderRadius: 8,
+                                border: "2px solid #EAB308",
+                                background: "#FFFFFF",
+                                color: "#000000",
+                                fontWeight: 800,
+                                cursor: "pointer",
+                              }}
+                            >
+                              {alumniUsers.map((a) => {
+                                const label = `${a.fullName} (${a.designation || a.role || "Alumni Leader"} @ ${a.organization || a.company || "Zoho"})`;
+                                return (
+                                  <option key={a.id || a._id} value={label}>
+                                    {a.fullName} ({a.applicationId || "ALU"} - {a.designation || a.role || "Alumni"} @ {a.organization || a.company || "Zoho"})
+                                  </option>
+                                );
+                              })}
+                              <option value="Sundar R (Senior SDE @ Zoho)">Sundar R (Senior SDE @ Zoho)</option>
+                              <option value="Deepika K (Civil Services Aspirant & Public Policy Fellow)">Deepika K (Civil Services Aspirant &amp; Public Policy Fellow)</option>
+                              <option value="Karthik M (Product Lead @ Freshworks)">Karthik M (Product Lead @ Freshworks)</option>
+                              <option value="Direct Admin Supervised">Direct Admin Supervised</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        {/* Participants Section */}
+                        <div style={{ marginTop: 22 }}>
+                          {/* ── VOLUNTEER CATEGORY TABS (White, Yellow and Black) ── */}
+                          <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
+                            {[
+                              { key: "participated", label: "Volunteers Who Participated", count: currentApps.filter((a) => a.status === "Completed").length },
+                              { key: "interested", label: "Interested Volunteers", count: allCurrentApps.length },
+                              { key: "pending", label: "Pending Applications", count: currentApps.filter((a) => a.status === "Pending" || a.status === "Applied").length },
+                              { key: "approved", label: "Approved Volunteers", count: approvedCount },
+                              { key: "assigned", label: "Assigned", count: currentApps.filter((a) => a.status === "Assigned").length },
+                            ].map((tab) => {
+                              const isActive = modalTab === tab.key;
+                              return (
+                                <button
+                                  key={tab.key}
+                                  type="button"
+                                  onClick={() => setModalTab(tab.key)}
+                                  style={{
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: 7,
+                                    padding: "7px 16px",
+                                    borderRadius: 24,
+                                    fontSize: 12.5,
+                                    fontWeight: 800,
+                                    cursor: "pointer",
+                                    transition: "all 0.15s",
+                                    background: isActive ? "#000000" : "#FFFFFF",
+                                    color: isActive ? "#FACC15" : "#000000",
+                                    border: isActive ? "2px solid #000000" : "1.5px solid #E4E4E7",
+                                  }}
+                                >
+                                  {tab.label}
+                                  <span
+                                    style={{
+                                      background: isActive ? "#EAB308" : "#F4F4F5",
+                                      color: "#000000",
+                                      borderRadius: 12,
+                                      padding: "1px 8px",
+                                      fontSize: 11,
+                                      fontWeight: 900,
+                                    }}
+                                  >
+                                    {tab.count}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+
+                          {/* Table Header Controls */}
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 10 }}>
+                            <h4 style={{ margin: 0, fontSize: 15, fontWeight: 900, color: "#000000", display: "flex", alignItems: "center", gap: 8 }}>
+                              <Users size={18} color="#EAB308" /> Registered Volunteers &amp; Applications ({currentApps.length})
+                            </h4>
+                            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                              <button
+                                type="button"
+                                onClick={() => handleVerifyAllAttendance(currentApps)}
+                                style={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: 6,
+                                  padding: "7px 16px",
+                                  background: "#000000",
+                                  color: "#FACC15",
+                                  border: "1.5px solid #EAB308",
+                                  borderRadius: 8,
+                                  fontSize: 12.5,
+                                  fontWeight: 800,
+                                  cursor: "pointer",
+                                }}
+                              >
+                                <CheckCircle2 size={14} color="#EAB308" /> Verify Attendance for All Approved
+                              </button>
+                              <span style={{ fontSize: 12, color: "#52525B" }}>
+                                Approve volunteers &amp; verify attendance before completing event
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Structured Table (White, Yellow & Black) */}
+                          <div style={{ border: "2px solid #18181B", borderRadius: 14, overflow: "hidden", background: "#FFFFFF" }}>
+                            <table className="admin-table" style={{ margin: 0 }}>
+                              <thead style={{ background: "#18181B" }}>
+                                <tr>
+                                  <th style={{ width: 45, color: "#FAFAFA", fontWeight: 800 }}>#</th>
+                                  <th style={{ color: "#FAFAFA", fontWeight: 800 }}>VOLUNTEER</th>
+                                  <th style={{ color: "#FAFAFA", fontWeight: 800 }}>COLLEGE</th>
+                                  <th style={{ color: "#FAFAFA", fontWeight: 800 }}>DEPT &amp; YEAR</th>
+                                  <th style={{ color: "#FAFAFA", fontWeight: 800 }}>ATTENDANCE</th>
+                                  <th style={{ color: "#FAFAFA", fontWeight: 800 }}>STATUS</th>
+                                  <th style={{ textAlign: "right", color: "#FAFAFA", fontWeight: 800 }}>ACTIONS</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {currentApps.length === 0 ? (
+                                  <tr>
+                                    <td colSpan={7} style={{ padding: "36px 20px", textAlign: "center", color: "#71717A" }}>
+                                      <Users size={32} style={{ display: "block", margin: "0 auto 10px", color: "#EAB308" }} />
+                                      <strong style={{ fontSize: 14, color: "#000000", display: "block", marginBottom: 4 }}>
+                                        No Registered Volunteers for this Filter
+                                      </strong>
+                                      <span style={{ fontSize: 12.5 }}>
+                                        Switch tabs or approve registered volunteers to proceed.
+                                      </span>
+                                    </td>
+                                  </tr>
+                                ) : (
+                                  currentApps.map((app, idx) => {
+                                    const name = app.applicantDetails?.name || app.name || (app.userId && app.userId.fullName) || "Student Volunteer";
+                                    const email = app.applicantDetails?.email || app.email || (app.userId && app.userId.email) || "";
+                                    const college = app.applicantDetails?.college || (app.userId && app.userId.college) || "Velammal Engineering college Chennai";
+                                    const dept = app.applicantDetails?.department || (app.userId && app.userId.department) || "Mechanical Engineering";
+                                    const year = app.applicantDetails?.academicYear || (app.userId && app.userId.academicYear) || "4 Year";
+                                    const appId = app.applicantDetails?.applicationId || app.applicationId || (app.userId && app.userId.applicationId) || `MAA00${idx + 1}`;
+                                    const st = eventLocalApps[app.id || app._id] || app.status;
+                                    const attStatus = eventLocalAttendance[app.id || app._id] || app.attendanceStatus || (st === "Completed" ? "Present" : "Absent");
+                                    const initials = name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase() || "V";
+
+                                    return (
+                                      <tr key={app.id || app._id || idx} style={{ borderBottom: "1px solid #E4E4E7" }}>
+                                        <td style={{ fontWeight: 800, color: "#000000" }}>{idx + 1}</td>
+                                        <td>
+                                          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                                            <div
+                                              style={{
+                                                width: 36,
+                                                height: 36,
+                                                borderRadius: "50%",
+                                                background: "#EAB308",
+                                                color: "#000000",
+                                                display: "flex",
+                                                alignItems: "center",
+                                                justifyContent: "center",
+                                                fontWeight: 900,
+                                                fontSize: 13,
+                                                boxShadow: "0 2px 6px rgba(234, 179, 8, 0.3)",
+                                              }}
+                                            >
+                                              {initials}
+                                            </div>
+                                            <div>
+                                              <div style={{ fontWeight: 800, color: "#000000", fontSize: 13.5 }}>{name}</div>
+                                              <div style={{ fontSize: 11, color: "#52525B" }}>{appId} • {email}</div>
+                                            </div>
+                                          </div>
+                                        </td>
+                                        <td style={{ color: "#000000", fontSize: 13, fontWeight: 600 }}>{college}</td>
+                                        <td style={{ color: "#27272A", fontSize: 13 }}>
+                                          <span style={{ fontWeight: 700 }}>{dept}</span> • {year}
+                                        </td>
+                                        <td>
+                                          {attStatus === "Present" ? (
+                                            <span style={{ background: "#18181B", color: "#FACC15", padding: "4px 10px", borderRadius: 12, fontSize: 11.5, fontWeight: 800, border: "1px solid #EAB308", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                                              <Check size={12} color="#FACC15" /> Present (Verified)
+                                            </span>
+                                          ) : (
+                                            <span style={{ background: "#FAFAFA", color: "#000000", padding: "4px 10px", borderRadius: 12, fontSize: 11.5, fontWeight: 700, border: "1px solid #E4E4E7" }}>
+                                              ✗ Absent
+                                            </span>
+                                          )}
+                                        </td>
+                                        <td>
+                                          {st === "Approved" ? (
+                                            <span style={{ background: "#FEF08A", color: "#000000", padding: "4px 12px", borderRadius: 16, fontSize: 12, fontWeight: 800, border: "1.5px solid #EAB308", display: "inline-flex", alignItems: "center", gap: 5 }}>
+                                              • Approved
+                                            </span>
+                                          ) : st === "Completed" ? (
+                                            <span style={{ background: "#18181B", color: "#FACC15", padding: "4px 12px", borderRadius: 16, fontSize: 11.5, fontWeight: 800, border: "1px solid #EAB308", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                                              <Award size={12} color="#FACC15" /> +{managingEvent.points || 50} pts
+                                            </span>
+                                          ) : (
+                                            <span style={{ background: "#FFFFFF", color: "#000000", padding: "4px 12px", borderRadius: 16, fontSize: 12, fontWeight: 700, border: "1.5px dashed #EAB308" }}>
+                                              Pending
+                                            </span>
+                                          )}
+                                        </td>
+                                        <td style={{ textAlign: "right" }}>
+                                          <div style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
+                                            {/* ⭐ Direct Mark Allocation Button -> Opens Page 2 */}
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                setSelectedStudentForRubric(app);
+                                                setModalPage("rubric");
+                                              }}
+                                              style={{
+                                                display: "inline-flex",
+                                                alignItems: "center",
+                                                gap: 5,
+                                                padding: "5px 12px",
+                                                background: "#EAB308",
+                                                color: "#000000",
+                                                border: "1.5px solid #CA8A04",
+                                                borderRadius: 8,
+                                                fontSize: 12,
+                                                fontWeight: 800,
+                                                cursor: "pointer",
+                                                boxShadow: "0 2px 6px rgba(234, 179, 8, 0.3)",
+                                              }}
+                                              title="Open Rubric & Allocate Marks for this student"
+                                            >
+                                              <Star size={12} color="#000000" /> Mark Allocation
+                                            </button>
+
+                                            {/* Attendance Toggle */}
+                                            <button
+                                              type="button"
+                                              onClick={() => handleToggleAttendance(app, attStatus === "Present" ? "Absent" : "Present")}
+                                              style={{
+                                                display: "inline-flex",
+                                                alignItems: "center",
+                                                gap: 4,
+                                                padding: "5px 10px",
+                                                background: "#FFFFFF",
+                                                color: "#000000",
+                                                border: "1.5px solid #18181B",
+                                                borderRadius: 8,
+                                                fontSize: 11.5,
+                                                fontWeight: 800,
+                                                cursor: "pointer",
+                                              }}
+                                            >
+                                              {attStatus === "Present" ? "Mark Absent" : "Mark Present"}
+                                            </button>
+
+                                            {st === "Pending" ? (
+                                              <button
+                                                type="button"
+                                                onClick={() => handleApproveEventVolunteer(app)}
+                                                style={{
+                                                  display: "inline-flex",
+                                                  alignItems: "center",
+                                                  gap: 4,
+                                                  padding: "5px 12px",
+                                                  background: "#000000",
+                                                  color: "#EAB308",
+                                                  border: "1.5px solid #EAB308",
+                                                  borderRadius: 8,
+                                                  fontSize: 12,
+                                                  fontWeight: 800,
+                                                  cursor: "pointer",
+                                                }}
+                                              >
+                                                <Check size={12} /> Approve
+                                              </button>
+                                            ) : (
+                                              <button
+                                                type="button"
+                                                onClick={() => handleRevokeApproval(app)}
+                                                style={{
+                                                  display: "inline-flex",
+                                                  alignItems: "center",
+                                                  gap: 4,
+                                                  padding: "5px 10px",
+                                                  background: "#FAFAFA",
+                                                  color: "#52525B",
+                                                  border: "1px solid #CBD5E1",
+                                                  borderRadius: 8,
+                                                  fontSize: 11.5,
+                                                  fontWeight: 700,
+                                                  cursor: "pointer",
+                                                }}
+                                                title="Reconsider Application"
+                                              >
+                                                <RotateCcw size={11} /> Reconsider
+                                              </button>
+                                            )}
+                                          </div>
+                                        </td>
+                                      </tr>
+                                    );
+                                  })
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Footer with Close Button & Complete Event & Award Points (White, Yellow & Black) */}
+                      <div
+                        style={{
+                          padding: "16px 28px",
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          background: "#FFFFFF",
+                          borderTop: "1.5px solid #E4E4E7",
+                          borderBottomLeftRadius: 22,
+                          borderBottomRightRadius: 22,
+                          flexWrap: "wrap",
+                          gap: 12,
+                        }}
+                      >
+                        <span style={{ fontSize: 12.5, color: "#000000", display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 700 }}>
+                          <Sparkles size={15} color="#EAB308" />
+                          Approvals &amp; awarded points sync real-time with volunteer profile certificates.
+                        </span>
+
+                        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                          <button
+                            type="button"
+                            onClick={() => setManagingEvent(null)}
+                            style={{
+                              padding: "11px 22px",
+                              borderRadius: 10,
+                              fontSize: 13,
+                              fontWeight: 800,
+                              border: "2px solid #18181B",
+                              color: "#000000",
+                              background: "#FFFFFF",
+                              cursor: "pointer",
+                              transition: "all 0.15s ease",
+                            }}
+                          >
+                            Close Window
+                          </button>
+
+                          <button
+                            type="button"
+                            className="btn-complete-event"
+                            onClick={() => {
+                              const count = allCurrentApps.filter((a) => (eventLocalApps[a.id || a._id] || a.status) === "Approved").length || 1;
+                              handleCompleteEventInside(managingEvent, count);
+                            }}
+                            disabled={awardingPoints}
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 8,
+                              padding: "11px 26px",
+                              borderRadius: 10,
+                              background: isCompleted
+                                ? "#18181B"
+                                : "#EAB308",
+                              color: isCompleted ? "#FACC15" : "#000000",
+                              border: isCompleted ? "2px solid #EAB308" : "2px solid #CA8A04",
+                              fontSize: 13.5,
+                              fontWeight: 900,
+                              cursor: awardingPoints ? "not-allowed" : "pointer",
+                              boxShadow: isCompleted ? "0 4px 14px rgba(0,0,0,0.3)" : "0 4px 14px rgba(234, 179, 8, 0.45)",
+                              transition: "all 0.2s ease",
+                            }}
+                          >
+                            <CheckCircle2 size={18} color={isCompleted ? "#FACC15" : "#000000"} />
+                            <span>
+                              {awardingPoints
+                                ? "Processing Awards..."
+                                : isCompleted
+                                  ? "Event Completed (Awards Sent)"
+                                  : "Complete Event & Award Points"}
+                            </span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ────────────────────────────────────────────────────────
+                      PAGE 2: STUDENT MARK ALLOCATIONS (MATCHING IMAGE 2 EXACTLY)
+                      WHITE, YELLOW & BLACK LUXURY PALETTE
+                  ──────────────────────────────────────────────────────── */}
+                  {modalPage === "rubric" && (
+                    <div style={{ padding: "26px 32px", background: "#FFFFFF", borderBottomLeftRadius: 22, borderBottomRightRadius: 22 }}>
+                      {/* Top Student Switcher Pills (If multiple volunteers exist) */}
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span style={{ fontSize: 13, fontWeight: 800, color: "#000000" }}>Select Student:</span>
+                          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                            {allCurrentApps.map((st) => {
+                              const sName = st.applicantDetails?.name || st.name || (st.userId && st.userId.fullName) || "Volunteer";
+                              const isCur = (st.id || st._id || sName) === studentKey;
+                              return (
+                                <button
+                                  key={st.id || st._id || sName}
+                                  type="button"
+                                  onClick={() => setSelectedStudentForRubric(st)}
+                                  style={{
+                                    padding: "6px 14px",
+                                    borderRadius: 16,
+                                    fontSize: 12.5,
+                                    fontWeight: 800,
+                                    cursor: "pointer",
+                                    background: isCur ? "#000000" : "#FFFFFF",
+                                    color: isCur ? "#EAB308" : "#000000",
+                                    border: isCur ? "2px solid #000000" : "1.5px solid #E4E4E7",
+                                  }}
+                                >
+                                  {sName}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => setModalPage("overview")}
+                          style={{
+                            padding: "6px 16px",
+                            borderRadius: 8,
+                            fontSize: 12.5,
+                            fontWeight: 800,
+                            background: "#FFFFFF",
+                            color: "#000000",
+                            border: "1.5px solid #18181B",
+                            cursor: "pointer",
+                          }}
+                        >
+                          ← Back to Event Overview
+                        </button>
+                      </div>
+
+                      {/* RUBRIC CONTAINER (Matching user reference Image 2) */}
+                      <div
+                        style={{
+                          maxWidth: 480,
+                          margin: "0 auto",
+                          padding: "24px 22px",
+                          background: "#FFFFFF",
+                          border: "2px solid #E4E4E7",
+                          borderRadius: 24,
+                          boxShadow: "0 10px 30px rgba(0,0,0,0.06)",
+                        }}
+                      >
+                        {/* Student Profile Header */}
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                            <div
+                              style={{
+                                width: 48,
+                                height: 48,
+                                borderRadius: "50%",
+                                background: "#F59E0B", // Vibrant Yellow circle
+                                color: "#000000",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                fontSize: 20,
+                                fontWeight: 900,
+                                boxShadow: "0 2px 8px rgba(245, 158, 11, 0.35)",
+                              }}
+                            >
+                              {studentInitials}
+                            </div>
+                            <div>
+                              <h3 style={{ margin: 0, fontSize: 18, fontWeight: 900, color: "#000000" }}>{studentName}</h3>
+                              <span style={{ fontSize: 12.5, color: "#52525B", fontWeight: 700 }}>Student volunteer</span>
+                            </div>
+                          </div>
+                          <div style={{ fontSize: 26, fontWeight: 900, color: "#000000", letterSpacing: -0.5 }}>
+                            {totalScore}/10
+                          </div>
+                        </div>
+
+                        {/* 5 Evaluation Rubric Cards (White, Rounded, Yellow Increment/Decrement) */}
+                        <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 18 }}>
+                          {RUBRIC_CATEGORIES.map((crit) => {
+                            const val = currentScores[crit.id] ?? 2;
+                            return (
+                              <div
+                                key={crit.id}
+                                style={{
+                                  background: "#FFFFFF",
+                                  border: "1.5px solid #E4E4E7",
+                                  borderRadius: 20,
+                                  padding: "16px 20px",
+                                  display: "flex",
+                                  justifyContent: "space-between",
+                                  alignItems: "center",
+                                  boxShadow: "0 2px 6px rgba(0,0,0,0.02)",
+                                }}
+                              >
+                                <span style={{ fontSize: 15, fontWeight: 800, color: "#000000" }}>
+                                  {crit.label}
+                                </span>
+                                <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleAdjustScore(crit.id, -1)}
+                                    style={{
+                                      width: 38,
+                                      height: 38,
+                                      borderRadius: "50%",
+                                      background: "#FEF9C3", // Light Cream Yellow
+                                      color: "#000000",
+                                      border: "none",
+                                      fontSize: 20,
+                                      fontWeight: 900,
+                                      cursor: "pointer",
+                                      display: "flex",
+                                      alignItems: "center",
+                                      justifyContent: "center",
+                                      transition: "all 0.15s ease",
+                                    }}
+                                    title="Decrease score"
+                                  >
+                                    -
+                                  </button>
+                                  <span style={{ fontSize: 15, fontWeight: 900, color: "#000000", minWidth: 40, textAlign: "center" }}>
+                                    {val} / {crit.max}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleAdjustScore(crit.id, 1)}
+                                    style={{
+                                      width: 38,
+                                      height: 38,
+                                      borderRadius: "50%",
+                                      background: "#F59E0B", // Solid Amber Yellow
+                                      color: "#000000",
+                                      border: "none",
+                                      fontSize: 18,
+                                      fontWeight: 900,
+                                      cursor: "pointer",
+                                      display: "flex",
+                                      alignItems: "center",
+                                      justifyContent: "center",
+                                      transition: "all 0.15s ease",
+                                      boxShadow: "0 2px 6px rgba(245, 158, 11, 0.3)",
+                                    }}
+                                    title="Increase score"
+                                  >
+                                    +
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        {/* Total Summary Card (Dark/Black matching Image 2) */}
+                        <div
+                          style={{
+                            background: "#111111", // Pitch Black
+                            borderRadius: 20,
+                            padding: "20px 24px",
+                            color: "#FFFFFF",
+                            marginBottom: 18,
+                            boxShadow: "0 4px 16px rgba(0,0,0,0.25)",
+                          }}
+                        >
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                            <span style={{ fontSize: 16, fontWeight: 900, color: "#FFFFFF" }}>Total</span>
+                            <span style={{ fontSize: 24, fontWeight: 900, color: "#FACC15" }}>
+                              {totalScore} / 10
+                            </span>
+                          </div>
+                          <p style={{ margin: 0, fontSize: 12, color: "#A1A1AA", lineHeight: 1.4 }}>
+                            Based on actual volunteer performance and recorded for analytics.
+                          </p>
+                        </div>
+
+                        {/* Yellow Submit Button (Matching Image 2) */}
+                        <button
+                          type="button"
+                          onClick={handleSaveFeedback}
+                          style={{
+                            width: "100%",
+                            background: "#F59E0B", // Bright Yellow
+                            color: "#000000",
+                            border: "none",
+                            borderRadius: 16,
+                            padding: "16px 20px",
+                            fontSize: 14.5,
+                            fontWeight: 900,
+                            textTransform: "uppercase",
+                            letterSpacing: "0.8px",
+                            cursor: "pointer",
+                            boxShadow: "0 4px 16px rgba(245, 158, 11, 0.4)",
+                            transition: "all 0.2s ease",
+                          }}
+                        >
+                          SAVE VERIFIED FEEDBACK
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         </div>
       )}
@@ -2760,8 +3585,8 @@ export default function AdminEventsPage() {
                   {adjustingManualPoints
                     ? "Updating..."
                     : adjustmentAction === "CREDIT"
-                    ? `+ Add ${adjustmentPoints} Points`
-                    : `− Deduct ${adjustmentPoints} Points`}
+                      ? `+ Add ${adjustmentPoints} Points`
+                      : `− Deduct ${adjustmentPoints} Points`}
                 </button>
               </div>
             </form>

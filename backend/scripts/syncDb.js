@@ -14,9 +14,9 @@ async function sync() {
   await mongoose.connect(process.env.MONGO_URI, { serverSelectionTimeoutMS: 5000 });
   console.log('Connected to MongoDB');
 
-  const studentUser = await User.findOne({ email: 'esakkimuthu2907@gmail.com' });
+  const studentUser = await User.findOne({ email: 'student@maatram.org' });
   if (!studentUser) {
-    console.error('Student user esakkimuthu2907@gmail.com not found!');
+    console.error('Student user student@maatram.org not found!');
     process.exit(1);
   }
 
@@ -36,7 +36,7 @@ async function sync() {
         if (!targetEvent) targetEvent = schoolEvent;
 
         // Resolve user
-        let targetUser = await User.findOne({ email: (app.applicantDetails?.email || 'esakkimuthu2907@gmail.com').toLowerCase() });
+        let targetUser = await User.findOne({ email: (app.applicantDetails?.email || 'student@maatram.org').toLowerCase() });
         if (!targetUser) targetUser = studentUser;
 
         const exists = await Application.findOne({

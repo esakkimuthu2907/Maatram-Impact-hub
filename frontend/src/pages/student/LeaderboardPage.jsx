@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Trophy,
   Award,
@@ -11,6 +11,13 @@ import {
   GraduationCap,
   TrendingUp,
   Zap,
+  Filter,
+  RotateCcw,
+  MapPin,
+  Calendar,
+  Sparkles,
+  X,
+  CheckCircle2,
 } from "lucide-react";
 import { useApp } from "../../context/AppContext";
 import { usersAPI } from "../../api/usersAPI";
@@ -166,12 +173,20 @@ function CollegePodiumCard({ college, rank, isMine }) {
 
 /* ─────────────── Main Component ─────────────── */
 export default function LeaderboardPage() {
-  const { user } = useApp();
-  const [activeTab, setActiveTab]           = useState("Overall");
-  const [search, setSearch]                 = useState("");
+  const { user, opportunities = [], applications = [] } = useApp();
+  const [activeTab, setActiveTab]             = useState("Overall");
+  const [search, setSearch]                   = useState("");
+  const [selectedCollege, setSelectedCollege] = useState("All");
+  const [selectedZone, setSelectedZone]       = useState("All");
+  const [selectedYear, setSelectedYear]       = useState("All");
+  const [selectedEvent, setSelectedEvent]     = useState("All");
+  const [collegeSearch, setCollegeSearch]     = useState("");
+  const [collegeYearFilter, setCollegeYearFilter] = useState("All");
+  const [zoneFilter, setZoneFilter]           = useState("All");
+  const [zoneCollegeSearch, setZoneCollegeSearch] = useState("");
   const [leaderboardData, setLeaderboardData] = useState([]);
   const [collegeLeaderboard, setCollegeLeaderboard] = useState([]);
-  const [loading, setLoading]               = useState(true);
+  const [loading, setLoading]                 = useState(true);
 
   useEffect(() => {
     async function loadData() {
@@ -186,8 +201,14 @@ export default function LeaderboardPage() {
             id: u.id || u._id,
             applicationId: u.applicationId,
             name: u.fullName || u.name || "Student Volunteer",
-            college: u.college || "Tamil Nadu University",
-            eventsJoined: u.eventsJoined || 0,
+            college: u.college || "Velammal Engineering college Chennai",
+            department: u.department || "Engineering",
+            zone: u.zone || "Zone 1",
+            batch: u.batch || "2023-2027",
+            eventsJoined: Number(u.eventsJoined) || Number(u.completedEventsCount) || 0,
+            completedEventsCount: Number(u.completedEventsCount) || 0,
+            participatedEvents: Array.isArray(u.participatedEvents) ? u.participatedEvents : [],
+            participatedEventDetails: Array.isArray(u.participatedEventDetails) ? u.participatedEventDetails : [],
             badges: u.badgesEarned || 0,
             points: Number(u.points) || 0,
             totalHours: Number(u.totalHours) || 0,
@@ -221,16 +242,21 @@ export default function LeaderboardPage() {
           setLeaderboardData([
             {
               rank: 1,
-              name: user?.fullName || user?.name || "Esakki Muthu",
-              college: user?.college || "Anna University, Chennai",
-              eventsJoined: Number(user?.eventsJoined) || 0,
+              name: user?.fullName || user?.name || "Chithiraiselvan G",
+              college: user?.college || "Velammal Engineering college Chennai",
+              department: user?.department || "Mechanical Engineering",
+              zone: user?.zone || "Zone 1",
+              batch: user?.batch || "2023-2027",
+              eventsJoined: Number(user?.eventsJoined) || 1,
+              completedEventsCount: Number(user?.completedEventsCount) || 1,
+              participatedEvents: ["Plantation", "Charles"],
               badges: Number(user?.badgesEarned) || 0,
-              points: Number(user?.points) || 0,
-              totalHours: Number(user?.totalHours) || 0,
+              points: Number(user?.points) || 160,
+              totalHours: Number(user?.totalHours) || 46,
               avatar:
                 user?.avatar ||
                 "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80",
-              badgeTier: "Bronze Social Leader",
+              badgeTier: "Silver Star Volunteer",
               category: "Students",
               isCurrentUser: true,
             },
@@ -255,22 +281,120 @@ export default function LeaderboardPage() {
     loadData();
   }, [user]);
 
+  /* ── Filter Options Derived Dynamically ── */
+  const collegeOptions = useMemo(() => {
+    const set = new Set();
+    leaderboardData.forEach((u) => { if (u.college) set.add(u.college.trim()); });
+    if (user?.college) set.add(user.college.trim());
+    return Array.from(set).sort();
+  }, [leaderboardData, user?.college]);
+
+  const zoneOptions = ["All", "Zone 1", "Zone 2", "Zone 3"];
+
+  const eventOptions = useMemo(() => {
+    const set = new Set();
+    (opportunities || []).forEach((o) => { if (o?.title) set.add(o.title.trim()); });
+    (applications || []).forEach((a) => { if (a?.opportunityTitle) set.add(a.opportunityTitle.trim()); });
+    leaderboardData.forEach((u) => {
+      (u.participatedEvents || []).forEach((e) => {
+        const t = typeof e === "string" ? e : e?.title || e?.eventTitle;
+        if (t) set.add(t.trim());
+      });
+    });
+    return Array.from(set).sort();
+  }, [opportunities, applications, leaderboardData]);
+
+  // Combined Filters & Dynamic Rank Recalculation
+  const filteredAndRankedStudents = useMemo(() => {
+    let list = [...leaderboardData];
+
+    // 1. Text Search
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      list = list.filter(
+        (u) =>
+          (u.name || "").toLowerCase().includes(q) ||
+          (u.college || "").toLowerCase().includes(q) ||
+          (u.zone || "").toLowerCase().includes(q) ||
+          (u.department || "").toLowerCase().includes(q) ||
+          (u.batch || "").toLowerCase().includes(q)
+      );
+    }
+
+    // 2. College-Wise Filter
+    if (selectedCollege && selectedCollege !== "All") {
+      list = list.filter(
+        (u) => (u.college || "").toLowerCase().trim() === selectedCollege.toLowerCase().trim()
+      );
+    }
+
+    // 3. Zone-Wise Filter
+    if (selectedZone && selectedZone !== "All") {
+      list = list.filter(
+        (u) => (u.zone || "Zone 1").toLowerCase().trim() === selectedZone.toLowerCase().trim()
+      );
+    }
+
+    // 4. Year-Wise Filter
+    if (selectedYear && selectedYear !== "All") {
+      const yrClean = selectedYear.toLowerCase().replace(/st|nd|rd|th/g, "").trim();
+      list = list.filter((u) => {
+        const b = (u.batch || "").toLowerCase().trim();
+        const a = (u.academicYear || "").toLowerCase().replace(/st|nd|rd|th/g, "").trim();
+        return b === selectedYear.toLowerCase().trim() || b.includes(yrClean) || a.includes(yrClean);
+      });
+    }
+
+    // 5. Event-Wise Filter
+    if (selectedEvent && selectedEvent !== "All") {
+      const targetEvLower = selectedEvent.toLowerCase().trim();
+      list = list.filter((u) => {
+        const events = u.participatedEvents || [];
+        const matchInUserEvents = events.some((e) =>
+          (typeof e === "string" ? e : e?.title || e?.eventTitle || "").toLowerCase().trim() === targetEvLower
+        );
+        if (matchInUserEvents) return true;
+
+        return (applications || []).some((a) => {
+          const aUId = (a.userId || a.user?._id || a.user?.id || (typeof a.user === "string" ? a.user : "") || "").toString();
+          const aName = (a.applicantDetails?.name || a.name || "").toLowerCase().trim();
+          const aEv = (a.opportunityTitle || a.title || "").toLowerCase().trim();
+          const matchStudent = (u.id && aUId === u.id) || (u.applicationId && a.applicationId === u.applicationId) || (u.name && aName === u.name.toLowerCase().trim());
+          return matchStudent && aEv === targetEvLower;
+        });
+      });
+    }
+
+    // 6. Accurate Ranking Calculation (Points descending, totalHours and eventsJoined as tiebreakers)
+    list.sort(
+      (a, b) =>
+        (Number(b.points) || 0) - (Number(a.points) || 0) ||
+        (Number(b.totalHours) || 0) - (Number(a.totalHours) || 0) ||
+        (Number(b.eventsJoined) || 0) - (Number(a.eventsJoined) || 0)
+    );
+
+    return list.map((u, idx) => ({
+      ...u,
+      rank: idx + 1,
+    }));
+  }, [leaderboardData, search, selectedCollege, selectedZone, selectedYear, selectedEvent, applications]);
+
+  const isFilterActive = selectedCollege !== "All" || selectedZone !== "All" || selectedYear !== "All" || selectedEvent !== "All" || Boolean(search.trim());
+  const activeFiltersCount = (selectedCollege !== "All" ? 1 : 0) + (selectedZone !== "All" ? 1 : 0) + (selectedYear !== "All" ? 1 : 0) + (selectedEvent !== "All" ? 1 : 0) + (search.trim() ? 1 : 0);
+
+  const handleResetFilters = () => {
+    setSearch("");
+    setSelectedCollege("All");
+    setSelectedZone("All");
+    setSelectedYear("All");
+    setSelectedEvent("All");
+  };
+
   /* derived stats & rankings */
   const myCollegeName = user?.college || "Anna University";
 
-  // 1. Student rankings filtered by search
-  const filteredUsers = leaderboardData.filter((u) => {
-    const q = search.trim().toLowerCase();
-    if (q) {
-      return (
-        (u.name || "").toLowerCase().includes(q) ||
-        (u.college || "").toLowerCase().includes(q) ||
-        (u.zone || "").toLowerCase().includes(q) ||
-        (u.batch || "").toLowerCase().includes(q)
-      );
-    }
-    return true;
-  });
+  // 1. Student rankings filtered by search for legacy compatibility
+  const filteredUsers = filteredAndRankedStudents;
 
   // 2. Computed College Leaderboard
   const computedColleges = React.useMemo(() => {
@@ -323,6 +447,104 @@ export default function LeaderboardPage() {
     if (!q) return true;
     return (c.collegeName || "").toLowerCase().includes(q);
   });
+
+  // ── College-tab dedicated search (independent from Overall search)
+  const collegeTabFiltered = React.useMemo(() => {
+    // First, filter the underlying student data by year if needed
+    let baseData = leaderboardData;
+    if (collegeYearFilter !== "All") {
+      baseData = leaderboardData.filter(
+        (u) => (u.batch || "").trim() === collegeYearFilter.trim()
+      );
+    }
+
+    // Re-aggregate colleges from year-filtered students
+    const map = new Map();
+    baseData.forEach((u) => {
+      const col = u.college || "Anna University, Chennai";
+      if (!map.has(col)) {
+        map.set(col, {
+          collegeName: col,
+          totalStudents: 0,
+          totalPoints: 0,
+          totalHours: 0,
+          topVolunteer: u.name,
+          highestPoints: 0,
+        });
+      }
+      const entry = map.get(col);
+      entry.totalStudents += 1;
+      entry.totalPoints += Number(u.points) || 0;
+      entry.totalHours += Number(u.totalHours) || 0;
+      if ((Number(u.points) || 0) >= entry.highestPoints) {
+        entry.highestPoints = Number(u.points) || 0;
+        entry.topVolunteer = u.name;
+      }
+    });
+    let yearFiltered = Array.from(map.values()).sort(
+      (a, b) => b.totalPoints - a.totalPoints || b.totalStudents - a.totalStudents
+    );
+    // If no year filter, merge backend college leaderboard too
+    if (collegeYearFilter === "All") {
+      collegeLeaderboard.forEach((c) => {
+        const name = c.collegeName || c.name;
+        if (name && !map.has(name)) {
+          yearFiltered.push({
+            collegeName: name,
+            totalStudents: c.totalStudents || 1,
+            totalPoints: c.totalPoints || 0,
+            totalHours: c.totalHours || 0,
+            topVolunteer: c.topVolunteer || "Volunteers",
+            highestPoints: c.totalPoints || 0,
+          });
+        }
+      });
+      yearFiltered.sort((a, b) => b.totalPoints - a.totalPoints || b.totalStudents - a.totalStudents);
+    }
+
+    // Then apply the name search
+    const q = collegeSearch.trim().toLowerCase();
+    if (!q) return yearFiltered;
+    return yearFiltered.filter((c) =>
+      (c.collegeName || "").toLowerCase().includes(q) ||
+      (c.topVolunteer || "").toLowerCase().includes(q)
+    );
+  }, [leaderboardData, collegeLeaderboard, collegeSearch, collegeYearFilter]);
+
+  // ── Zone-tab: filter students by selected zone, aggregate colleges inside it
+  const zoneTabStudents = React.useMemo(() => {
+    if (zoneFilter === "All") return leaderboardData;
+    return leaderboardData.filter(
+      (u) => (u.zone || "Zone 1").trim() === zoneFilter.trim()
+    );
+  }, [leaderboardData, zoneFilter]);
+
+  const zoneTabColleges = React.useMemo(() => {
+    const map = new Map();
+    zoneTabStudents.forEach((u) => {
+      const col = u.college || "—";
+      if (!map.has(col)) {
+        map.set(col, { collegeName: col, totalStudents: 0, totalPoints: 0, totalHours: 0, topVolunteer: u.name, highestPoints: 0 });
+      }
+      const e = map.get(col);
+      e.totalStudents += 1;
+      e.totalPoints += Number(u.points) || 0;
+      e.totalHours += Number(u.totalHours) || 0;
+      if ((Number(u.points) || 0) >= e.highestPoints) {
+        e.highestPoints = Number(u.points) || 0;
+        e.topVolunteer = u.name;
+      }
+    });
+    return Array.from(map.values()).sort((a, b) => b.totalPoints - a.totalPoints);
+  }, [zoneTabStudents]);
+
+  const zoneTabCollegesFiltered = React.useMemo(() => {
+    const q = zoneCollegeSearch.trim().toLowerCase();
+    if (!q) return zoneTabColleges;
+    return zoneTabColleges.filter((c) =>
+      (c.collegeName || "").toLowerCase().includes(q)
+    );
+  }, [zoneTabColleges, zoneCollegeSearch]);
 
   // 3. Computed Zone Leaderboard (Zone 1, Zone 2, Zone 3)
   const zoneRankings = React.useMemo(() => {
@@ -753,6 +975,299 @@ export default function LeaderboardPage() {
             marginBottom: 32,
           }}
         >
+          {/* ── Unified Filter Bar ── */}
+          <div
+            style={{
+              padding: "16px 20px",
+              background: "linear-gradient(90deg,#F8F7FF,#EEF2FF)",
+              borderBottom: "1px solid #E8EDF5",
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 10,
+              alignItems: "center",
+            }}
+          >
+            {/* College filter */}
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <Building2 size={14} color="#6366F1" />
+              <select
+                value={selectedCollege}
+                onChange={(e) => setSelectedCollege(e.target.value)}
+                style={{
+                  border: "1.5px solid #C7D2FE",
+                  borderRadius: 8,
+                  padding: "5px 10px",
+                  fontSize: 13,
+                  color: "#334155",
+                  background: "#fff",
+                  fontWeight: selectedCollege !== "All" ? 700 : 400,
+                  outline: "none",
+                  cursor: "pointer",
+                }}
+              >
+                <option value="All">All Colleges</option>
+                {collegeOptions.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Zone filter */}
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <MapPin size={14} color="#6366F1" />
+              <select
+                value={selectedZone}
+                onChange={(e) => setSelectedZone(e.target.value)}
+                style={{
+                  border: "1.5px solid #C7D2FE",
+                  borderRadius: 8,
+                  padding: "5px 10px",
+                  fontSize: 13,
+                  color: "#334155",
+                  background: "#fff",
+                  fontWeight: selectedZone !== "All" ? 700 : 400,
+                  outline: "none",
+                  cursor: "pointer",
+                }}
+              >
+                {zoneOptions.map((z) => (
+                  <option key={z} value={z}>{z}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Year-wise filter */}
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <Clock size={14} color="#6366F1" />
+              <select
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(e.target.value)}
+                style={{
+                  border: "1.5px solid #C7D2FE",
+                  borderRadius: 8,
+                  padding: "5px 10px",
+                  fontSize: 13,
+                  color: "#334155",
+                  background: "#fff",
+                  fontWeight: selectedYear !== "All" ? 700 : 400,
+                  outline: "none",
+                  cursor: "pointer",
+                }}
+              >
+                <option value="All">All Years</option>
+                <option value="1st Year">1st Year</option>
+                <option value="2nd Year">2nd Year</option>
+                <option value="3rd Year">3rd Year</option>
+                <option value="4th Year">4th Year</option>
+                <option value="2022-2026">2022-2026 Batch</option>
+                <option value="2023-2027">2023-2027 Batch</option>
+                <option value="2021-2025">2021-2025 Batch</option>
+                <option value="2020-2024">2020-2024 Batch</option>
+              </select>
+            </div>
+
+            {/* Event filter */}
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <Calendar size={14} color="#6366F1" />
+              <select
+                value={selectedEvent}
+                onChange={(e) => setSelectedEvent(e.target.value)}
+                style={{
+                  border: "1.5px solid #C7D2FE",
+                  borderRadius: 8,
+                  padding: "5px 10px",
+                  fontSize: 13,
+                  color: "#334155",
+                  background: "#fff",
+                  fontWeight: selectedEvent !== "All" ? 700 : 400,
+                  outline: "none",
+                  cursor: "pointer",
+                  maxWidth: 220,
+                }}
+              >
+                <option value="All">All Events</option>
+                {eventOptions.map((ev) => (
+                  <option key={ev} value={ev}>{ev}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Reset Button (shown only when filters active) */}
+            {isFilterActive && (
+              <button
+                onClick={handleResetFilters}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "5px 14px",
+                  borderRadius: 20,
+                  border: "1.5px solid #6366F1",
+                  background: "linear-gradient(135deg,#4F46E5,#7C3AED)",
+                  color: "#fff",
+                  fontSize: 12.5,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                <RotateCcw size={13} />
+                Reset Filters
+                <span
+                  style={{
+                    background: "rgba(255,255,255,0.3)",
+                    borderRadius: 20,
+                    padding: "1px 7px",
+                    fontSize: 11,
+                    fontWeight: 800,
+                  }}
+                >
+                  {activeFiltersCount}
+                </span>
+              </button>
+            )}
+
+            {/* Spacer + result count */}
+            <span style={{ marginLeft: "auto", fontSize: 12.5, color: "#6B7280", fontWeight: 600 }}>
+              <Sparkles size={13} color="#6366F1" style={{ marginRight: 4, verticalAlign: "middle" }} />
+              Showing <strong style={{ color: "#4F46E5" }}>{filteredAndRankedStudents.length}</strong> ranked student{filteredAndRankedStudents.length !== 1 ? "s" : ""}
+            </span>
+          </div>
+
+          {/* Active Filter Chips */}
+          {isFilterActive && (
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 8,
+                padding: "10px 20px",
+                background: "#FAFBFF",
+                borderBottom: "1px solid #EEF2FF",
+              }}
+            >
+              {selectedCollege !== "All" && (
+                <span
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 5,
+                    background: "#EEF2FF",
+                    color: "#4F46E5",
+                    border: "1px solid #C7D2FE",
+                    borderRadius: 20,
+                    padding: "3px 10px",
+                    fontSize: 12,
+                    fontWeight: 700,
+                  }}
+                >
+                  <Building2 size={11} /> {selectedCollege}
+                  <button
+                    onClick={() => setSelectedCollege("All")}
+                    style={{ background: "none", border: "none", cursor: "pointer", padding: 0, lineHeight: 1, color: "#6366F1" }}
+                  >
+                    <X size={12} />
+                  </button>
+                </span>
+              )}
+              {selectedZone !== "All" && (
+                <span
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 5,
+                    background: "#EEF2FF",
+                    color: "#4F46E5",
+                    border: "1px solid #C7D2FE",
+                    borderRadius: 20,
+                    padding: "3px 10px",
+                    fontSize: 12,
+                    fontWeight: 700,
+                  }}
+                >
+                  <MapPin size={11} /> {selectedZone}
+                  <button
+                    onClick={() => setSelectedZone("All")}
+                    style={{ background: "none", border: "none", cursor: "pointer", padding: 0, lineHeight: 1, color: "#6366F1" }}
+                  >
+                    <X size={12} />
+                  </button>
+                </span>
+              )}
+              {selectedYear !== "All" && (
+                <span
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 5,
+                    background: "#EEF2FF",
+                    color: "#4F46E5",
+                    border: "1px solid #C7D2FE",
+                    borderRadius: 20,
+                    padding: "3px 10px",
+                    fontSize: 12,
+                    fontWeight: 700,
+                  }}
+                >
+                  <Clock size={11} /> Year: {selectedYear}
+                  <button
+                    onClick={() => setSelectedYear("All")}
+                    style={{ background: "none", border: "none", cursor: "pointer", padding: 0, lineHeight: 1, color: "#6366F1" }}
+                  >
+                    <X size={12} />
+                  </button>
+                </span>
+              )}
+              {selectedEvent !== "All" && (
+                <span
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 5,
+                    background: "#EEF2FF",
+                    color: "#4F46E5",
+                    border: "1px solid #C7D2FE",
+                    borderRadius: 20,
+                    padding: "3px 10px",
+                    fontSize: 12,
+                    fontWeight: 700,
+                  }}
+                >
+                  <Calendar size={11} /> {selectedEvent}
+                  <button
+                    onClick={() => setSelectedEvent("All")}
+                    style={{ background: "none", border: "none", cursor: "pointer", padding: 0, lineHeight: 1, color: "#6366F1" }}
+                  >
+                    <X size={12} />
+                  </button>
+                </span>
+              )}
+              {search.trim() && (
+                <span
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 5,
+                    background: "#EEF2FF",
+                    color: "#4F46E5",
+                    border: "1px solid #C7D2FE",
+                    borderRadius: 20,
+                    padding: "3px 10px",
+                    fontSize: 12,
+                    fontWeight: 700,
+                  }}
+                >
+                  <Search size={11} /> "{search.trim()}"
+                  <button
+                    onClick={() => setSearch("")}
+                    style={{ background: "none", border: "none", cursor: "pointer", padding: 0, lineHeight: 1, color: "#6366F1" }}
+                  >
+                    <X size={12} />
+                  </button>
+                </span>
+              )}
+            </div>
+          )}
+
           {/* Table header */}
           <div
             style={{
@@ -772,7 +1287,7 @@ export default function LeaderboardPage() {
             <span>Volunteer</span>
             <span className="desktop-only">College</span>
             <span className="desktop-only" style={{ textAlign: "center" }}>Zone</span>
-            <span className="desktop-only" style={{ textAlign: "center" }}>Batch</span>
+            <span className="desktop-only" style={{ textAlign: "center" }}>Events</span>
             <span className="desktop-only" style={{ textAlign: "right" }}>Hours</span>
             <span style={{ textAlign: "right" }}>Points</span>
           </div>
@@ -887,10 +1402,24 @@ export default function LeaderboardPage() {
                     </span>
                   </div>
 
-                  {/* Batch */}
+                  {/* Event Participation */}
                   <div className="desktop-only" style={{ textAlign: "center" }}>
-                    <span style={{ fontSize: 12, color: "#64748B" }}>
-                      {u.batch || "2022-2026"}
+                    <span
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 4,
+                        background: "#FFF7ED",
+                        color: "#D97706",
+                        border: "1px solid #FDE68A",
+                        padding: "3px 9px",
+                        borderRadius: 20,
+                        fontSize: 12,
+                        fontWeight: 700,
+                      }}
+                    >
+                      <Star size={11} color="#F59E0B" fill="#F59E0B" />
+                      {u.eventsJoined || u.completedEventsCount || 0} Events
                     </span>
                   </div>
 
@@ -971,7 +1500,85 @@ export default function LeaderboardPage() {
                 </p>
               </div>
             </div>
+
+            {/* College Controls: Year filter + Search */}
+            <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+              {/* Year filter dropdown */}
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <Clock size={14} color="#A78BFA" />
+                <select
+                  value={collegeYearFilter}
+                  onChange={(e) => setCollegeYearFilter(e.target.value)}
+                  style={{
+                    border: "1.5px solid rgba(167,139,250,0.4)",
+                    borderRadius: 10,
+                    padding: "7px 12px",
+                    fontSize: 13,
+                    color: "#fff",
+                    background: "rgba(255,255,255,0.1)",
+                    fontWeight: 700,
+                    outline: "none",
+                    cursor: "pointer",
+                  }}
+                >
+                  <option value="All" style={{ color: "#000" }}>All Years</option>
+                  <option value="4 Year" style={{ color: "#000" }}>4th Year</option>
+                  <option value="3 Year" style={{ color: "#000" }}>3rd Year</option>
+                  <option value="2 Year" style={{ color: "#000" }}>2nd Year</option>
+                  <option value="1 Year" style={{ color: "#000" }}>1st Year</option>
+                  <option value="2022-2026" style={{ color: "#000" }}>2022-2026 Batch</option>
+                  <option value="2023-2027" style={{ color: "#000" }}>2023-2027 Batch</option>
+                  <option value="2021-2025" style={{ color: "#000" }}>2021-2025 Batch</option>
+                  <option value="2020-2024" style={{ color: "#000" }}>2020-2024 Batch</option>
+                </select>
+              </div>
+
+              {/* College Search Box */}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  background: "rgba(255,255,255,0.1)",
+                  border: "1.5px solid rgba(255,255,255,0.2)",
+                  borderRadius: 12,
+                  padding: "8px 14px",
+                  minWidth: 240,
+                }}
+              >
+                <Search size={15} color="rgba(255,255,255,0.7)" />
+                <input
+                  type="text"
+                  placeholder="Search college or volunteer…"
+                  value={collegeSearch}
+                  onChange={(e) => setCollegeSearch(e.target.value)}
+                  style={{
+                    border: "none",
+                    outline: "none",
+                    background: "transparent",
+                    flex: 1,
+                    fontSize: 13,
+                    color: "#fff",
+                  }}
+                />
+                {collegeSearch && (
+                  <button
+                    onClick={() => setCollegeSearch("")}
+                    style={{ background: "none", border: "none", cursor: "pointer", padding: 0, lineHeight: 1, color: "rgba(255,255,255,0.6)" }}
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
+
+          {/* Results counter */}
+          {collegeSearch.trim() && (
+            <div style={{ marginBottom: 12, fontSize: 12.5, color: "rgba(255,255,255,0.6)" }}>
+              Showing <strong style={{ color: "#A5B4FC" }}>{collegeTabFiltered.length}</strong> college{collegeTabFiltered.length !== 1 ? "s" : ""} matching "{collegeSearch}"
+            </div>
+          )}
 
           {/* Top 3 College Podium */}
           {topColleges.length > 0 && (
@@ -997,10 +1604,10 @@ export default function LeaderboardPage() {
           )}
 
           {/* Full College Table */}
-          {filteredColleges.length === 0 ? (
+          {collegeTabFiltered.length === 0 ? (
             <div style={{ textAlign: "center", padding: "40px 20px", color: "rgba(255,255,255,0.4)" }}>
               <Building2 size={40} style={{ marginBottom: 10, opacity: 0.3 }} />
-              <p style={{ margin: 0, fontSize: 14 }}>No colleges found matching search.</p>
+              <p style={{ margin: 0, fontSize: 14 }}>No colleges found matching "{collegeSearch}".</p>
             </div>
           ) : (
             <div style={{ borderRadius: 16, overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)" }}>
@@ -1028,7 +1635,7 @@ export default function LeaderboardPage() {
               </div>
 
               {/* Rows */}
-              {filteredColleges.map((c, i) => {
+              {collegeTabFiltered.map((c, i) => {
                 const mine = isMyCollege(c);
                 const rank = i + 1;
                 return (
@@ -1141,9 +1748,126 @@ export default function LeaderboardPage() {
                 </p>
               </div>
             </div>
+
+            {/* Zone Filter Controls */}
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
+              {/* Zone Selector */}
+              <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                <MapPin size={14} color="#6EE7B7" />
+                <select
+                  value={zoneFilter}
+                  onChange={(e) => { setZoneFilter(e.target.value); setZoneCollegeSearch(""); }}
+                  style={{
+                    border: "1.5px solid rgba(52,211,153,0.4)",
+                    borderRadius: 9,
+                    padding: "6px 12px",
+                    fontSize: 13,
+                    color: "#fff",
+                    background: "rgba(255,255,255,0.1)",
+                    fontWeight: 700,
+                    outline: "none",
+                    cursor: "pointer",
+                  }}
+                >
+                  <option value="All" style={{ color: "#000" }}>All Zones</option>
+                  <option value="Zone 1" style={{ color: "#000" }}>Zone 1 – North TN & Chennai</option>
+                  <option value="Zone 2" style={{ color: "#000" }}>Zone 2 – Central & Western TN</option>
+                  <option value="Zone 3" style={{ color: "#000" }}>Zone 3 – Southern TN</option>
+                </select>
+              </div>
+
+              {/* College search within selected zone */}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  background: "rgba(255,255,255,0.1)",
+                  border: "1.5px solid rgba(52,211,153,0.3)",
+                  borderRadius: 10,
+                  padding: "6px 12px",
+                  minWidth: 200,
+                }}
+              >
+                <Search size={14} color="#6EE7B7" />
+                <input
+                  type="text"
+                  placeholder="Search college in zone…"
+                  value={zoneCollegeSearch}
+                  onChange={(e) => setZoneCollegeSearch(e.target.value)}
+                  style={{
+                    border: "none",
+                    outline: "none",
+                    background: "transparent",
+                    flex: 1,
+                    fontSize: 13,
+                    color: "#fff",
+                  }}
+                />
+                {zoneCollegeSearch && (
+                  <button
+                    onClick={() => setZoneCollegeSearch("")}
+                    style={{ background: "none", border: "none", cursor: "pointer", padding: 0, lineHeight: 1, color: "#6EE7B7" }}
+                  >
+                    <X size={13} />
+                  </button>
+                )}
+              </div>
+
+              {/* Reset zone filters */}
+              {(zoneFilter !== "All" || zoneCollegeSearch) && (
+                <button
+                  onClick={() => { setZoneFilter("All"); setZoneCollegeSearch(""); }}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 5,
+                    padding: "6px 13px",
+                    borderRadius: 20,
+                    border: "1.5px solid #6EE7B7",
+                    background: "rgba(16,185,129,0.2)",
+                    color: "#6EE7B7",
+                    fontSize: 12.5,
+                    fontWeight: 700,
+                    cursor: "pointer",
+                  }}
+                >
+                  <RotateCcw size={12} /> Reset
+                </button>
+              )}
+            </div>
           </div>
 
-          {/* Zone Podium (Zone 1, Zone 2, Zone 3) */}
+          {/* Zone summary stats strip (when a zone is selected) */}
+          {zoneFilter !== "All" && (
+            <div
+              style={{
+                display: "flex",
+                gap: 16,
+                flexWrap: "wrap",
+                marginBottom: 20,
+                padding: "14px 18px",
+                background: "rgba(255,255,255,0.06)",
+                borderRadius: 14,
+                border: "1px solid rgba(52,211,153,0.2)",
+              }}
+            >
+              {[
+                { label: "Volunteers", value: zoneTabStudents.length, icon: <Users size={15} color="#6EE7B7" /> },
+                { label: "Colleges", value: zoneTabColleges.length, icon: <Building2 size={15} color="#A5B4FC" /> },
+                { label: "Total Points", value: zoneTabStudents.reduce((s, u) => s + (Number(u.points) || 0), 0).toLocaleString(), icon: <Star size={15} color="#FCD34D" fill="#FCD34D" /> },
+                { label: "Total Hours", value: zoneTabStudents.reduce((s, u) => s + (Number(u.totalHours) || 0), 0) + " hrs", icon: <Clock size={15} color="#34D399" /> },
+              ].map((stat) => (
+                <div key={stat.label} style={{ display: "flex", alignItems: "center", gap: 8, color: "#fff" }}>
+                  {stat.icon}
+                  <span style={{ fontSize: 13, color: "rgba(255,255,255,0.7)" }}>{stat.label}:</span>
+                  <strong style={{ fontSize: 14 }}>{stat.value}</strong>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Zone Podium (Zone 1, Zone 2, Zone 3) – click to filter */}
           <div
             style={{
               display: "grid",
@@ -1152,36 +1876,58 @@ export default function LeaderboardPage() {
               marginBottom: 24,
             }}
           >
-            {topZones.map((z, idx) => (
-              <div
-                key={z.zoneName}
-                style={{
-                  background: "rgba(255,255,255,0.08)",
-                  backdropFilter: "blur(10px)",
-                  border: idx === 0 ? "2px solid #FBBF24" : "1px solid rgba(255,255,255,0.15)",
-                  borderRadius: 16,
-                  padding: "20px 22px",
-                  color: "#fff",
-                }}
-              >
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                  <span style={{ fontSize: 24 }}>{MEDAL[idx] || "⭐"}</span>
-                  <span style={{ background: "#10B981", color: "#fff", fontSize: 11, fontWeight: 800, padding: "2px 8px", borderRadius: 20 }}>
-                    #{idx + 1} Ranked
-                  </span>
+            {topZones.map((z, idx) => {
+              const isSelected = zoneFilter === z.zoneName;
+              return (
+                <div
+                  key={z.zoneName}
+                  onClick={() => setZoneFilter(isSelected ? "All" : z.zoneName)}
+                  style={{
+                    background: isSelected ? "rgba(16,185,129,0.25)" : "rgba(255,255,255,0.08)",
+                    backdropFilter: "blur(10px)",
+                    border: isSelected
+                      ? "2px solid #10B981"
+                      : idx === 0
+                      ? "2px solid #FBBF24"
+                      : "1px solid rgba(255,255,255,0.15)",
+                    borderRadius: 16,
+                    padding: "20px 22px",
+                    color: "#fff",
+                    cursor: "pointer",
+                    transition: "all .2s",
+                    transform: isSelected ? "translateY(-3px)" : "none",
+                    boxShadow: isSelected ? "0 8px 24px rgba(16,185,129,0.3)" : "none",
+                  }}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                    <span style={{ fontSize: 24 }}>{MEDAL[idx] || "⭐"}</span>
+                    <span style={{
+                      background: isSelected ? "#10B981" : "rgba(16,185,129,0.6)",
+                      color: "#fff",
+                      fontSize: 11,
+                      fontWeight: 800,
+                      padding: "2px 8px",
+                      borderRadius: 20,
+                    }}>
+                      {isSelected ? "✓ Selected" : `#${idx + 1} Ranked`}
+                    </span>
+                  </div>
+                  <h3 style={{ margin: "0 0 4px", fontSize: 18, fontWeight: 900, color: "#fff" }}>
+                    {z.zoneName}
+                  </h3>
+                  <p style={{ fontSize: 12, color: "#A7F3D0", margin: "0 0 14px", lineHeight: 1.4 }}>
+                    {z.region}
+                  </p>
+                  <div style={{ display: "flex", justifyContent: "space-between", borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: 10, fontSize: 13 }}>
+                    <span>Volunteers: <strong>{z.totalVolunteers}</strong></span>
+                    <span style={{ color: "#FCD34D", fontWeight: 800 }}>{z.totalPoints} pts</span>
+                  </div>
+                  <div style={{ marginTop: 6, fontSize: 11, color: "rgba(255,255,255,0.5)", textAlign: "center" }}>
+                    {isSelected ? "Click to deselect" : "Click to filter"}
+                  </div>
                 </div>
-                <h3 style={{ margin: "0 0 4px", fontSize: 18, fontWeight: 900, color: "#fff" }}>
-                  {z.zoneName}
-                </h3>
-                <p style={{ fontSize: 12, color: "#A7F3D0", margin: "0 0 14px", lineHeight: 1.4 }}>
-                  {z.region}
-                </p>
-                <div style={{ display: "flex", justifyContent: "space-between", borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: 10, fontSize: 13 }}>
-                  <span>Volunteers: <strong>{z.totalVolunteers}</strong></span>
-                  <span style={{ color: "#FCD34D", fontWeight: 800 }}>{z.totalPoints} pts</span>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* Full Zone Table */}

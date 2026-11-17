@@ -16,10 +16,19 @@ const {
   getGradingLevels,
   updateGradingLevels,
   trackAttendance,
+  markSingleAttendance,
+  verifyAllApprovedAttendance,
   broadcastNotification,
   getReports,
   getEmailLogs,
   sendTestEmail,
+  getAlumniAssignments,
+  createAlumniAssignment,
+  approveAlumniAssignment,
+  rejectAlumniAssignment,
+  sendBulkEmails,
+  retryEmail,
+  sendEventReminders,
 } = require("../controllers/adminController");
 const { protect, adminOnly } = require("../middleware/auth");
 
@@ -40,11 +49,20 @@ router.post("/users/:id/points/deduct", deductUserPoints);
 router.get("/grading", getGradingLevels);
 router.put("/grading", updateGradingLevels);
 router.post("/events/:id/attendance", trackAttendance);
+router.post("/events/:id/attendance/mark", markSingleAttendance);
+router.post("/events/:id/attendance/verify-all", verifyAllApprovedAttendance);
 router.post("/events/:eventId/award-points", awardEventPointsBulk);
 router.post("/notifications/broadcast", broadcastNotification);
 router.get("/reports", getReports);
 router.get("/emails", getEmailLogs);
 router.post("/emails/test", sendTestEmail);
+router.post("/emails/bulk", sendBulkEmails);
+router.post("/emails/:id/retry", retryEmail);
+router.post("/events/:id/remind", sendEventReminders);
+router.get("/alumni-assignments", getAlumniAssignments);
+router.post("/alumni-assignments", createAlumniAssignment);
+router.put("/alumni-assignments/:id/approve", approveAlumniAssignment);
+router.put("/alumni-assignments/:id/reject", rejectAlumniAssignment);
 
 // ── ALUMNI MANAGEMENT ROUTES ──────────────────────────────
 router.get("/alumni", async (req, res) => {

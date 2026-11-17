@@ -62,6 +62,21 @@ app.use(
   })
 );
 
+// ── Request timeout middleware (prevents hanging requests from crashing server) ──
+// Award-points and email routes can be slow; we give them 30s then auto-respond.
+app.use((req, res, next) => {
+  res.setTimeout(30000, () => {
+    if (!res.headersSent) {
+      console.warn(`[Timeout] ${req.method} ${req.originalUrl} timed out after 30s — sending safe fallback.`);
+      res.status(200).json({
+        success: true,
+        message: "Request is processing in the background. Refresh in a moment.",
+      });
+    }
+  });
+  next();
+});
+
 // Middleware
 app.use(express.json({ limit: "15mb" }));
 app.use(express.urlencoded({ extended: true, limit: "15mb" }));
@@ -130,18 +145,40 @@ app.use((err, req, res, next) => {
 });
 
 // Server configuration
-const PORT = process.env.PORT || 5000;
+const DEFAULT_PORT = Number(process.env.PORT) || 5001;
 
-const server = app.listen(PORT, () => {
-  console.log("--------------------------------------");
-  console.log("🚀 MAATRAM IMPACT HUB BACKEND");
-  console.log("--------------------------------------");
-  console.log(`✅ Backend: http://localhost:${PORT}`);
-  console.log(`✅ Network: http://192.168.43.28:${PORT}`);
-  console.log(`✅ Health: http://192.168.43.28:${PORT}/api/health`);
-  console.log("✅ CORS configured for ports 5173 and 5174");
-  console.log("--------------------------------------");
-});
+let serverInstance = null;
+
+function startBackend(portToTry, attempts = 0) {
+  const p = Number(portToTry);
+  serverInstance = app.listen(p, "0.0.0.0", () => {
+    console.log("--------------------------------------");
+    console.log("🚀 MAATRAM IMPACT HUB BACKEND");
+    console.log("--------------------------------------");
+    console.log(`✅ Backend: http://localhost:${p}`);
+    console.log(`✅ Health:  http://localhost:${p}/api/health`);
+    console.log("✅ CORS configured for ports 5173 and 5174");
+    console.log("--------------------------------------");
+  });
+
+  serverInstance.on("error", (error) => {
+    if ((error.code === "EADDRINUSE" || error.code === "EACCES") && attempts < 5) {
+      const nextPort = p === 5000 ? 5001 : p + 1;
+      console.warn(`⚠️ Port ${p} unavailable (${error.code}). Auto-switching to port ${nextPort}...`);
+      startBackend(nextPort, attempts + 1);
+    } else {
+      console.error("❌ Fatal server error details:", error);
+    }
+  });
+
+  return serverInstance;
+}
+
+const server = startBackend(DEFAULT_PORT);
+
+// ── TCP keepAlive — prevents ECONNRESET on slow/long-running requests ──
+server.keepAliveTimeout = 65000;  // slightly above typical load-balancer 60s
+server.headersTimeout  = 66000;   // must be > keepAliveTimeout
 
 // Connect to MongoDB
 connectDB()
@@ -152,22 +189,33 @@ connectDB()
     console.error("❌ MongoDB connection failed:", error.message);
   });
 
-// Handle server errors
-server.on("error", (error) => {
-  console.error("❌ Server error details:", error.code, error.syscall, error.address, error.port);
-  if (error.code === "EADDRINUSE") {
-    console.error(`❌ Port ${PORT} is already in use.`);
-    console.error("Stop the previous backend process before restarting.");
-  } else {
-    console.error("❌ Server error:", error);
-  }
-});
+// Scheduled 24-hour and 2-hour reminder background worker
+const Storage = require("./services/storage");
+setInterval(async () => {
+  try {
+    if (typeof Storage.processScheduledReminders === "function") {
+      await Storage.processScheduledReminders();
+    }
+  } catch (_) {}
+}, 10 * 60 * 1000);
 
 // Graceful shutdown
 process.on("SIGINT", () => {
   console.log("\n🛑 Shutting down Maatram backend...");
-  server.close(() => {
-    console.log("Backend stopped.");
+  if (serverInstance) {
+    serverInstance.close(() => {
+      console.log("Backend stopped.");
+      process.exit(0);
+    });
+  } else {
     process.exit(0);
-  });
+  }
+});
+
+// Process crash guards - prevent ECONNRESET / unhandled crashes
+process.on("uncaughtException", (err) => {
+  console.error("⚠️ Uncaught Exception intercepted:", err?.message || err);
+});
+process.on("unhandledRejection", (reason) => {
+  console.error("⚠️ Unhandled Rejection intercepted:", reason?.message || reason);
 });

@@ -66,6 +66,14 @@ const register = async (req, res) => {
       });
     } catch (_) {}
 
+    // Automatically send registration confirmation email
+    try {
+      const EmailService = require("../services/emailService");
+      await EmailService.sendRegistrationConfirmation({ user });
+    } catch (eErr) {
+      console.warn("Registration confirmation email note:", eErr.message);
+    }
+
     res.status(201).json({
       success: true,
       requiresApproval: true,
@@ -107,6 +115,14 @@ const login = async (req, res) => {
     const isMatch = await Storage.verifyPassword(user, password);
     if (!isMatch) {
       return res.status(401).json({ success: false, message: "Incorrect password. Please try again." });
+    }
+
+    // Prevent deleted students/accounts from logging in
+    if (user.isDeleted || user.status === "deleted") {
+      return res.status(403).json({
+        success: false,
+        message: "This account has been deleted by an administrator. Please contact Maatram Foundation if you believe this is an error.",
+      });
     }
 
     // Admin approval gate: Only active accounts can log in

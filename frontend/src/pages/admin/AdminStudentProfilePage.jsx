@@ -1,36 +1,93 @@
 // frontend/src/pages/admin/AdminStudentProfilePage.jsx
-// Complete Student Full Profile View for Administrators (Phase 6)
+// Student full profile for administrators.
+// Layout: left identity card + right column of numbered sections
+// (personal info, volunteering history, points ledger, certificates, account actions).
 
-import React, { useState, useEffect } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import React, { useState, useEffect, useMemo } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
-  User,
-  Mail,
-  Phone,
-  Building,
   GraduationCap,
-  Calendar,
-  Award,
-  Clock,
-  Sparkles,
-  ShieldCheck,
-  CheckCircle2,
-  XCircle,
-  FileText,
-  Star,
+  Landmark,
   MapPin,
-  Tag,
-  Download,
+  Mail,
+  CalendarDays,
+  Clock,
+  Trophy,
+  Star,
+  Medal,
   Eye,
-  Check,
-  X,
-  History,
+  Pause,
+  Play,
+  Trash2,
+  Droplet,
+  Leaf,
+  Laptop,
+  BookOpen,
+  TrendingUp,
+  TrendingDown,
 } from "lucide-react";
 import { adminAPI } from "../../api/adminAPI";
-import { certificatesAPI } from "../../api/certificatesAPI";
 import { useApp } from "../../context/AppContext";
 import "./AdminStudentProfilePage.css";
+
+/* Point thresholds for the volunteer level card */
+const LEVELS = [
+  { level: 1, name: "Rookie", min: 0 },
+  { level: 2, name: "Contributor", min: 100 },
+  { level: 3, name: "Achiever", min: 300 },
+  { level: 4, name: "Leader", min: 600 },
+  { level: 5, name: "Champion", min: 1000 },
+  { level: 6, name: "Legend", min: 1500 },
+  { level: 7, name: "Icon", min: 2200 },
+  { level: 8, name: "Hall of Fame", min: 3000 },
+];
+
+function getLevelInfo(points) {
+  let idx = 0;
+  LEVELS.forEach((l, i) => {
+    if (points >= l.min) idx = i;
+  });
+  const current = LEVELS[idx];
+  const next = LEVELS[idx + 1];
+  if (!next) {
+    return { current, next: null, percent: 100, remaining: 0 };
+  }
+  const span = next.min - current.min;
+  const percent = Math.min(100, Math.round(((points - current.min) / span) * 100));
+  return { current, next, percent, remaining: next.min - points };
+}
+
+function categoryIcon(category = "") {
+  const c = category.toLowerCase();
+  if (c.includes("health") || c.includes("blood")) return { Icon: Droplet, tone: "red" };
+  if (c.includes("environ") || c.includes("outside")) return { Icon: Leaf, tone: "green" };
+  if (c.includes("karp") || c.includes("tech") || c.includes("educat")) return { Icon: Laptop, tone: "blue" };
+  return { Icon: BookOpen, tone: "blue" };
+}
+
+function categoryTone(category = "") {
+  const c = category.toLowerCase();
+  if (c.includes("health")) return "red";
+  if (c.includes("environ") || c.includes("outside")) return "green";
+  return "blue";
+}
+
+const fmtDate = (value, opts) => {
+  if (!value) return "—";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return String(value);
+  return d.toLocaleDateString("en-GB", opts || { day: "2-digit", month: "2-digit", year: "numeric" });
+};
+
+const initialsOf = (name = "") =>
+  name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase();
 
 export default function AdminStudentProfilePage() {
   const { id } = useParams();
@@ -39,17 +96,41 @@ export default function AdminStudentProfilePage() {
 
   const [student, setStudent] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("overview"); // "overview" | "events" | "points" | "certificates" | "attendance"
-  const [confirmStatusModal, setConfirmStatusModal] = useState(null);
+  const [statusModal, setStatusModal] = useState(null); // "active" | "inactive" | null
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     async function loadStudentData() {
       try {
         setLoading(true);
-        const res = await adminAPI.getUserById(id);
+        let res = null;
+        try {
+          res = await adminAPI.getUserById(id);
+        } catch (_) { }
+
         if (res?.data) {
           setStudent(res.data);
         } else {
+          // Fallback: locate the student in the full users list
+          try {
+            const all = await adminAPI.getUsers();
+            const list = Array.isArray(all?.data) ? all.data : Array.isArray(all) ? all : [];
+            const key = String(id).toLowerCase();
+            const found = list.find(
+              (u) =>
+                String(u._id || "").toLowerCase() === key ||
+                String(u.id || "").toLowerCase() === key ||
+                String(u.applicationId || "").toLowerCase() === key ||
+                String(u.email || "").toLowerCase() === key ||
+                String(u.rollNumber || u.regNumber || "").toLowerCase() === key
+            );
+            if (found) {
+              setStudent(found);
+              return;
+            }
+          } catch (_) { }
           showToast("Student not found", "error");
         }
       } catch (err) {
@@ -59,42 +140,67 @@ export default function AdminStudentProfilePage() {
         setLoading(false);
       }
     }
-    if (id) {
-      loadStudentData();
-    }
+    if (id) loadStudentData();
   }, [id]);
 
   const handleToggleStatus = async (newStatus) => {
     try {
+      setBusy(true);
       await adminAPI.toggleUserStatus(student._id || student.id, newStatus);
       setStudent((prev) => ({ ...prev, status: newStatus }));
       showToast(`Student account marked as ${newStatus}!`);
-      setConfirmStatusModal(null);
+      setStatusModal(null);
     } catch (err) {
       showToast(err.message || "Failed to update account status", "error");
+    } finally {
+      setBusy(false);
     }
   };
 
+  const handleDelete = async () => {
+    try {
+      setBusy(true);
+      const res = await adminAPI.deleteUser(student._id || student.id);
+      showToast(res?.message || `${student.fullName}'s account deleted. Historical records safely archived.`);
+      setDeleteOpen(false);
+      navigate("/admin/users");
+    } catch (err) {
+      showToast(err.message || "Failed to delete account", "error");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const derived = useMemo(() => {
+    if (!student) return null;
+    const apps = student.applications || [];
+    const txns = student.transactions || [];
+    const drives = apps.filter((a) => ["Completed", "Approved", "Assigned"].includes(a.status));
+    const earned = txns
+      .filter((t) => String(t.type).toUpperCase() === "CREDIT")
+      .reduce((s, t) => s + (Number(t.points) || 0), 0);
+    const redeemed = txns
+      .filter((t) => String(t.type).toUpperCase() === "DEBIT")
+      .reduce((s, t) => s + (Number(t.points) || 0), 0);
+    return { drives, txns, earned, redeemed };
+  }, [student]);
+
   if (loading) {
     return (
-      <div className="admin-profile-loading">
-        <div className="admin-spinner" />
-        <p>Loading complete student profile...</p>
+      <div className="sp-state">
+        <div className="sp-spinner" />
+        <p>Loading student profile…</p>
       </div>
     );
   }
 
   if (!student) {
     return (
-      <div className="admin-profile-not-found">
-        <h3>Student Record Not Found</h3>
-        <p>The requested student could not be located in the database.</p>
-        <button
-          type="button"
-          className="admin-back-btn"
-          onClick={() => navigate("/admin/users")}
-        >
-          <ArrowLeft size={16} /> Return to Students
+      <div className="sp-state">
+        <h3>Student record not found</h3>
+        <p>This student could not be located in the database.</p>
+        <button type="button" className="sp-btn sp-btn-ghost" onClick={() => navigate("/admin/users")}>
+          <ArrowLeft size={15} /> Back to Student Directory
         </button>
       </div>
     );
@@ -104,8 +210,7 @@ export default function AdminStudentProfilePage() {
     fullName = "Student Volunteer",
     email = "",
     phone = "",
-    applicationId = "MAA001",
-    rollNumber = student.regNumber || student.rollNumber || applicationId,
+    applicationId = "",
     college = "Maatram Institute of Technology",
     department = "Computer Science & Engineering",
     batch = "2022-2026",
@@ -115,272 +220,195 @@ export default function AdminStudentProfilePage() {
     totalHours = 0,
     eventsJoined = 0,
     rating = 4.8,
-    skills = ["Public Speaking", "Event Management", "Teaching", "Mentorship"],
-    applications = [],
-    transactions = [],
     createdAt,
     lastActiveAt,
   } = student;
+  const rollNumber = String(applicationId || student.regNumber || student.rollNumber || "MAA001");
+  const isActive = status === "active";
+  const { drives, txns, earned, redeemed } = derived;
+  const totalEvents = eventsJoined || drives.length || 0;
+  const level = getLevelInfo(Number(points) || 0);
 
-  const joinedDateStr = createdAt
-    ? new Date(createdAt).toLocaleDateString("en-GB", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      })
-    : "15 Aug 2024";
-
-  // Calculate real recent activity label
-  const computeActivityLabel = (date) => {
+  const activityText = (() => {
+    const date = lastActiveAt || createdAt;
     if (!date) return "Active recently";
-    const d = new Date(date);
-    const now = new Date();
-    const diffHours = Math.floor((now - d) / (1000 * 60 * 60));
-    if (diffHours < 24) return "Active today";
-    if (diffHours < 48) return "Active yesterday";
-    const diffDays = Math.floor(diffHours / 24);
-    if (diffDays < 7) return `Active ${diffDays} days ago`;
-    return "Active recently";
-  };
+    const hours = Math.floor((Date.now() - new Date(date).getTime()) / 36e5);
+    if (hours < 24) return "Active today";
+    if (hours < 48) return "Active yesterday";
+    const days = Math.floor(hours / 24);
+    return days < 7 ? `Active ${days} days ago` : "Active recently";
+  })();
 
-  const activityText = computeActivityLabel(lastActiveAt || createdAt);
-
-  // Filter participated events
-  const completedOrAssigned = (applications || []).filter(
-    (a) => a.status === "Completed" || a.status === "Approved" || a.status === "Assigned"
-  );
+  const certificates = Array.isArray(student.certificates) && student.certificates.length
+    ? student.certificates
+    : drives
+      .filter((a) => a.status === "Completed")
+      .map((a, i) => ({
+        certificateId: a.certificateId || `MF-CERT-${new Date().getFullYear()}-${1042 + i}`,
+        eventTitle: a.opportunityTitle || "Volunteering Drive",
+        hours: a.hours || 4,
+      }));
 
   return (
-    <div className="admin-full-profile-container">
-      {/* Top Breadcrumb & Return */}
-      <div className="admin-profile-top-bar">
-        <button
-          type="button"
-          className="admin-back-link"
-          onClick={() => navigate("/admin/users")}
-        >
-          <ArrowLeft size={16} /> Back to Student Directory
+    <div className="sp-page">
+      <nav className="sp-crumbs" aria-label="Breadcrumb">
+        <button type="button" onClick={() => navigate("/admin/users")}>
+          <ArrowLeft size={14} /> Student Directory
         </button>
-        <div className="profile-quick-actions">
-          {status === "active" ? (
-            <button
-              type="button"
-              className="btn-status-toggle deactivate"
-              onClick={() => setConfirmStatusModal("inactive")}
-            >
-              <XCircle size={15} /> Deactivate Account
-            </button>
-          ) : (
-            <button
-              type="button"
-              className="btn-status-toggle activate"
-              onClick={() => setConfirmStatusModal("active")}
-            >
-              <CheckCircle2 size={15} /> Activate Account
-            </button>
-          )}
-        </div>
-      </div>
+        <span className="sp-crumb-sep">/</span>
+        <strong>{fullName}</strong>
+      </nav>
 
-      {/* Profile Header Hero Card */}
-      <div className="admin-profile-hero-card">
-        <div className="profile-hero-left">
-          <div className="profile-hero-avatar">
-            {fullName
-              .split(" ")
-              .filter(Boolean)
-              .slice(0, 2)
-              .map((n) => n[0])
-              .join("")
-              .toUpperCase()}
+      <div className="sp-layout">
+        {/* ───── Left identity card ───── */}
+        <aside className="sp-identity">
+          <div className="sp-identity-cover" />
+          <div className="sp-avatar">{initialsOf(fullName)}</div>
+          <h1 className="sp-name">{fullName}</h1>
+          <p className="sp-sub">
+            {rollNumber} • Batch {batch}
+          </p>
+          <div className="sp-pills">
+            <span className={`sp-pill ${isActive ? "green" : "red"}`}>
+              <i /> {isActive ? "Active Account" : "Inactive Account"}
+            </span>
+            <span className="sp-pill blue">{activityText}</span>
           </div>
-          <div className="profile-hero-info">
-            <div className="hero-name-row">
-              <h1 className="hero-student-name">{fullName}</h1>
-              <span className={`hero-status-pill ${status}`}>
-                {status === "active" ? "● Active Account" : "● Inactive Account"}
-              </span>
-              <span className="hero-activity-badge">{activityText}</span>
+
+          <ul className="sp-contact-list">
+            <li><span className="sp-ico"><GraduationCap size={14} /></span>{department}</li>
+            <li><span className="sp-ico"><Landmark size={14} /></span>{college}</li>
+            <li><span className="sp-ico"><MapPin size={14} /></span>{zone}</li>
+            <li><span className="sp-ico"><Mail size={14} /></span>{email || "—"}</li>
+          </ul>
+
+          <div className="sp-level">
+            <div className="sp-level-top">
+              <strong>
+                Level {level.current.level} • {level.current.name}
+              </strong>
+              <span>{level.percent}%</span>
             </div>
-            <p className="hero-meta-subtitle">
-              <span>{rollNumber}</span> &bull; <span>{department}</span> &bull; <span>Batch {batch}</span>
-            </p>
-            <p className="hero-college-name">
-              <Building size={14} color="#64748B" /> {college} &bull; <MapPin size={14} color="#64748B" /> {zone}
+            <div className="sp-level-bar" role="progressbar" aria-valuenow={level.percent} aria-valuemin={0} aria-valuemax={100}>
+              <div style={{ width: `${level.percent}%` }} />
+            </div>
+            <p>
+              {level.next
+                ? `${level.remaining.toLocaleString()} points to Level ${level.next.level}`
+                : "Top level reached"}
             </p>
           </div>
-        </div>
+        </aside>
 
-        {/* 4 Statistics Cards */}
-        <div className="profile-hero-stats-grid">
-          <div className="hero-stat-card">
-            <span className="hero-stat-label">Total Events</span>
-            <span className="hero-stat-value">{eventsJoined || completedOrAssigned.length || 0}</span>
-          </div>
-          <div className="hero-stat-card">
-            <span className="hero-stat-label">Total Hours</span>
-            <span className="hero-stat-value">{totalHours}h</span>
-          </div>
-          <div className="hero-stat-card">
-            <span className="hero-stat-label">Community Points</span>
-            <span className="hero-stat-value gold">{points.toLocaleString()}</span>
-          </div>
-          <div className="hero-stat-card">
-            <span className="hero-stat-label">Volunteer Rating</span>
-            <span className="hero-stat-value rating">{rating} ★</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Profile Tabs */}
-      <div className="admin-profile-tabs-nav">
-        {[
-          { key: "overview", label: "Personal Information" },
-          { key: "events", label: `Volunteering History (${completedOrAssigned.length})` },
-          { key: "points", label: `Points Ledger (${transactions.length})` },
-          { key: "certificates", label: "Official Certificates" },
-        ].map((tab) => (
-          <button
-            key={tab.key}
-            type="button"
-            className={`profile-tab-btn ${activeTab === tab.key ? "active" : ""}`}
-            onClick={() => setActiveTab(tab.key)}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Tab 1: Personal Details & Skills */}
-      {activeTab === "overview" && (
-        <div className="profile-tab-pane">
-          <div className="profile-info-grid">
-            <div className="info-section-card">
-              <h3 className="section-card-title">Personal Information</h3>
-              <div className="info-rows-list">
-                <div className="info-row">
-                  <span className="info-label">Full Name</span>
-                  <span className="info-value">{fullName}</span>
-                </div>
-                <div className="info-row">
-                  <span className="info-label">Roll Number / App ID</span>
-                  <span className="info-value font-mono">{rollNumber}</span>
-                </div>
-                <div className="info-row">
-                  <span className="info-label">Email Address</span>
-                  <span className="info-value">{email}</span>
-                </div>
-                <div className="info-row">
-                  <span className="info-label">Phone Contact</span>
-                  <span className="info-value">{phone || "+91 98765 43210"}</span>
-                </div>
-                <div className="info-row">
-                  <span className="info-label">Institution / College</span>
-                  <span className="info-value">{college}</span>
-                </div>
-                <div className="info-row">
-                  <span className="info-label">Department</span>
-                  <span className="info-value">{department}</span>
-                </div>
-                <div className="info-row">
-                  <span className="info-label">Assigned Zone</span>
-                  <span className="info-value zone-pill">{zone}</span>
-                </div>
-                <div className="info-row">
-                  <span className="info-label">Batch</span>
-                  <span className="info-value">{batch}</span>
-                </div>
-                <div className="info-row">
-                  <span className="info-label">Date Joined</span>
-                  <span className="info-value">{joinedDateStr}</span>
-                </div>
-              </div>
+        {/* ───── Right column ───── */}
+        <div className="sp-main">
+          <div className="sp-stats">
+            <div className="sp-stat">
+              <span className="sp-stat-ico blue"><CalendarDays size={18} /></span>
+              <div><strong>{totalEvents}</strong><small>Total events</small></div>
             </div>
-
-            <div className="info-section-card">
-              <h3 className="section-card-title">Volunteer Skills & Competencies</h3>
-              <div className="skills-tag-cloud">
-                {(Array.isArray(skills) ? skills : [skills]).map((skill, idx) => (
-                  <span key={idx} className="skill-chip-tag">
-                    <Tag size={12} color="#EAB308" /> {skill}
-                  </span>
-                ))}
-              </div>
-
-              <h3 className="section-card-title" style={{ marginTop: 24 }}>
-                Account Security & Role
-              </h3>
-              <div className="info-rows-list">
-                <div className="info-row">
-                  <span className="info-label">System Role</span>
-                  <span className="info-value font-bold">Student Volunteer</span>
-                </div>
-                <div className="info-row">
-                  <span className="info-label">Authentication Status</span>
-                  <span className="info-value">{status === "active" ? "Enabled (Can log in)" : "Disabled (Login blocked)"}</span>
-                </div>
-                <div className="info-row">
-                  <span className="info-label">Last Activity Timestamp</span>
-                  <span className="info-value">{activityText}</span>
-                </div>
-              </div>
+            <div className="sp-stat">
+              <span className="sp-stat-ico violet"><Clock size={18} /></span>
+              <div><strong>{totalHours}h</strong><small>Total hours</small></div>
+            </div>
+            <div className="sp-stat">
+              <span className="sp-stat-ico amber"><Trophy size={18} /></span>
+              <div><strong>{Number(points).toLocaleString()}</strong><small>Community points</small></div>
+            </div>
+            <div className="sp-stat">
+              <span className="sp-stat-ico green"><Star size={18} /></span>
+              <div><strong className="blue">{rating} ★</strong><small>Volunteer rating</small></div>
             </div>
           </div>
-        </div>
-      )}
 
-      {/* Tab 2: Volunteering History & Attendance */}
-      {activeTab === "events" && (
-        <div className="profile-tab-pane">
-          <div className="profile-history-card">
-            <h3 className="section-card-title">Participated & Assigned Drives</h3>
-            {completedOrAssigned.length === 0 ? (
-              <p className="empty-history-text">No volunteering drives recorded for this student yet.</p>
-            ) : (
-              <table className="profile-history-table">
+          {/* 1 — Personal information */}
+          <section className="sp-card">
+            <header className="sp-card-head">
+              <span className="sp-num">1</span>
+              <div>
+                <h2>Personal Information</h2>
+                <p>Identity, contact and institution details</p>
+              </div>
+            </header>
+            <div className="sp-info-grid">
+              <div><small>Full name</small><strong>{fullName}</strong></div>
+              <div><small>Roll number / App ID</small><strong>{rollNumber}</strong></div>
+              <div><small>Date joined</small><strong>{fmtDate(createdAt || "2024-08-15", { day: "numeric", month: "short", year: "numeric" })}</strong></div>
+              <div><small>Email address</small><strong>{email || "—"}</strong></div>
+              <div><small>Phone contact</small><strong>{phone || "+91 98765 43210"}</strong></div>
+              <div><small>Batch</small><strong>{batch}</strong></div>
+              <div><small>Institution / college</small><strong>{college}</strong></div>
+              <div><small>Department</small><strong>{department}</strong></div>
+              <div><small>Assigned zone</small><strong><span className="sp-zone">{zone}</span></strong></div>
+            </div>
+          </section>
+
+          {/* 2 — Volunteering history */}
+          <section className="sp-card">
+            <header className="sp-card-head">
+              <span className="sp-num">2</span>
+              <div>
+                <h2>Volunteering History</h2>
+                <p>Participated and assigned drives</p>
+              </div>
+              <span className="sp-count">{drives.length} {drives.length === 1 ? "drive" : "drives"}</span>
+            </header>
+            <div className="sp-table-wrap">
+              <table className="sp-table">
                 <thead>
                   <tr>
-                    <th>Event Title</th>
+                    <th>Event title</th>
                     <th>Date</th>
                     <th>Category</th>
                     <th>Status</th>
-                    <th>Verified Hours</th>
-                    <th>Points Awarded</th>
+                    <th>Hours</th>
+                    <th>Points</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {completedOrAssigned.map((app) => (
-                    <tr key={app.id || app._id}>
-                      <td className="font-semibold">{app.opportunityTitle || "Volunteering Drive"}</td>
-                      <td>{app.eventDate || "15 Nov 2026"}</td>
-                      <td>
-                        <span className="table-cat-badge">{app.category || "Social Impact"}</span>
-                      </td>
-                      <td>
-                        <span className={`table-status-pill ${app.status.toLowerCase()}`}>
-                          {app.status}
-                        </span>
-                      </td>
-                      <td>{app.hours || 4}h</td>
-                      <td className="gold-text font-bold">+{app.pointsAwarded || 50} pts</td>
-                    </tr>
-                  ))}
+                  {drives.length === 0 && (
+                    <tr><td colSpan={6} className="sp-empty">No volunteering drives recorded for this student yet.</td></tr>
+                  )}
+                  {drives.map((app, i) => {
+                    const cat = app.category || "Social Impact";
+                    const { Icon, tone } = categoryIcon(cat);
+                    return (
+                      <tr key={app.id || app._id || i}>
+                        <td>
+                          <div className="sp-event-cell">
+                            <span className={`sp-event-ico ${tone}`}><Icon size={15} /></span>
+                            {app.opportunityTitle || "Volunteering Drive"}
+                          </div>
+                        </td>
+                        <td>{fmtDate(app.eventDate || app.date, { day: "2-digit", month: "short", year: "numeric" })}</td>
+                        <td><span className={`sp-chip ${categoryTone(cat)}`}>{cat}</span></td>
+                        <td><span className={`sp-status ${String(app.status).toLowerCase()}`}>{app.status}</span></td>
+                        <td>{app.hours || 4}h</td>
+                        <td className="sp-pos">+{app.pointsAwarded || 50}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
-            )}
-          </div>
-        </div>
-      )}
+            </div>
+          </section>
 
-      {/* Tab 3: Points Ledger */}
-      {activeTab === "points" && (
-        <div className="profile-tab-pane">
-          <div className="profile-history-card">
-            <h3 className="section-card-title">Points & Recognition Ledger</h3>
-            {transactions.length === 0 ? (
-              <p className="empty-history-text">No points adjustments recorded.</p>
-            ) : (
-              <table className="profile-history-table">
+          {/* 3 — Points ledger */}
+          <section className="sp-card">
+            <header className="sp-card-head">
+              <span className="sp-num">3</span>
+              <div>
+                <h2>Points &amp; Recognition Ledger</h2>
+                <p>Every credit and debit on this account</p>
+              </div>
+            </header>
+            <div className="sp-balance-row">
+              <div><small>Current balance</small><strong className="blue">{Number(points).toLocaleString()}</strong></div>
+              <div><small>Total earned</small><strong className="pos">+{earned.toLocaleString()}</strong></div>
+              <div><small>Total redeemed</small><strong className="neg">−{redeemed.toLocaleString()}</strong></div>
+            </div>
+            <div className="sp-table-wrap">
+              <table className="sp-table">
                 <thead>
                   <tr>
                     <th>Type</th>
@@ -390,87 +418,184 @@ export default function AdminStudentProfilePage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {transactions.map((t, idx) => (
-                    <tr key={idx}>
-                      <td>
-                        <span className={`txn-type-pill ${t.type.toLowerCase()}`}>
-                          {t.type}
-                        </span>
-                      </td>
-                      <td className="font-bold gold-text">
-                        {t.type === "CREDIT" ? `+${t.points}` : `-${t.points}`}
-                      </td>
-                      <td>{t.reason}</td>
-                      <td>{new Date(t.createdAt || Date.now()).toLocaleDateString("en-GB")}</td>
-                    </tr>
-                  ))}
+                  {txns.length === 0 && (
+                    <tr><td colSpan={4} className="sp-empty">No points adjustments recorded.</td></tr>
+                  )}
+                  {txns.map((t, i) => {
+                    const credit = String(t.type).toUpperCase() === "CREDIT";
+                    return (
+                      <tr key={t.id || t._id || i}>
+                        <td>
+                          <span className={`sp-txn ${credit ? "credit" : "debit"}`}>
+                            {credit ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
+                            {credit ? "CREDIT" : "DEBIT"}
+                          </span>
+                        </td>
+                        <td className={credit ? "sp-pos" : "sp-neg"}>
+                          {credit ? "+" : "−"}{t.points}
+                        </td>
+                        <td>{t.reason}</td>
+                        <td>{fmtDate(t.createdAt || Date.now())}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
-            )}
-          </div>
-        </div>
-      )}
+            </div>
+          </section>
 
-      {/* Tab 4: Certificates */}
-      {activeTab === "certificates" && (
-        <div className="profile-tab-pane">
-          <div className="profile-history-card">
-            <h3 className="section-card-title">Official Volunteering Certificates</h3>
-            <div className="profile-cert-card-item">
-              <div className="cert-item-info">
-                <Award size={28} color="#EAB308" />
-                <div>
-                  <h4>Hackforge Hackathon 2025 Participation Certificate</h4>
-                  <p>Certificate ID: MF-CERT-2026-1042 &bull; Issued by Maatram Foundation</p>
-                </div>
+          {/* 4 — Certificates */}
+          <section className="sp-card">
+            <header className="sp-card-head">
+              <span className="sp-num">4</span>
+              <div>
+                <h2>Official Volunteering Certificates</h2>
+                <p>Issued and verified by Maatram Foundation</p>
               </div>
+            </header>
+            <div className="sp-cert-list">
+              {certificates.length === 0 && (
+                <p className="sp-empty sp-empty-block">No certificates have been issued to this student yet.</p>
+              )}
+              {certificates.map((c, i) => (
+                <div className="sp-cert" key={c.certificateId || i}>
+                  <span className="sp-cert-medal"><Medal size={20} /></span>
+                  <div className="sp-cert-text">
+                    <h3>{c.eventTitle} Participation Certificate</h3>
+                    <p>Certificate ID: {c.certificateId} • Issued by Maatram Foundation</p>
+                  </div>
+                  <button
+                    type="button"
+                    className="sp-btn sp-btn-navy"
+                    onClick={() =>
+                      openCertificate({
+                        certificateId: c.certificateId,
+                        volunteerName: fullName,
+                        eventTitle: c.eventTitle,
+                        college,
+                        verifiedHours: c.hours || totalHours || 24,
+                        pointsAwarded: points || 100,
+                      })
+                    }
+                  >
+                    <Eye size={14} /> View &amp; Print Certificate
+                  </button>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* 5 — Account actions */}
+          <section className="sp-card sp-danger-zone">
+            <header className="sp-card-head">
+              <span className="sp-num red">5</span>
+              <div>
+                <h2>Account Actions</h2>
+                <p>Sensitive actions — review carefully before proceeding</p>
+              </div>
+            </header>
+            <div className="sp-action-grid">
+              <div className="sp-action">
+                <h3>{isActive ? <Pause size={13} /> : <Play size={13} />} {isActive ? "Deactivate Account" : "Activate Account"}</h3>
+                <p>
+                  {isActive
+                    ? "Blocks login while keeping all records, hours and points preserved. Can be reactivated later."
+                    : "Restores login so this volunteer can sign in and apply for drives again."}
+                </p>
+                <button
+                  type="button"
+                  className={`sp-btn ${isActive ? "sp-btn-outline-red" : "sp-btn-outline-green"}`}
+                  onClick={() => setStatusModal(isActive ? "inactive" : "active")}
+                >
+                  {isActive ? "Deactivate Account" : "Activate Account"}
+                </button>
+              </div>
+              <div className="sp-action">
+                <h3><Trash2 size={13} /> Delete Account</h3>
+                <p>Permanently removes this volunteer and all associated data. This action cannot be undone.</p>
+                <button
+                  type="button"
+                  className="sp-btn sp-btn-red"
+                  onClick={() => {
+                    setDeleteConfirmText("");
+                    setDeleteOpen(true);
+                  }}
+                >
+                  Delete Account
+                </button>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      {/* ───── Deactivate / activate modal ───── */}
+      {statusModal && (
+        <div className="sp-overlay" onClick={() => !busy && setStatusModal(null)}>
+          <div className="sp-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+            <span className={`sp-modal-ico ${statusModal === "active" ? "green" : "amber"}`}>
+              {statusModal === "active" ? <Play size={16} /> : <Pause size={16} />}
+            </span>
+            <h3>{statusModal === "active" ? "Activate Account?" : "Deactivate Account?"}</h3>
+            <p>
+              {statusModal === "active"
+                ? `Are you sure you want to activate ${fullName}'s account? They will be able to log in and apply for drives.`
+                : `Are you sure you want to deactivate ${fullName}'s account? Their existing records will remain preserved, but login will be blocked.`}
+            </p>
+            <div className="sp-modal-actions">
+              <button type="button" className="sp-btn sp-btn-soft" disabled={busy} onClick={() => setStatusModal(null)}>
+                Cancel
+              </button>
               <button
                 type="button"
-                className="view-cert-btn"
-                onClick={() =>
-                  openCertificate({
-                    certificateId: "MF-CERT-2026-1042",
-                    volunteerName: fullName,
-                    eventTitle: "Hackforge Hackathon 2025",
-                    college: college,
-                    verifiedHours: totalHours || 24,
-                    pointsAwarded: points || 100,
-                  })
-                }
+                className={`sp-btn ${statusModal === "active" ? "sp-btn-green" : "sp-btn-red"} sp-glow`}
+                disabled={busy}
+                onClick={() => handleToggleStatus(statusModal)}
               >
-                <Eye size={15} /> View & Print Certificate
+                Confirm {statusModal === "active" ? "Activation" : "Deactivation"}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Status Change Confirmation Modal */}
-      {confirmStatusModal && (
-        <div className="status-modal-overlay">
-          <div className="status-modal-card">
-            <h3>
-              {confirmStatusModal === "active" ? "Activate Account?" : "Deactivate Account?"}
-            </h3>
+      {/* ───── Delete permanently modal ───── */}
+      {deleteOpen && (
+        <div className="sp-overlay" onClick={() => !busy && setDeleteOpen(false)}>
+          <div className="sp-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+            <span className="sp-modal-ico red"><Trash2 size={16} /></span>
+            <h3>Delete Account Permanently?</h3>
             <p>
-              {confirmStatusModal === "active"
-                ? `Are you sure you want to activate ${fullName}'s account? They will be able to log in and apply for drives.`
-                : `Are you sure you want to deactivate ${fullName}'s account? Their existing records will remain preserved, but login will be blocked.`}
+              You are about to delete <strong>{fullName} ({rollNumber})</strong>. This cannot be undone and will remove:
             </p>
-            <div className="status-modal-actions">
-              <button
-                type="button"
-                className="btn-cancel"
-                onClick={() => setConfirmStatusModal(null)}
-              >
+            <ul className="sp-modal-list">
+              <li>Profile and login access</li>
+              <li>{totalEvents} events and {totalHours} verified hours</li>
+              <li>{Number(points).toLocaleString()} community points and ledger</li>
+              <li>All issued certificates</li>
+            </ul>
+            <label className="sp-modal-label" htmlFor="sp-delete-confirm">
+              Type <strong>{rollNumber}</strong> to confirm
+            </label>
+            <input
+              id="sp-delete-confirm"
+              className={`sp-modal-input ${deleteConfirmText.trim().toLowerCase() === String(rollNumber).toLowerCase() ? "match" : ""}`}
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              autoComplete="off"
+              autoFocus
+            />
+            <div className="sp-modal-actions">
+              <button type="button" className="sp-btn sp-btn-soft" disabled={busy} onClick={() => setDeleteOpen(false)}>
                 Cancel
               </button>
               <button
                 type="button"
-                className={`btn-confirm ${confirmStatusModal}`}
-                onClick={() => handleToggleStatus(confirmStatusModal)}
+                className="sp-btn sp-btn-red sp-glow"
+                disabled={busy || deleteConfirmText.trim().toLowerCase() !== String(rollNumber).toLowerCase()}
+                onClick={handleDelete}
               >
-                Confirm {confirmStatusModal === "active" ? "Activation" : "Deactivation"}
+                Delete Permanently
               </button>
             </div>
           </div>

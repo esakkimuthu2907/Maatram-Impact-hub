@@ -10,7 +10,10 @@ export default function ProtectedRoute({ children, adminOnly = false }) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  if (adminOnly && user.role !== "admin") {
+  if (
+    adminOnly &&
+    (user.role !== "admin" || (user.email || "").toLowerCase().trim() !== "admin@maatram.org")
+  ) {
     return <Navigate to="/dashboard" replace />;
   }
 

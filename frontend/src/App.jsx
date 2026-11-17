@@ -271,13 +271,7 @@ export default function App() {
             />
             <Route
               path="/alumni"
-              element={
-                <ProtectedRoute>
-                  <AppLayout>
-                    <AlumniPage />
-                  </AppLayout>
-                </ProtectedRoute>
-              }
+              element={<Navigate to="/dashboard" replace />}
             />
             <Route
               path="/admin/alumni"

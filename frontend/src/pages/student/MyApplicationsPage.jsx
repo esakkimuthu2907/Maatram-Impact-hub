@@ -1,4 +1,4 @@
-// frontend/src/pages/MyApplicationsPage.jsx
+// frontend/src/pages/student/MyApplicationsPage.jsx
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -14,8 +14,9 @@ import {
   MapPin,
   ShieldCheck,
   ChevronRight,
-  QrCode,
   Share2,
+  Award,
+  Star,
 } from "lucide-react";
 
 import { useApp } from "../../context/AppContext";
@@ -24,8 +25,8 @@ import "./StudentDashboard.css";
 export default function MyApplicationsPage() {
   const {
     applications = [],
+    certificates = [],
     cancelApplication,
-    openQRAttendance,
     openLinkedInShare,
     openCertificate,
     user,
@@ -34,13 +35,47 @@ export default function MyApplicationsPage() {
   const [search, setSearch] = useState("");
 
   const filteredApps = applications.filter((app) => {
-    const matchFilter = filter === "All" || app.status === filter;
+    const isAppCompleted =
+      app.status === "Completed" ||
+      Boolean(app.pointsAwarded && app.pointsAwarded > 0) ||
+      Boolean(app.certificateId) ||
+      Boolean(app.completedAt);
+    let matchFilter = true;
+    if (filter === "All") matchFilter = true;
+    else if (filter === "Completed") matchFilter = isAppCompleted;
+    else if (filter === "Approved") matchFilter = !isAppCompleted && app.status === "Approved";
+    else matchFilter = (app.status || "").toLowerCase() === filter.toLowerCase();
+
     const title = (app.opportunityTitle || "").toLowerCase();
     const ref = (app.referenceId || "").toLowerCase();
     const q = search.toLowerCase().trim();
     const matchSearch = !q || title.includes(q) || ref.includes(q);
     return matchFilter && matchSearch;
   });
+
+  const handleOpenCertificate = (app) => {
+    // Try to find real cert from certificates context first
+    const eventId = app.opportunityId;
+    const matchCert =
+      certificates.find(
+        (c) =>
+          (c.eventId || "").toString() === (eventId || "").toString() ||
+          (c.eventTitle || "").toLowerCase() === (app.opportunityTitle || "").toLowerCase()
+      ) || null;
+
+    openCertificate(
+      matchCert || {
+        volunteerName: user?.fullName || app.applicantDetails?.name || "Volunteer",
+        eventTitle: app.opportunityTitle,
+        eventCategory: app.category,
+        verifiedHours: app.hours || 4,
+        certificateId:
+          app.certificateId || `MF-CERT-2026-${Math.floor(1000 + Math.random() * 9000)}`,
+        issueDate: app.eventDate,
+        pointsAwarded: app.pointsAwarded || 50,
+      }
+    );
+  };
 
   return (
     <div className="dashboard-container" style={{ maxWidth: 1180, margin: "0 auto", padding: "28px 24px" }}>
@@ -57,7 +92,7 @@ export default function MyApplicationsPage() {
               letterSpacing: "-0.01em",
             }}
           >
-            My Applications & Participation
+            My Applications &amp; Participation
           </h1>
           <p
             className="page-subheading"
@@ -69,7 +104,7 @@ export default function MyApplicationsPage() {
               maxWidth: 620,
             }}
           >
-          Track your registrations, review approval statuses, and prepare for upcoming volunteer drives.
+            Track your registrations, review approval statuses, and access your certificates.
           </p>
         </div>
 
@@ -87,7 +122,7 @@ export default function MyApplicationsPage() {
             boxShadow: "0 4px 14px rgba(255, 214, 41, 0.4)",
           }}
         >
-         Explore New Drives
+          Explore New Drives
         </Link>
       </div>
 
@@ -139,8 +174,8 @@ export default function MyApplicationsPage() {
           />
         </div>
 
-        <div className="format-pills-row" style={{ display: "flex", gap: 8 }}>
-          {["All", "Approved", "Pending", "Cancelled"].map((st) => (
+        <div className="format-pills-row" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {["All", "Approved", "Completed", "Pending", "Cancelled"].map((st) => (
             <button
               key={st}
               className={`format-pill-btn ${filter === st ? "active" : ""}`}
@@ -150,9 +185,19 @@ export default function MyApplicationsPage() {
                 borderRadius: 20,
                 fontSize: 13,
                 fontWeight: 600,
-                border: filter === st ? "1px solid #FFD629" : "1px solid #E2E8F0",
-                background: filter === st ? "#FFD629" : "#FFFFFF",
-                color: filter === st ? "#151515" : "#64748B",
+                border:
+                  filter === st
+                    ? st === "Completed"
+                      ? "1px solid #22C55E"
+                      : "1px solid #FFD629"
+                    : "1px solid #E2E8F0",
+                background:
+                  filter === st
+                    ? st === "Completed"
+                      ? "#22C55E"
+                      : "#FFD629"
+                    : "#FFFFFF",
+                color: filter === st ? (st === "Completed" ? "#FFFFFF" : "#151515") : "#64748B",
                 cursor: "pointer",
                 transition: "all 0.2s ease",
               }}
@@ -231,10 +276,40 @@ export default function MyApplicationsPage() {
           }}
         >
           {filteredApps.map((app) => {
-            const isApproved = app.status === "Approved";
+            const isCompleted =
+              app.status === "Completed" ||
+              Boolean(app.pointsAwarded && app.pointsAwarded > 0) ||
+              Boolean(app.certificateId) ||
+              Boolean(app.completedAt);
+            const isApproved = !isCompleted && app.status === "Approved";
             const isPending = app.status === "Pending";
             const isCancelled = app.status === "Cancelled";
             const appId = app.id || app._id;
+
+            // Border color based on status
+            const borderColor = isCompleted
+              ? "#86EFAC"
+              : isApproved
+              ? "#93C5FD"
+              : isPending
+              ? "#FDE68A"
+              : "#E2E8F0";
+
+            // Status badge colors
+            const badgeBg = isCompleted
+              ? "#DCFCE7"
+              : isApproved
+              ? "#DBEAFE"
+              : isPending
+              ? "#FEF3C7"
+              : "#F1F5F9";
+            const badgeColor = isCompleted
+              ? "#15803D"
+              : isApproved
+              ? "#1D4ED8"
+              : isPending
+              ? "#92400E"
+              : "#64748B";
 
             return (
               <div
@@ -244,18 +319,33 @@ export default function MyApplicationsPage() {
                   background: "#FFFFFF",
                   borderRadius: 18,
                   padding: 22,
-                  boxShadow: "0 3px 12px rgba(0,0,0,0.04)",
-                  border: isApproved
-                    ? "1px solid #86EFAC"
-                    : isPending
-                    ? "1px solid #FDE68A"
-                    : "1px solid #E2E8F0",
+                  boxShadow: isCompleted
+                    ? "0 4px 20px rgba(34,197,94,0.12)"
+                    : "0 3px 12px rgba(0,0,0,0.04)",
+                  border: `1.5px solid ${borderColor}`,
                   display: "flex",
                   flexDirection: "column",
                   justifyContent: "space-between",
                   transition: "transform 0.2s ease, box-shadow 0.2s ease",
+                  position: "relative",
+                  overflow: "hidden",
                 }}
               >
+                {/* Completed ribbon */}
+                {isCompleted && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      height: 4,
+                      background: "linear-gradient(90deg, #22C55E, #16A34A)",
+                      borderRadius: "18px 18px 0 0",
+                    }}
+                  />
+                )}
+
                 <div>
                   {/* TOP ROW: Reference ID & Status Badge */}
                   <div
@@ -293,24 +383,38 @@ export default function MyApplicationsPage() {
                         borderRadius: 20,
                         fontSize: 12,
                         fontWeight: 700,
-                        background: isApproved
-                          ? "#DCFCE7"
-                          : isPending
-                          ? "#FEF3C7"
-                          : "#F1F5F9",
-                        color: isApproved
-                          ? "#166534"
-                          : isPending
-                          ? "#92400E"
-                          : "#64748B",
+                        background: badgeBg,
+                        color: badgeColor,
                       }}
                     >
-                      {isApproved && <CheckCircle2 size={13} color="#166534" />}
+                      {isCompleted && <CheckCircle2 size={13} color="#15803D" />}
+                      {isApproved && <CheckCircle2 size={13} color="#1D4ED8" />}
                       {isPending && <Clock3 size={13} color="#92400E" />}
                       {isCancelled && <XCircle size={13} color="#64748B" />}
-                      {app.status}
+                      {isCompleted ? "✅ Completed" : app.status}
                     </span>
                   </div>
+
+                  {/* Points awarded banner for completed */}
+                  {isCompleted && (
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        background: "linear-gradient(135deg, #FFF7ED, #FFFBEB)",
+                        border: "1px solid #FDE68A",
+                        borderRadius: 10,
+                        padding: "8px 12px",
+                        marginBottom: 12,
+                      }}
+                    >
+                      <Star size={14} color="#D97706" fill="#D97706" />
+                      <span style={{ fontSize: 12.5, fontWeight: 700, color: "#92400E" }}>
+                        +{app.pointsAwarded || 50} pts awarded · Certificate issued
+                      </span>
+                    </div>
+                  )}
 
                   {/* MIDDLE: Event Title & Category */}
                   <div style={{ marginBottom: 16 }}>
@@ -353,11 +457,17 @@ export default function MyApplicationsPage() {
                     >
                       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                         <Calendar size={13} color="#94A3B8" />
-                        <span>Event Date: <strong style={{ color: "#334155" }}>{app.eventDate}</strong></span>
+                        <span>
+                          Event Date:{" "}
+                          <strong style={{ color: "#334155" }}>{app.eventDate}</strong>
+                        </span>
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                         <Clock size={13} color="#94A3B8" />
-                        <span>Volunteering Credit: <strong style={{ color: "#334155" }}>{app.hours || 4} hrs</strong></span>
+                        <span>
+                          Volunteering Credit:{" "}
+                          <strong style={{ color: "#334155" }}>{app.hours || 4} hrs</strong>
+                        </span>
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                         <ShieldCheck size={13} color="#94A3B8" />
@@ -394,7 +504,14 @@ export default function MyApplicationsPage() {
                     gap: 10,
                   }}
                 >
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: 12,
+                    }}
+                  >
                     <Link
                       to={`/opportunities/${app.opportunityId}`}
                       style={{
@@ -410,7 +527,7 @@ export default function MyApplicationsPage() {
                       View Details <ChevronRight size={14} />
                     </Link>
 
-                    {!isCancelled && app.status !== "Completed" && (
+                    {!isCancelled && !isCompleted && (
                       <button
                         onClick={() => cancelApplication(appId)}
                         style={{
@@ -428,53 +545,32 @@ export default function MyApplicationsPage() {
                     )}
                   </div>
 
-                  {/* QR Check-in button if Approved */}
-                  {isApproved && (
-                    <button
-                      className="dash-btn dash-btn-primary"
-                      onClick={() =>
-                        openQRAttendance({
-                          id: app.opportunityId,
-                          _id: app.opportunityId,
-                          title: app.opportunityTitle,
-                          date: app.eventDate,
-                        })
-                      }
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: 6,
-                        padding: "8px 12px",
-                        fontSize: 12.5,
-                        borderRadius: 8,
-                      }}
-                    >
-                      <QrCode size={14} /> Check-in with QR Code
-                    </button>
-                  )}
-
-                  {/* Certificate & LinkedIn share if Completed */}
-                  {(app.status === "Completed" || app.attendanceStatus === "Present") && (
+                  {/* Certificate & LinkedIn for Completed */}
+                  {isCompleted && (
                     <div style={{ display: "flex", gap: 8 }}>
                       <button
-                        className="dash-btn dash-btn-outline"
-                        onClick={() =>
-                          openCertificate({
-                            volunteerName: user?.fullName || app.applicantDetails?.name,
-                            eventTitle: app.opportunityTitle,
-                            eventCategory: app.category,
-                            verifiedHours: app.hours || 4,
-                            certificateId: `MF-CERT-2026-${Math.floor(1000 + Math.random() * 9000)}`,
-                            issueDate: app.eventDate,
-                          })
-                        }
-                        style={{ flex: 1, fontSize: 12, padding: "6px 8px", justifyContent: "center" }}
+                        onClick={() => handleOpenCertificate(app)}
+                        style={{
+                          flex: 1,
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: 6,
+                          padding: "10px 12px",
+                          borderRadius: 10,
+                          fontSize: 13,
+                          fontWeight: 700,
+                          background: "linear-gradient(135deg, #22C55E, #16A34A)",
+                          color: "#FFFFFF",
+                          border: "none",
+                          cursor: "pointer",
+                          boxShadow: "0 4px 12px rgba(34,197,94,0.3)",
+                        }}
                       >
-                        <FileText size={13} /> Certificate
+                        <Award size={15} />
+                        📜 Certificate
                       </button>
                       <button
-                        className="dash-btn dash-btn-primary"
                         onClick={() =>
                           openLinkedInShare({
                             volunteerName: user?.fullName || app.applicantDetails?.name,
@@ -485,15 +581,43 @@ export default function MyApplicationsPage() {
                         }
                         style={{
                           flex: 1,
-                          fontSize: 12,
-                          padding: "6px 8px",
+                          display: "inline-flex",
+                          alignItems: "center",
                           justifyContent: "center",
+                          gap: 6,
+                          padding: "10px 12px",
+                          borderRadius: 10,
+                          fontSize: 13,
+                          fontWeight: 700,
                           background: "#0A66C2",
-                          borderColor: "#0A66C2",
+                          color: "#FFFFFF",
+                          border: "none",
+                          cursor: "pointer",
                         }}
                       >
-                        <Share2 size={13} /> LinkedIn
+                        <Share2 size={14} /> LinkedIn
                       </button>
+                    </div>
+                  )}
+
+                  {/* Approved but not completed: show info only (no QR) */}
+                  {isApproved && (
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        background: "#EFF6FF",
+                        border: "1px solid #BFDBFE",
+                        borderRadius: 8,
+                        padding: "8px 12px",
+                        fontSize: 12,
+                        color: "#1D4ED8",
+                        fontWeight: 600,
+                      }}
+                    >
+                      <CheckCircle2 size={13} color="#1D4ED8" />
+                      Approved — Awaiting event completion for certificate
                     </div>
                   )}
                 </div>

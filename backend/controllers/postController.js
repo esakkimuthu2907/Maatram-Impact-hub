@@ -13,7 +13,7 @@ const INITIAL_POSTS = [
     image: "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=600&q=80",
   },
   {
-    authorName: "Esakkirajan",
+    authorName: "Anand Kumar",
     authorRole: "student",
     avatar: "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=200&q=80",
     text: "Proud to coordinate our upcoming School Outreach Drive this Saturday! Excited to mentor 100+ high school students on career opportunities. Connect with me to volunteer together! 🤝",

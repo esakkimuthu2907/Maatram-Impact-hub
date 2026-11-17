@@ -1,302 +1,1715 @@
-/* frontend/src/pages/admin/AdminAlumniPage.css */
+/* frontend/src/pages/admin/AdminAlumniPage.css
+   Alumni Leadership & Work Assignment — matches the reference design */
 
 .adm-alumni-page {
-  padding: 24px 32px 48px;
+  padding: 22px 26px 48px;
   max-width: 1300px;
   margin: 0 auto;
+  background: #FFFFFF;
+  font-family: "Inter", "Plus Jakarta Sans", sans-serif;
 }
 
-/* Hero Banner */
-.adm-alumni-hero {
-  background: linear-gradient(135deg, #0A192F 0%, #172554 100%);
-  border-radius: 20px;
-  padding: 30px 36px;
-  color: #FFFFFF;
+/* ───────── HERO ───────── */
+.alm-hero {
+  position: relative;
+  overflow: hidden;
   display: flex;
+  align-items: center;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 24px;
-  box-shadow: 0 10px 30px rgba(10, 25, 47, 0.12);
+  gap: 20px;
+  min-height: 110px;
+  padding: 26px 40px;
+  border-radius: 22px;
+  background: #0B2D6F;
+  box-shadow: 0 8px 24px rgba(11, 45, 111, 0.2);
+  margin-bottom: 22px;
 }
 
-.adm-alumni-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: rgba(56, 189, 248, 0.15);
-  border: 1px solid rgba(56, 189, 248, 0.3);
-  color: #38BDF8;
-  font-size: 11.5px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  padding: 4px 12px;
-  border-radius: 20px;
-  margin-bottom: 10px;
+.alm-hero-text {
+  position: relative;
+  z-index: 2;
 }
 
-.adm-alumni-hero-content h1 {
-  font-size: 28px;
-  font-weight: 800;
-  margin: 0 0 8px 0;
-  color: #FFFFFF;
-}
-
-.adm-alumni-hero-content p {
-  font-size: 14.5px;
-  color: #CBD5E1;
-  max-width: 620px;
+.alm-hero-text h1 {
   margin: 0;
-  line-height: 1.5;
+  color: #fff;
+  font-size: 28px;
+  line-height: 1.2;
+  font-weight: 800;
+  letter-spacing: -0.015em;
+  white-space: nowrap;
+  /* one straight line */
 }
 
-.adm-add-alumni-btn {
+.alm-hero-text h1 span {
+  display: inline;
+  color: #FACC15;
+}
+
+.alm-hero-text p {
+  margin: 14px 0 0;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  color: #fff;
+  font-size: 19px;
+  font-weight: 500;
+}
+
+.alm-hero-rule {
+  display: inline-block;
+  width: 82px;
+  height: 3px;
+  background: #FACC15;
+  border-radius: 2px;
+}
+
+.alm-hero-btn {
+  position: relative;
+  z-index: 3;
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  padding: 12px 24px;
+  border: none;
+  border-radius: 999px;
   background: #FACC15;
   color: #0F172A;
-  border: none;
-  border-radius: 14px;
-  padding: 14px 22px;
-  font-size: 14px;
-  font-weight: 800;
+  font-size: 13px;
+  font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 4px 14px rgba(250, 204, 21, 0.35);
-  transition: all 0.2s ease;
+  box-shadow: 0 6px 16px rgba(250, 204, 21, 0.35);
+  transition: background 0.18s ease;
   font-family: inherit;
   white-space: nowrap;
 }
 
-.adm-add-alumni-btn:hover {
+.alm-hero-btn:hover {
   background: #EAB308;
-  transform: translateY(-2px);
 }
 
-/* Toolbar */
-.adm-alumni-toolbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 16px;
-  margin-bottom: 22px;
-  flex-wrap: wrap;
+/* ───────── VIEW SWITCH ───────── */
+.alm-view-switch {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  background: #fff;
+  border-radius: 999px;
+  box-shadow: 0 3px 12px rgba(15, 23, 42, 0.08);
+  margin-bottom: 18px;
 }
 
-.adm-alumni-search-box {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: #FFFFFF;
-  border: 1.5px solid #E2E8F0;
-  border-radius: 12px;
-  padding: 11px 16px;
-  flex: 1;
-  min-width: 280px;
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
-}
-
-.adm-alumni-search-box input {
-  border: none;
-  outline: none;
-  font-size: 14px;
-  width: 100%;
-  color: #0F172A;
-  font-family: inherit;
-}
-
-.adm-alumni-filter-tabs {
-  display: flex;
-  gap: 8px;
-}
-
-.adm-filter-pill {
-  background: #FFFFFF;
-  border: 1.5px solid #E2E8F0;
-  border-radius: 20px;
-  padding: 8px 16px;
-  font-size: 13px;
-  font-weight: 600;
-  color: #475569;
-  cursor: pointer;
-  transition: all 0.2s;
-  font-family: inherit;
-}
-
-.adm-filter-pill.active {
-  background: #2563EB;
-  border-color: #2563EB;
-  color: #FFFFFF;
-}
-
-/* Alumni Cards List */
-.adm-alumni-list {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.adm-alumni-row-card {
-  background: #FFFFFF;
-  border: 1.5px solid #E2E8F0;
-  border-radius: 18px;
-  padding: 20px 24px;
-  display: grid;
-  grid-template-columns: 1.5fr 1.6fr auto;
-  gap: 20px;
-  align-items: center;
-  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.03);
-  transition: all 0.2s ease;
-}
-
-.adm-alumni-row-card:hover {
-  border-color: #CBD5E1;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.07);
-}
-
-.adm-alumni-identity {
-  display: flex;
-  gap: 14px;
-  align-items: center;
-}
-
-.adm-alumni-avatar {
-  width: 58px;
-  height: 58px;
-  border-radius: 50%;
-  object-fit: cover;
-  border: 2px solid #2563EB;
-  flex-shrink: 0;
-}
-
-.adm-alumni-name {
-  font-size: 16px;
-  font-weight: 800;
-  color: #0F172A;
-  margin: 0;
-}
-
-.adm-alumni-id-badge {
-  font-size: 11px;
-  font-weight: 700;
-  background: #F1F5F9;
-  color: #475569;
-  padding: 2px 7px;
-  border-radius: 6px;
-}
-
-.adm-status-active-badge {
-  font-size: 11px;
-  font-weight: 700;
-  background: #DCFCE7;
-  color: #15803D;
-  padding: 2px 8px;
-  border-radius: 12px;
-}
-
-.adm-alumni-workplace {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 12.5px;
-  color: #1E293B;
-  margin-top: 3px;
-}
-
-.adm-alumni-workplace strong {
-  color: #2563EB;
-}
-
-.adm-alumni-education {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 11.5px;
-  color: #64748B;
-  margin-top: 2px;
-}
-
-.adm-alumni-contact {
-  display: flex;
-  gap: 12px;
-  font-size: 11.5px;
-  color: #94A3B8;
-  margin-top: 4px;
-}
-
-/* Middle Column: Current Work Assignment */
-.adm-alumni-assignment-box {
-  background: #F8FAFC;
-  border: 1.5px solid #EDF2F7;
-  border-radius: 12px;
-  padding: 14px 16px;
-}
-
-.adm-assignment-header {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  color: #B45309;
-  letter-spacing: 0.5px;
-  margin-bottom: 4px;
-}
-
-.adm-assigned-event-title {
-  display: block;
-  font-size: 13.5px;
-  font-weight: 800;
-  color: #0F172A;
-}
-
-.adm-assigned-role-text {
-  font-size: 12px;
-  color: #2563EB;
-  margin: 3px 0 0;
-  font-weight: 600;
-}
-
-.adm-assigned-desc-text {
-  font-size: 11.5px;
-  color: #64748B;
-  line-height: 1.45;
-  margin: 4px 0 0;
-}
-
-/* Actions */
-.adm-alumni-actions {
-  display: flex;
-  align-items: center;
-}
-
-.adm-assign-work-btn {
+.alm-view-switch button {
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  background: #2563EB;
-  color: #FFFFFF;
+  padding: 8px 16px;
   border: none;
-  border-radius: 12px;
-  padding: 10px 18px;
+  border-radius: 999px;
+  background: transparent;
+  color: #475569;
+  font-weight: 600;
   font-size: 13px;
-  font-weight: 700;
   cursor: pointer;
-  transition: all 0.2s ease;
-  white-space: nowrap;
   font-family: inherit;
-  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
 }
 
-.adm-assign-work-btn:hover {
-  background: #1D4ED8;
+.alm-view-switch button.on {
+  background: #0B5BFF;
+  color: #fff;
+}
+
+.alm-badge {
+  background: #DC2626;
+  color: #fff;
+  font-size: 11px;
+  padding: 1px 7px;
+  border-radius: 999px;
+}
+
+/* ───────── TOOLBAR ───────── */
+.alm-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.alm-search {
+  flex: 1 1 360px;
+  max-width: 560px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 0 24px;
+  height: 54px;
+  background: #fff;
+  border-radius: 999px;
+  color: #0B2A66;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+}
+
+.alm-search input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 15px;
+  color: #0F172A;
+  font-family: inherit;
+}
+
+.alm-search input::placeholder {
+  color: #64748B;
+}
+
+.alm-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  height: 54px;
+  padding: 0 26px;
+  border: none;
+  border-radius: 999px;
+  background: #fff;
+  color: #0F172A;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+  transition: all 0.18s ease;
+}
+
+.alm-pill:hover {
   transform: translateY(-1px);
 }
 
-@media (max-width: 900px) {
-  .adm-alumni-row-card {
-    grid-template-columns: 1fr;
+.alm-pill.on {
+  background: #0B5BFF;
+  color: #fff;
+  box-shadow: 0 8px 22px rgba(11, 91, 255, 0.4);
+}
+
+.alm-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.alm-dot.green {
+  background: #16A34A;
+}
+
+.alm-dot.yellow {
+  background: #FACC15;
+}
+
+/* ───────── CARD ───────── */
+.alm-card {
+  background: #fff;
+  border-radius: 20px;
+  box-shadow: 0 8px 28px rgba(15, 23, 42, 0.08);
+  margin-bottom: 22px;
+  overflow: hidden;
+}
+
+.alm-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 18px 22px;
+}
+
+.alm-card-head.slim {
+  padding: 14px 22px 12px;
+}
+
+.alm-card-title {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.alm-card-title h2 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 800;
+  color: #0B2A66;
+  letter-spacing: -0.01em;
+}
+
+.alm-title-ico {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: #E0EBFF;
+  color: #0B5BFF;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.alm-title-ico.round {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: #0B5BFF;
+  color: #fff;
+}
+
+.alm-trophy {
+  color: #0B2A66;
+  display: inline-flex;
+}
+
+.alm-head-tools {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.alm-tool-btn,
+.alm-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  height: 46px;
+  padding: 0 22px;
+  border: 1px solid #E2E8F0;
+  border-radius: 999px;
+  background: #fff;
+  color: #0B2A66;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  box-shadow: 0 3px 10px rgba(15, 23, 42, 0.06);
+}
+
+.alm-tool-btn.on {
+  border-color: #0B5BFF;
+  background: #EFF5FF;
+}
+
+.alm-sort {
+  font-weight: 500;
+  color: #1E293B;
+  position: relative;
+}
+
+.alm-sort select {
+  appearance: none;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 500;
+  color: #1E293B;
+  cursor: pointer;
+  padding-right: 6px;
+}
+
+.alm-popover-host {
+  position: relative;
+}
+
+.alm-popover {
+  position: absolute;
+  right: 0;
+  top: 54px;
+  z-index: 20;
+  width: 240px;
+  background: #fff;
+  border-radius: 14px;
+  padding: 14px;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.2);
+  border: 1px solid #E2E8F0;
+}
+
+.alm-popover label {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  color: #64748B;
+  margin-bottom: 6px;
+}
+
+.alm-popover select {
+  width: 100%;
+  padding: 9px 10px;
+  border-radius: 9px;
+  border: 1.5px solid #CBD5E1;
+  font-size: 14px;
+}
+
+.alm-chip {
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1px solid #E2E8F0;
+  background: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.alm-chip.on {
+  background: #0B5BFF;
+  border-color: #0B5BFF;
+  color: #fff;
+}
+
+/* ───────── TABLES ───────── */
+.alm-table-wrap {
+  overflow-x: auto;
+}
+
+.alm-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 900px;
+}
+
+.alm-table thead th {
+  background: #000;
+  color: #fff;
+  padding: 17px 16px;
+  font-size: 15px;
+  font-weight: 700;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.alm-table thead th.num {
+  width: 56px;
+  text-align: center;
+}
+
+.alm-table thead th.center {
+  text-align: center;
+}
+
+.alm-table thead th.right {
+  text-align: right;
+}
+
+.alm-table tbody td {
+  padding: 14px 16px;
+  font-size: 14.5px;
+  color: #1E293B;
+  vertical-align: middle;
+  border-bottom: 1px solid #EEF2F9;
+  line-height: 1.35;
+}
+
+.alm-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.alm-table tbody tr:hover {
+  background: #F6F9FF;
+}
+
+.alm-table td.num {
+  text-align: center;
+  font-weight: 800;
+  color: #0B2A66;
+  font-size: 16px;
+}
+
+.alm-table td.right {
+  text-align: right;
+}
+
+.alm-empty {
+  text-align: center !important;
+  padding: 40px 20px !important;
+  color: #64748B !important;
+}
+
+.alm-person {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.alm-strong {
+  font-weight: 700;
+  color: #0B2A66;
+  font-size: 15px;
+}
+
+.alm-sub {
+  font-size: 12.5px;
+  color: #475569;
+  margin-top: 2px;
+}
+
+.alm-role {
+  font-size: 14px;
+  color: #1E293B;
+  margin-top: 1px;
+}
+
+.alm-notes {
+  max-width: 260px;
+  font-size: 13px !important;
+  color: #475569 !important;
+}
+
+.alm-role-tag {
+  background: #EAF1FF;
+  color: #0B2A66;
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 12.5px;
+}
+
+.alm-avatar-wrap {
+  flex-shrink: 0;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #DBEAFE;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.2);
+}
+
+.alm-avatar-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.alm-avatar-fallback {
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  color: #1E40AF;
+  font-size: 14px;
+}
+
+/* Status pills */
+.alm-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 18px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.alm-status i {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: currentColor;
+  display: inline-block;
+}
+
+.alm-status.active {
+  background: #DDF7E5;
+  color: #15803D;
+}
+
+.alm-status.pending {
+  background: #FDEFC4;
+  color: #92400E;
+}
+
+.alm-status.pending i {
+  background: #FACC15;
+}
+
+.alm-status.inactive {
+  background: #FEE2E2;
+  color: #B91C1C;
+}
+
+/* Actions */
+.alm-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.alm-actions.center {
+  display: flex;
+  justify-content: center;
+}
+
+.alm-ico {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.alm-ico:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.18);
+}
+
+.alm-ico.view {
+  background: #E3ECFF;
+  color: #0B4BD6;
+}
+
+.alm-ico.edit {
+  background: #E3ECFF;
+  color: #0B5BFF;
+}
+
+.alm-ico.del {
+  background: #FEE4E4;
+  color: #DC2626;
+}
+
+.alm-ico.ok {
+  background: #DCFCE7;
+  color: #15803D;
+}
+
+.alm-ico.warn {
+  background: #FFEDD5;
+  color: #C2410C;
+}
+
+.alm-reassign {
+  background: #0B5BFF;
+  color: #fff;
+  border: none;
+  border-radius: 999px;
+  padding: 11px 30px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  box-shadow: 0 6px 16px rgba(11, 91, 255, 0.35);
+}
+
+.alm-reassign:hover {
+  background: #0847C2;
+}
+
+.alm-btn-green,
+.alm-btn-red {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: none;
+  color: #fff;
+  border-radius: 999px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.alm-btn-green {
+  background: #16A34A;
+}
+
+.alm-btn-red {
+  background: #DC2626;
+}
+
+.alm-ok-text {
+  color: #16A34A;
+  font-weight: 700;
+  font-size: 12.5px;
+}
+
+.alm-bad-text {
+  color: #DC2626;
+  font-weight: 600;
+  font-size: 12.5px;
+}
+
+.alm-event-link {
+  color: #0B4BD6;
+  font-weight: 700;
+  font-size: 14.5px;
+  line-height: 1.3;
+  display: block;
+  max-width: 220px;
+}
+
+.alm-date {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #1E293B;
+  font-size: 15px;
+}
+
+.alm-date svg {
+  color: #0B5BFF;
+}
+
+/* ───────── RESPONSIVE ───────── */
+@media (max-width: 1000px) {
+  .alm-hero {
+    flex-direction: column;
+    align-items: flex-start;
     gap: 16px;
+    padding: 22px 20px;
+  }
+
+  .alm-hero-text h1 {
+    font-size: 30px;
+    white-space: normal;
+  }
+}
+
+@media (max-width: 700px) {
+  .adm-alumni-page {
+    padding: 14px 12px 36px;
+  }
+
+  .alm-search,
+  .alm-pill {
+    flex: 1 1 100%;
+    max-width: none;
+  }
+
+  .alm-card-title h2 {
+    font-size: 18px;
+  }
+}
+
+/* Empty table state */
+.alm-empty-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  color: #64748B;
+}
+
+.alm-empty-box svg {
+  color: #94A3B8;
+}
+
+.alm-empty-box strong {
+  color: #0B2A66;
+  font-size: 16px;
+}
+
+.alm-empty-box span {
+  font-size: 13px;
+}
+
+.alm-empty-btn {
+  margin-top: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #0B5BFF;
+  color: #fff;
+  border: none;
+  border-radius: 999px;
+  padding: 9px 20px;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+/* ═══════ ALUMNI DIRECTORY (reference: Student Directory table) ═══════ */
+.alm-dir {
+  background: #fff;
+  border-radius: 18px;
+  padding: 20px 22px 8px;
+  box-shadow: 0 8px 28px rgba(15, 23, 42, 0.08);
+  margin-bottom: 22px;
+}
+
+.alm-dir-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.alm-dir-head h2 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 800;
+  color: #0F172A;
+}
+
+.alm-dir-badges {
+  display: flex;
+  gap: 8px;
+}
+
+.alm-tag {
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: .04em;
+  padding: 4px 11px;
+  border-radius: 999px;
+}
+
+.alm-tag.green {
+  background: #DCFCE7;
+  color: #15803D;
+}
+
+.alm-tag.yellow {
+  background: #FEF3C7;
+  color: #92400E;
+}
+
+.alm-tag.gray {
+  background: #E5E7EB;
+  color: #374151;
+}
+
+.alm-dir-filters {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  background: #F1FAF3;
+  border-radius: 12px;
+  padding: 12px 16px;
+  margin-bottom: 14px;
+}
+
+.alm-f {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 150px;
+}
+
+.alm-f.grow {
+  flex: 1 1 260px;
+}
+
+.alm-f label {
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  color: #334155;
+}
+
+.alm-f select,
+.alm-f input {
+  height: 34px;
+  padding: 0 12px;
+  border: 1px solid #E2E8F0;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 12.5px;
+  color: #1E293B;
+  outline: none;
+  font-family: inherit;
+}
+
+.alm-f select:focus,
+.alm-f input:focus {
+  border-color: #0B5BFF;
+  box-shadow: 0 0 0 3px rgba(11, 91, 255, .12);
+}
+
+/* compact table: black header row with white text */
+.alm-table.compact {
+  min-width: 980px;
+}
+
+.alm-table.compact thead th {
+  background: #000;
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: .06em;
+  padding: 11px 12px;
+  text-transform: uppercase;
+}
+
+.alm-table.compact thead th:first-child {
+  border-top-left-radius: 10px;
+}
+
+.alm-table.compact thead th:last-child {
+  border-top-right-radius: 10px;
+}
+
+.alm-table.compact tbody td {
+  padding: 11px 12px;
+  font-size: 12px;
+  color: #334155;
+  border-bottom: 1px solid #F1F5F9;
+}
+
+.alm-table.compact tbody tr:hover {
+  background: #FAFBFF;
+}
+
+.alm-table.compact td.mono {
+  font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+  font-size: 11.5px;
+  color: #475569;
+}
+
+.alm-name-link {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  color: #B7791F;
+  text-align: left;
+}
+
+.alm-name-link:hover {
+  text-decoration: underline;
+}
+
+.alm-dash {
+  color: #94A3B8;
+}
+
+.alm-mini {
+  display: inline-block;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: .05em;
+  padding: 3px 9px;
+  border-radius: 6px;
+}
+
+.alm-mini.green {
+  background: #DCFCE7;
+  color: #15803D;
+}
+
+.alm-mini.yellow {
+  background: #FEF3C7;
+  color: #92400E;
+}
+
+.alm-mini.gray {
+  background: #E5E7EB;
+  color: #4B5563;
+}
+
+.alm-mini.blue {
+  background: #DBEAFE;
+  color: #1D4ED8;
+}
+
+.alm-sq {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.alm-sq.view {
+  background: #E3ECFF;
+  color: #0B4BD6;
+}
+
+.alm-sq.edit {
+  background: #EEF2FF;
+  color: #4338CA;
+}
+
+.alm-sq.del {
+  background: #FEE4E4;
+  color: #DC2626;
+}
+
+.alm-sq.ok {
+  background: #DCFCE7;
+  color: #15803D;
+}
+
+.alm-sq.warn {
+  background: #FFEDD5;
+  color: #C2410C;
+}
+
+.alm-sq:hover {
+  filter: brightness(.95);
+  transform: translateY(-1px);
+}
+
+/* ═══════ ONE TYPE SCALE FOR THE WHOLE PAGE (same as Alumni Directory) ═══════ */
+.adm-alumni-page,
+.adm-alumni-page * {
+  font-family: "Inter", "Plus Jakarta Sans", sans-serif;
+}
+
+.alm-card {
+  border-radius: 18px;
+  box-shadow: 0 8px 28px rgba(15, 23, 42, 0.08);
+  padding-bottom: 6px;
+}
+
+.alm-card-head {
+  padding: 20px 22px 14px;
+}
+
+.alm-card-title h2 {
+  font-size: 17px;
+  font-weight: 800;
+  color: #0F172A;
+}
+
+.alm-title-ico,
+.alm-title-ico.round {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+}
+
+.alm-trophy svg {
+  width: 22px;
+  height: 22px;
+}
+
+.alm-table {
+  min-width: 980px;
+}
+
+.alm-table thead th {
+  background: #000;
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: .06em;
+  padding: 11px 12px;
+  text-transform: uppercase;
+}
+
+.alm-table tbody td {
+  padding: 11px 12px;
+  font-size: 12px;
+  color: #334155;
+  border-bottom: 1px solid #F1F5F9;
+}
+
+.alm-table td.num {
+  font-size: 12px;
+  font-weight: 700;
+  color: #334155;
+}
+
+.alm-strong {
+  font-size: 12px;
+  font-weight: 700;
+  color: #0F172A;
+}
+
+.alm-sub {
+  font-size: 11px;
+  color: #64748B;
+}
+
+.alm-role {
+  font-size: 12px;
+  color: #475569;
+}
+
+.alm-notes {
+  font-size: 12px !important;
+}
+
+.alm-role-tag {
+  font-size: 11px;
+  padding: 3px 9px;
+  background: #DBEAFE;
+  color: #1D4ED8;
+}
+
+.alm-person {
+  gap: 10px;
+}
+
+.alm-avatar-wrap {
+  width: 32px !important;
+  height: 32px !important;
+}
+
+.alm-avatar-fallback {
+  font-size: 11px;
+}
+
+.alm-event-link {
+  font-size: 12px;
+  font-weight: 700;
+  color: #1D4ED8;
+}
+
+.alm-date {
+  font-size: 12px;
+  gap: 6px;
+}
+
+.alm-date svg {
+  width: 14px;
+  height: 14px;
+}
+
+.alm-status {
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: .05em;
+  padding: 3px 10px;
+  border-radius: 6px;
+  text-transform: uppercase;
+  gap: 6px;
+}
+
+.alm-status i {
+  width: 6px;
+  height: 6px;
+}
+
+.alm-ico {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+}
+
+.alm-ico svg {
+  width: 14px;
+  height: 14px;
+}
+
+.alm-reassign {
+  padding: 6px 16px;
+  font-size: 11.5px;
+  font-weight: 700;
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+.alm-btn-green,
+.alm-btn-red {
+  font-size: 11.5px;
+  padding: 6px 12px;
+  border-radius: 8px;
+}
+
+.alm-ok-text,
+.alm-bad-text {
+  font-size: 11.5px;
+}
+
+.alm-chip {
+  font-size: 11.5px;
+  padding: 6px 12px;
+}
+
+.alm-view-switch button {
+  font-size: 12px;
+  padding: 7px 14px;
+}
+
+.alm-empty {
+  font-size: 12px;
+}
+
+.alm-actions {
+  gap: 6px;
+}
+
+/* ═══════ ALIGNMENT: fixed columns, everything left-justified ═══════ */
+.alm-table.fixed {
+  table-layout: fixed;
+  width: 100%;
+  min-width: 1020px;
+}
+
+.adm-alumni-page .alm-table th,
+.adm-alumni-page .alm-table td {
+  text-align: left !important;
+  vertical-align: middle;
+  overflow-wrap: anywhere;
+}
+
+.adm-alumni-page .alm-table th.num,
+.adm-alumni-page .alm-table td.num {
+  text-align: center !important;
+}
+
+.alm-table.fixed td.mono,
+.alm-table.fixed td:nth-child(4),
+.alm-table.fixed td:nth-child(8),
+.alm-table.fixed td:nth-child(9) {
+  white-space: nowrap;
+  overflow-wrap: normal;
+}
+
+.alm-table.fixed td:last-child .alm-actions {
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+}
+
+.alm-table-wrap {
+  scrollbar-width: thin;
+}
+
+/* ═══════ INTERACTIVE STATUS BADGES ═══════ */
+.alm-dir-badges {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+button.alm-tag {
+  border: 2px solid transparent;
+  cursor: pointer;
+  font-family: inherit;
+  transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+}
+
+button.alm-tag:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(15, 23, 42, .12);
+}
+
+button.alm-tag.on {
+  border-color: currentColor;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, .15);
+}
+
+.alm-tag.blue {
+  background: #DBEAFE;
+  color: #1D4ED8;
+}
+
+.alm-mini.green {
+  position: relative;
+}
+
+.alm-mini.green::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #16A34A;
+  margin-right: 6px;
+  vertical-align: middle;
+  animation: almPulse 1.8s infinite;
+}
+
+@keyframes almPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(22, 163, 74, .5);
+  }
+
+  70% {
+    box-shadow: 0 0 0 6px rgba(22, 163, 74, 0);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(22, 163, 74, 0);
+  }
+}
+
+.alm-table.compact tbody tr {
+  transition: background .15s ease;
+}
+
+.alm-table.compact tbody tr:hover {
+  background: #F3F7FF;
+}
+
+/* ═══════ VIEW DETAILS MODAL ═══════ */
+.alm-view-modal {
+  width: 100%;
+  max-width: 560px;
+  background: #fff;
+  border-radius: 18px;
+  padding: 22px;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, .3);
+}
+
+.alm-view-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.alm-view-head>div {
+  flex: 1;
+  min-width: 0;
+}
+
+.alm-view-head h3 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 800;
+  color: #0F172A;
+}
+
+.alm-view-head p {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: #64748B;
+}
+
+.alm-view-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px 22px;
+  padding: 16px;
+  background: #F8FAFC;
+  border-radius: 12px;
+}
+
+.alm-view-grid label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  color: #64748B;
+  margin-bottom: 3px;
+}
+
+.alm-view-grid b {
+  font-size: 12.5px;
+  color: #0F172A;
+  font-weight: 700;
+  word-break: break-word;
+}
+
+.alm-view-grid .wide {
+  grid-column: 1 / -1;
+}
+
+.alm-view-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.alm-btn-soft,
+.alm-btn-blue {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  border-radius: 9px;
+  padding: 9px 18px;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.alm-btn-soft {
+  background: #EEF2F7;
+  color: #1E293B;
+}
+
+.alm-btn-blue {
+  background: #0B2D6F;
+  color: #fff;
+}
+
+.alm-btn-blue:hover {
+  background: #0B5BFF;
+}
+
+@media (max-width: 600px) {
+  .alm-view-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Single section: directory + assigned works share one card */
+.alm-section-divider {
+  height: 1px;
+  background: #E2E8F0;
+  margin: 26px 0 8px;
+}
+
+.alm-card-head.slim.inner {
+  padding: 12px 0 12px;
+}
+
+.alm-dir .alm-table-wrap+.alm-section-divider+.alm-card-head .alm-trophy svg {
+  width: 20px;
+  height: 20px;
+}
+
+.alm-dir {
+  padding-bottom: 18px;
+}
+
+/* ═══════ FIT-TO-WIDTH: no sideways scrolling on desktop ═══════ */
+.alm-table.fixed {
+  min-width: 0 !important;
+  width: 100%;
+}
+
+.alm-table.compact thead th,
+.alm-table.compact tbody td {
+  padding-left: 10px;
+  padding-right: 10px;
+}
+
+.alm-table.fixed td:last-child .alm-actions {
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.alm-sq {
+  width: 26px;
+  height: 26px;
+}
+
+.alm-reassign {
+  padding: 5px 12px;
+}
+
+.alm-table-wrap {
+  overflow-x: visible;
+}
+
+@media (max-width: 1100px) {
+  .alm-table-wrap {
+    overflow-x: auto;
+  }
+
+  .alm-table.fixed {
+    min-width: 980px !important;
+  }
+}
+
+.alm-view-switch {
+  flex-wrap: wrap;
+  border-radius: 18px;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   READABLE TYPE SCALE (final) — one scale for the whole page
+   body 14px · labels 12px · titles 20px · hero 30px
+══════════════════════════════════════════════════════════════ */
+.adm-alumni-page {
+  font-size: 14px;
+}
+
+.adm-alumni-page .alm-hero-text h1 {
+  font-size: 30px;
+}
+
+.adm-alumni-page .alm-hero-btn {
+  font-size: 14px;
+  padding: 13px 26px;
+}
+
+.adm-alumni-page .alm-view-switch button {
+  font-size: 14px;
+  padding: 10px 20px;
+}
+
+.adm-alumni-page .alm-badge {
+  font-size: 12px;
+}
+
+.adm-alumni-page .alm-dir-head h2,
+.adm-alumni-page .alm-card-title h2 {
+  font-size: 20px;
+}
+
+.adm-alumni-page .alm-tag {
+  font-size: 12px;
+  padding: 6px 14px;
+}
+
+.adm-alumni-page .alm-f label {
+  font-size: 11.5px;
+}
+
+.adm-alumni-page .alm-f select,
+.adm-alumni-page .alm-f input {
+  height: 40px;
+  font-size: 14px;
+}
+
+.adm-alumni-page .alm-chip {
+  font-size: 13px;
+  padding: 8px 14px;
+}
+
+/* tables */
+.adm-alumni-page .alm-table.fixed {
+  min-width: 0;
+}
+
+.adm-alumni-page .alm-table thead th,
+.adm-alumni-page .alm-table.compact thead th {
+  font-size: 12px;
+  padding: 14px 14px;
+  letter-spacing: .05em;
+}
+
+.adm-alumni-page .alm-table tbody td,
+.adm-alumni-page .alm-table.compact tbody td {
+  font-size: 14px;
+  padding: 14px 14px;
+  line-height: 1.4;
+  color: #1E293B;
+}
+
+.adm-alumni-page .alm-table td.mono {
+  font-size: 13px;
+}
+
+.adm-alumni-page .alm-strong {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0F172A;
+}
+
+.adm-alumni-page .alm-sub {
+  font-size: 12.5px;
+  color: #64748B;
+}
+
+.adm-alumni-page .alm-role {
+  font-size: 13px;
+}
+
+.adm-alumni-page .alm-name-link {
+  font-size: 14px;
+}
+
+.adm-alumni-page .alm-event-link,
+.adm-alumni-page .alm-date {
+  font-size: 14px;
+}
+
+.adm-alumni-page .alm-notes {
+  font-size: 13px !important;
+}
+
+.adm-alumni-page .alm-role-tag {
+  font-size: 12.5px;
+}
+
+.adm-alumni-page .alm-mini,
+.adm-alumni-page .alm-status {
+  font-size: 11.5px;
+  padding: 5px 11px;
+}
+
+.adm-alumni-page .alm-empty {
+  font-size: 14px;
+}
+
+.adm-alumni-page .alm-empty-box strong {
+  font-size: 16px;
+}
+
+.adm-alumni-page .alm-empty-btn {
+  font-size: 13.5px;
+}
+
+.adm-alumni-page .alm-avatar-wrap {
+  width: 38px !important;
+  height: 38px !important;
+}
+
+.adm-alumni-page .alm-avatar-fallback {
+  font-size: 13px;
+}
+
+/* action buttons: larger tap targets, wrap instead of being clipped */
+.adm-alumni-page .alm-sq,
+.adm-alumni-page .alm-ico {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+}
+
+.adm-alumni-page .alm-sq svg,
+.adm-alumni-page .alm-ico svg {
+  width: 16px;
+  height: 16px;
+}
+
+.adm-alumni-page .alm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-start;
+}
+
+.adm-alumni-page .alm-table.fixed td:last-child .alm-actions {
+  flex-wrap: wrap;
+}
+
+.adm-alumni-page .alm-reassign {
+  font-size: 13px;
+  padding: 8px 16px;
+}
+
+.adm-alumni-page .alm-btn-green,
+.adm-alumni-page .alm-btn-red {
+  font-size: 13px;
+  padding: 8px 14px;
+}
+
+.adm-alumni-page .alm-ok-text,
+.adm-alumni-page .alm-bad-text {
+  font-size: 13px;
+}
+
+/* table never clipped: wrapper scrolls only on small screens */
+.adm-alumni-page .alm-table-wrap {
+  overflow-x: auto;
+  border-radius: 12px;
+}
+
+@media (max-width: 1100px) {
+  .adm-alumni-page .alm-table.fixed {
+    min-width: 980px;
+  }
+}
+
+/* modal */
+.adm-alumni-page .alm-view-head h3,
+.alm-view-head h3 {
+  font-size: 19px;
+}
+
+.alm-view-head p {
+  font-size: 13.5px;
+}
+
+.alm-view-grid label {
+  font-size: 11px;
+}
+
+.alm-view-grid b {
+  font-size: 14px;
+}
+
+.alm-btn-soft,
+.alm-btn-blue {
+  font-size: 14px;
+}
+
+/* ═══════ BOXED HEADINGS (same look as the tab box) + bigger tabs ═══════ */
+.alm-title-box {
+  display: inline-flex;
+  padding: 5px;
+  background: #fff;
+  border-radius: 999px;
+  box-shadow: 0 4px 18px rgba(15, 23, 42, 0.12);
+  border: 1px solid #EEF2F7;
+}
+
+.alm-title-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 28px;
+  border-radius: 999px;
+  background: #0B5BFF;
+  color: #fff;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.005em;
+  line-height: 1.2;
+  box-shadow: 0 6px 16px rgba(11, 91, 255, 0.35);
+}
+
+.alm-title-pill svg {
+  flex-shrink: 0;
+}
+
+.adm-alumni-page .alm-view-switch {
+  padding: 5px;
+  box-shadow: 0 4px 18px rgba(15, 23, 42, 0.12);
+  border: 1px solid #EEF2F7;
+}
+
+.adm-alumni-page .alm-view-switch button {
+  font-size: 16px;
+  padding: 13px 26px;
+  gap: 10px;
+  font-weight: 600;
+}
+
+.adm-alumni-page .alm-view-switch button.on {
+  box-shadow: 0 6px 16px rgba(11, 91, 255, 0.35);
+}
+
+.adm-alumni-page .alm-view-switch button svg {
+  width: 19px;
+  height: 19px;
+}
+
+.adm-alumni-page .alm-badge {
+  font-size: 12.5px;
+  padding: 2px 9px;
+}
+
+.adm-alumni-page .alm-card-head,
+.adm-alumni-page .alm-dir-head {
+  padding-top: 6px;
+  padding-bottom: 16px;
+}
+
+@media (max-width: 700px) {
+  .alm-title-pill {
+    font-size: 15px;
+    padding: 11px 18px;
+  }
+
+  .adm-alumni-page .alm-view-switch {
+    display: flex;
+    overflow-x: auto;
+  }
+
+  .adm-alumni-page .alm-view-switch button {
+    font-size: 14px;
+    padding: 11px 16px;
+    white-space: nowrap;
   }
 }

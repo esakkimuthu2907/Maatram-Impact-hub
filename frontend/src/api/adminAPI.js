@@ -20,11 +20,25 @@ export const adminAPI = {
   updateGradingLevels: (levels) => api.put("/admin/grading", { levels }),
   trackAttendance: (eventId, attendanceRecords) =>
     api.post(`/admin/events/${eventId}/attendance`, { attendanceRecords }),
-  awardEventPoints: (eventId, points, reason) =>
-    api.post(`/admin/events/${eventId}/award-points`, { points, reason }),
+  markVolunteerAttendance: (eventId, userId, applicationId, status) =>
+    api.post(`/admin/events/${eventId}/attendance/mark`, { userId, applicationId, status }),
+  verifyAllApprovedAttendance: (eventId) =>
+    api.post(`/admin/events/${eventId}/attendance/verify-all`),
+  awardEventPoints: (eventId, points, reason, extra = {}) =>
+    api.post(`/admin/events/${eventId}/award-points`, { points, reason, autoVerifyApproved: true, ...extra }),
   assignWork: (id, data) => api.post(`/admin/users/${id}/assign-work`, data),
   broadcastNotification: (data) => api.post("/admin/notifications/broadcast", data),
   getReports: () => api.get("/admin/reports"),
   getEmailLogs: (limit = 100) => api.get(`/admin/emails?limit=${limit}`),
   sendTestEmail: (data) => api.post("/admin/emails/test", data),
+  sendBulkEmails: (data) => api.post("/admin/emails/bulk", data),
+  retryEmail: (id) => api.post(`/admin/emails/${id}/retry`),
+  sendReminderBlast: (eventId, type = "instant") => api.post(`/admin/events/${eventId}/remind`, { type }),
+  getAlumniAssignments: (params = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return api.get(`/admin/alumni-assignments${qs ? "?" + qs : ""}`);
+  },
+  createAlumniAssignment: (data) => api.post("/admin/alumni-assignments", data),
+  approveAlumniAssignment: (id) => api.put(`/admin/alumni-assignments/${id}/approve`),
+  rejectAlumniAssignment: (id, reason) => api.put(`/admin/alumni-assignments/${id}/reject`, { reason }),
 };

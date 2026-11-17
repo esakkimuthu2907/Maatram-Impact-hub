@@ -39,6 +39,7 @@ const Connection = require("../models/Connection");
 const Attendance = require("../models/Attendance");
 const Certificate = require("../models/Certificate");
 const HourLog = require("../models/HourLog");
+const AlumniAssignment = require("../models/AlumniAssignment");
 const EmailService = require("./emailService");
 
 const DEFAULT_GRADING_LEVELS = [
@@ -100,21 +101,34 @@ const Storage = {
 
   async findUserById(id) {
     if (!id) return null;
-    const idStr = id.toString();
+    const idStr = id.toString().trim();
+    const idLower = idStr.toLowerCase();
     if (getIsConnected()) {
       try {
         if (mongoose.isValidObjectId(idStr)) {
           const u = await User.findById(idStr).select("-password");
           if (u) return { ...u.toObject(), id: u._id.toString() };
         }
-        const u = await User.findOne({ $or: [{ id: idStr }, { applicationId: idStr }] }).select("-password");
+        const u = await User.findOne({
+          $or: [
+            { id: idStr },
+            { applicationId: new RegExp(`^${idStr}$`, "i") },
+            { email: idLower },
+            { regNumber: idStr },
+          ],
+        }).select("-password");
         if (u) return { ...u.toObject(), id: (u._id || u.id).toString() };
       } catch {}
     }
     const db = readDB();
-    const found = (db.users || []).find((u) => (u.id || u._id || "").toString() === idStr || u.applicationId === idStr);
+    const found = (db.users || []).find((u) =>
+      (u.id || u._id || "").toString() === idStr ||
+      (u.applicationId || "").toLowerCase() === idLower ||
+      (u.email || "").toLowerCase() === idLower ||
+      (u.regNumber || u.rollNumber || "").toLowerCase() === idLower
+    );
     if (found) {
-      const { password, ...rest } = found;
+      const { password, plainPassword, ...rest } = found;
       return { ...rest, id: (found.id || found._id).toString() };
     }
     return null;
@@ -183,7 +197,7 @@ const Storage = {
       }
     }
 
-    const id = "user_" + Date.now() + "_" + Math.floor(Math.random() * 1000);
+    const id = (data.id || data._id || "user_" + Date.now() + "_" + Math.floor(Math.random() * 1000)).toString();
     const userObj = { ...newUser, id, _id: id };
     db.users.push(userObj);
     writeDB(db);
@@ -304,7 +318,10 @@ const Storage = {
   async getAllUsers(filters = {}) {
     if (getIsConnected()) {
       try {
-        const query = {};
+        const query = {
+          isDeleted: { $ne: true },
+          status: { $ne: "deleted" },
+        };
         if (filters.department && filters.department !== "All") query.department = filters.department;
         if (filters.academicYear && filters.academicYear !== "All") query.academicYear = filters.academicYear;
         if (filters.status && filters.status !== "All") query.status = filters.status;
@@ -324,6 +341,7 @@ const Storage = {
 
     const db = readDB();
     let list = Array.isArray(db.users) ? db.users : [];
+    list = list.filter((u) => !u.isDeleted && u.status !== "deleted");
     if (filters.department && filters.department !== "All") list = list.filter((u) => u.department === filters.department);
     if (filters.academicYear && filters.academicYear !== "All") list = list.filter((u) => u.academicYear === filters.academicYear);
     if (filters.role && filters.role !== "All") list = list.filter((u) => u.role === filters.role);
@@ -391,29 +409,49 @@ const Storage = {
   },
 
   async deleteUser(userId, adminUser) {
-    const idStr = userId.toString();
+    const idStr = (userId || "").toString();
+    const adminIdentifier = adminUser?.email || adminUser?.fullName || "Admin";
 
-    // Try MongoDB first
+    // 1. Soft-delete in MongoDB to preserve historical event, certificate, and points records
     if (getIsConnected()) {
       try {
+        const updateDoc = {
+          isDeleted: true,
+          status: "deleted",
+          deletedAt: new Date(),
+          deletedBy: adminIdentifier,
+        };
         if (mongoose.isValidObjectId(idStr)) {
-          await User.findByIdAndDelete(idStr);
-          await Application.deleteMany({ $or: [{ userId: idStr }, { user: idStr }] });
+          await User.findByIdAndUpdate(idStr, { $set: updateDoc });
+        } else {
+          await User.updateMany(
+            { $or: [{ id: idStr }, { applicationId: idStr }, { email: idStr.toLowerCase() }] },
+            { $set: updateDoc }
+          );
         }
       } catch (err) {
-        console.warn("deleteUser MongoDB error:", err.message);
+        console.warn("deleteUser MongoDB soft-delete error:", err.message);
       }
     }
 
-    // Also clean JSON
+    // 2. Soft-delete in db.json fallback
     const db = readDB();
-    const initialLen = (db.users || []).length;
-    db.users = (db.users || []).filter((u) => (u.id || u._id || "").toString() !== idStr && u.applicationId !== idStr);
-    if (Array.isArray(db.applications)) {
-      db.applications = db.applications.filter((a) => (a.userId || "").toString() !== idStr);
+    if (Array.isArray(db.users)) {
+      const idx = db.users.findIndex(
+        (u) =>
+          (u.id || u._id || "").toString() === idStr ||
+          u.applicationId === idStr ||
+          (u.email || "").toLowerCase() === idStr.toLowerCase()
+      );
+      if (idx !== -1) {
+        db.users[idx].isDeleted = true;
+        db.users[idx].status = "deleted";
+        db.users[idx].deletedAt = new Date().toISOString();
+        db.users[idx].deletedBy = adminIdentifier;
+        writeDB(db);
+      }
     }
-    writeDB(db);
-    return true; // return true even if only deleted from MongoDB
+    return true;
   },
 
   async verifyPassword(user, password) {
@@ -493,7 +531,7 @@ const Storage = {
 
   async getEventById(id) {
     if (!id) return null;
-    const idStr = id.toString();
+    const idStr = id.toString().trim();
 
     if (getIsConnected()) {
       try {
@@ -501,13 +539,23 @@ const Storage = {
           const e = await Event.findById(idStr).lean();
           if (e) return { ...e, id: e._id.toString() };
         }
-        const e = await Event.findOne({ $or: [{ id: idStr }, { _id: idStr }] }).lean();
+        // Query by custom ID or title safely without throwing CastError
+        const queryOr = [{ id: idStr }];
+        const titleRegex = new RegExp(`^${idStr.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i");
+        queryOr.push({ title: titleRegex });
+        const e = await Event.findOne({ $or: queryOr }).lean();
         if (e) return { ...e, id: (e._id || e.id).toString() };
-      } catch {}
+      } catch (err) {
+        console.warn("[Storage] getEventById query notice:", err.message);
+      }
     }
 
     const db = readDB();
-    const e = (db.events || []).find((ev) => (ev.id || ev._id || "").toString() === idStr);
+    const e = (db.events || []).find(
+      (ev) =>
+        (ev.id || ev._id || "").toString() === idStr ||
+        (ev.title || "").toLowerCase() === idStr.toLowerCase()
+    );
     if (e) return { ...e, id: (e.id || e._id).toString() };
     return null;
   },
@@ -542,6 +590,7 @@ const Storage = {
       contactEmail: eventData.contactEmail || "coordinator@maatramfoundation.com",
       featured: Boolean(eventData.featured),
       isActive: true,
+      status: eventData.status || "Upcoming",
       eventStatus: "Upcoming",
       qrCodeToken,
       attendanceOpen: true,
@@ -569,7 +618,41 @@ const Storage = {
   },
 
   async updateEvent(id, updateData, adminUser) {
-    const allowed = ["title","category","organizer","mode","date","time","durationHours","points","location","volunteersNeeded","slotsAvailable","deadline","image","description","objectives","responsibilities","skills","eligibility","contactEmail","featured","isActive","eventStatus","slots","attendanceOpen","qrCodeToken"];
+    const allowed = [
+      "title",
+      "category",
+      "organizer",
+      "mode",
+      "date",
+      "time",
+      "durationHours",
+      "points",
+      "pointsDistributed",
+      "location",
+      "volunteersNeeded",
+      "slotsAvailable",
+      "deadline",
+      "image",
+      "description",
+      "objectives",
+      "responsibilities",
+      "skills",
+      "eligibility",
+      "contactEmail",
+      "featured",
+      "isActive",
+      "eventStatus",
+      "status",
+      "slots",
+      "attendanceOpen",
+      "qrCodeToken",
+      "assignedAlumni",
+      "assignedAlumniList",
+      "emailsSent",
+      "reminderSent",
+      "studentMarks",
+      "feedback"
+    ];
     const update = {};
     for (const k of allowed) {
       if (updateData[k] !== undefined) update[k] = updateData[k];
@@ -585,8 +668,17 @@ const Storage = {
           if (isMarkingCompleted) {
             try {
               await Application.updateMany(
-                { eventId: idStr, status: { $in: ["Approved", "Assigned"] } },
-                { $set: { status: "Completed" } }
+                {
+                  $or: [{ eventId: idStr }, { opportunityId: idStr }],
+                  status: { $in: ["Approved", "Assigned", "Pending", "approved", "completed"] },
+                },
+                {
+                  $set: {
+                    status: "Completed",
+                    attendanceStatus: "Present",
+                    completedAt: new Date().toISOString(),
+                  },
+                }
               );
             } catch (_) {}
           }
@@ -601,10 +693,14 @@ const Storage = {
       db.events[idx] = { ...db.events[idx], ...update, updatedAt: new Date().toISOString() };
       if (isMarkingCompleted && Array.isArray(db.applications)) {
         db.applications.forEach((a) => {
-          if ((a.eventId || a.opportunityId || "").toString() === idStr && (a.status === "Approved" || a.status === "Assigned")) {
-            a.status = "Completed";
-            a.updatedAt = new Date().toISOString();
-          }
+          const matchId = (a.eventId || a.opportunityId || "").toString() === idStr;
+            const matchTitle = db.events[idx].title && (a.opportunityTitle || "").toLowerCase().trim() === db.events[idx].title.toLowerCase().trim();
+            if ((matchId || matchTitle) && (a.status === "Approved" || a.status === "Assigned" || a.status === "Pending")) {
+              a.status = "Completed";
+              a.attendanceStatus = "Present";
+              a.completedAt = a.completedAt || new Date().toISOString();
+              a.updatedAt = new Date().toISOString();
+            }
         });
       }
       writeDB(db);
@@ -640,17 +736,80 @@ const Storage = {
     return db.events.length < initialLen;
   },
 
-  async getApplicationsByEvent(eventId) {
-    const idStr = (eventId || "").toString();
+  async getApplicationsByEvent(eventId, eventTitle = null) {
+    const idStr = (eventId || "").toString().trim();
+    let list = [];
     if (getIsConnected()) {
       try {
-        const apps = await Application.find({ opportunityId: idStr }).lean();
-        if (apps && apps.length > 0) return apps.map((a) => ({ ...a, id: a._id.toString() }));
-      } catch {}
+        const queryOr = [{ opportunityId: idStr }, { eventId: idStr }];
+        if (mongoose.isValidObjectId(idStr)) {
+          queryOr.push({ opportunityId: new mongoose.Types.ObjectId(idStr) });
+        }
+        if (eventTitle) {
+          queryOr.push({ opportunityTitle: new RegExp(`^${eventTitle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") });
+        }
+        const mongoApps = await Application.find({ $or: queryOr }).lean();
+        if (mongoApps && mongoApps.length > 0) {
+          list = mongoApps.map((a) => ({ ...a, id: a._id.toString() }));
+        }
+      } catch (err) {
+        console.warn("[Storage] getApplicationsByEvent query notice:", err.message);
+      }
     }
 
     const db = readDB();
-    const apps = (db.applications || []).filter((a) => (a.opportunityId || "").toString() === idStr);
+    const jsonApps = (db.applications || []).filter(
+      (a) =>
+        (a.opportunityId || "").toString() === idStr ||
+        (a.eventId || "").toString() === idStr ||
+        (eventTitle && (a.opportunityTitle || "").toLowerCase().trim() === (eventTitle || "").toLowerCase().trim())
+    );
+    const merged = [...list];
+    for (const ja of jsonApps) {
+      const jaId = (ja.id || ja._id || "").toString();
+      const existingIdx = merged.findIndex((m) => (m.id || m._id || "").toString() === jaId);
+      if (existingIdx === -1) {
+        merged.push({ ...ja, id: jaId });
+      } else {
+        if (ja.status === "Completed") {
+          merged[existingIdx] = { ...merged[existingIdx], ...ja, id: jaId, status: "Completed" };
+        }
+      }
+    }
+    return merged;
+  },
+
+  async getApplicationsByEventOrTitle(eventId, eventTitle) {
+    // Extended search: also searches MongoDB by any matching field including title
+    const idStr = (eventId || "").toString().trim();
+    const titleLower = (eventTitle || "").toLowerCase().trim();
+
+    if (getIsConnected()) {
+      try {
+        const queryOr = [];
+        if (idStr) {
+          queryOr.push({ opportunityId: idStr }, { eventId: idStr });
+          if (mongoose.isValidObjectId(idStr)) {
+            queryOr.push({ opportunityId: new mongoose.Types.ObjectId(idStr) });
+          }
+        }
+        if (titleLower) {
+          queryOr.push({ opportunityTitle: new RegExp(`^${titleLower.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") });
+        }
+        if (queryOr.length > 0) {
+          const apps = await Application.find({ $or: queryOr }).lean();
+          if (apps && apps.length > 0) return apps.map((a) => ({ ...a, id: a._id.toString() }));
+        }
+      } catch (err) {
+        console.warn("[Storage] getApplicationsByEventOrTitle query notice:", err.message);
+      }
+    }
+
+    const db = readDB();
+    const apps = (db.applications || []).filter((a) =>
+      (idStr && ((a.opportunityId || "").toString() === idStr || (a.eventId || "").toString() === idStr)) ||
+      (titleLower && (a.opportunityTitle || "").toLowerCase() === titleLower)
+    );
     return apps.map((a) => ({ ...a, id: (a.id || a._id || "").toString() }));
   },
 
@@ -834,7 +993,14 @@ const Storage = {
     const idStr = (id || "").toString();
     const db = readDB();
     let app = null;
-    const idx = (db.applications || []).findIndex((a) => (a.id || a._id || "").toString() === idStr);
+    // Try by id first, then by opportunityId/opportunityTitle fallback
+    let idx = (db.applications || []).findIndex((a) => (a.id || a._id || "").toString() === idStr);
+    if (idx === -1 && idStr) {
+      idx = (db.applications || []).findIndex((a) =>
+        (a.opportunityId || "").toString() === idStr ||
+        (a.opportunityTitle || "").toLowerCase() === idStr.toLowerCase()
+      );
+    }
     if (idx !== -1) {
       db.applications[idx].status = status;
       if (notes) db.applications[idx].notes = notes;
@@ -854,6 +1020,9 @@ const Storage = {
         if (mongoose.isValidObjectId(idStr)) {
           const doc = await Application.findByIdAndUpdate(idStr, { status, ...(notes ? { notes } : {}) }, { new: true }).lean();
           if (doc) app = { ...doc, id: doc._id.toString() };
+        } else {
+          const doc = await Application.findOneAndUpdate({ $or: [{ id: idStr }, { _id: idStr }, { referenceId: idStr }] }, { status, ...(notes ? { notes } : {}) }, { new: true }).lean();
+          if (doc) app = { ...doc, id: (doc._id || doc.id).toString() };
         }
       } catch {}
     }
@@ -873,18 +1042,55 @@ const Storage = {
         link: "/applications",
       });
 
-      if (app.applicantDetails?.email && isApproved) {
-        await EmailService.sendApplicationApproval({
-          user: { fullName: app.applicantDetails.name, email: app.applicantDetails.email, applicationId: app.applicationId },
-          application: app,
-          event: { title: eventTitle, date: app.eventDate },
-        });
+      if (isApproved) {
+        let vEmail = app.applicantDetails?.email;
+        let vName = app.applicantDetails?.name;
+        if (!vEmail && app.userId) {
+          const u = await this.findUserById(app.userId);
+          if (u) {
+            vEmail = u.email;
+            vName = u.fullName || vName;
+          }
+        }
+        if (vEmail) {
+          await EmailService.sendApplicationApproval({
+            user: { fullName: vName || "Volunteer", email: vEmail, applicationId: app.applicationId },
+            application: app,
+            event: { title: eventTitle, date: app.eventDate },
+          });
+        }
       }
     } catch (e) {
       console.warn("Status update notification notice:", e.message);
     }
 
     return { ...app, id: (app.id || app._id).toString() };
+  },
+
+  async updateApplication(id, updates) {
+    const idStr = (id || "").toString();
+    const db = readDB();
+    if (!Array.isArray(db.applications)) db.applications = [];
+    const idx = db.applications.findIndex((a) => (a.id || a._id || "").toString() === idStr);
+    let updatedApp = null;
+    if (idx !== -1) {
+      db.applications[idx] = { ...db.applications[idx], ...updates, updatedAt: new Date().toISOString() };
+      updatedApp = db.applications[idx];
+      writeDB(db);
+    }
+    if (getIsConnected()) {
+      try {
+        const Application = require("../models/Application");
+        if (mongoose.isValidObjectId(idStr)) {
+          const doc = await Application.findByIdAndUpdate(idStr, { $set: updates }, { new: true }).lean();
+          if (doc) updatedApp = { ...doc, id: doc._id.toString() };
+        } else {
+          const doc = await Application.findOneAndUpdate({ $or: [{ id: idStr }, { _id: idStr }, { referenceId: idStr }] }, { $set: updates }, { new: true }).lean();
+          if (doc) updatedApp = { ...doc, id: (doc._id || doc.id).toString() };
+        }
+      } catch (_) {}
+    }
+    return updatedApp;
   },
 
   async cancelApplication(id, userId) {
@@ -966,6 +1172,109 @@ const Storage = {
     const idStr = (eventId || "").toString();
     const db = readDB();
     return (db.attendance || []).filter((a) => (a.eventId || "").toString() === idStr);
+  },
+
+  // Record or update attendance for an individual volunteer
+  async markVolunteerAttendance({ eventId, userId, applicationId, status = "Present", verifiedHours = 4, adminUser }) {
+    const eventIdStr = (eventId || "").toString();
+    const userIdStr = (userId || "").toString();
+    const db = readDB();
+    if (!Array.isArray(db.attendance)) db.attendance = [];
+    if (!Array.isArray(db.applications)) db.applications = [];
+
+    // 1. Update application record
+    const appIdx = db.applications.findIndex(
+      (a) =>
+        (applicationId && (a.id === applicationId || a._id === applicationId)) ||
+        ((a.opportunityId || "").toString() === eventIdStr && (a.userId || "").toString() === userIdStr)
+    );
+    if (appIdx !== -1) {
+      db.applications[appIdx].attendanceStatus = status;
+    }
+
+    // 2. Update attendance collection
+    const attIdx = db.attendance.findIndex(
+      (at) => (at.eventId || "").toString() === eventIdStr && (at.userId || "").toString() === userIdStr
+    );
+    const attDoc = {
+      eventId: eventIdStr,
+      userId: userIdStr,
+      applicationId: applicationId || (appIdx !== -1 ? db.applications[appIdx].id : null),
+      status,
+      isVerified: status === "Present",
+      verifiedHours: status === "Present" ? Number(verifiedHours) : 0,
+      markedByName: adminUser?.fullName || "Admin Coordinator",
+      markedAt: new Date().toISOString(),
+    };
+    if (attIdx !== -1) {
+      db.attendance[attIdx] = { ...db.attendance[attIdx], ...attDoc };
+    } else {
+      db.attendance.push(attDoc);
+    }
+    writeDB(db);
+
+    if (getIsConnected()) {
+      try {
+        const Application = require("../models/Application");
+        if (applicationId) {
+          await Application.findByIdAndUpdate(applicationId, { attendanceStatus: status });
+        } else {
+          await Application.updateMany({ opportunityId: eventIdStr, userId: userIdStr }, { attendanceStatus: status });
+        }
+      } catch (_) {}
+    }
+    return attDoc;
+  },
+
+  // Auto-verify attendance for all approved volunteers on an event
+  async autoVerifyApprovedAttendance(eventId, adminUser, defaultHours = 4) {
+    const eventIdStr = (eventId || "").toString();
+    const db = readDB();
+    if (!Array.isArray(db.attendance)) db.attendance = [];
+    if (!Array.isArray(db.applications)) db.applications = [];
+
+    const apps = db.applications.filter(
+      (a) =>
+        (a.opportunityId || "").toString() === eventIdStr &&
+        (a.status === "Approved" || a.status === "Completed")
+    );
+
+    for (const app of apps) {
+      app.attendanceStatus = "Present";
+      const uId = (app.userId || "").toString();
+      const attIdx = db.attendance.findIndex(
+        (at) => (at.eventId || "").toString() === eventIdStr && (at.userId || "").toString() === uId
+      );
+      const attDoc = {
+        eventId: eventIdStr,
+        userId: uId,
+        applicationId: app.id || app._id,
+        volunteerName: app.applicantDetails?.name || "Student Volunteer",
+        volunteerEmail: app.applicantDetails?.email || "",
+        status: "Present",
+        isVerified: true,
+        verifiedHours: Number(defaultHours),
+        markedByName: adminUser?.fullName || "Admin Coordinator",
+        markedAt: new Date().toISOString(),
+      };
+      if (attIdx !== -1) {
+        db.attendance[attIdx] = { ...db.attendance[attIdx], ...attDoc };
+      } else {
+        db.attendance.push(attDoc);
+      }
+    }
+    writeDB(db);
+
+    if (getIsConnected()) {
+      try {
+        const Application = require("../models/Application");
+        await Application.updateMany(
+          { opportunityId: eventIdStr, status: { $in: ["Approved", "Completed"] } },
+          { attendanceStatus: "Present" }
+        );
+      } catch (_) {}
+    }
+    return apps.length;
   },
 
   // ATTENDANCE & POINTS & CERTIFICATES & AUTOMATED EMAILS
@@ -1097,13 +1406,36 @@ const Storage = {
       ...params,
       userId,
       eventId,
+      user: params.user,
     });
   },
 
-  async issueCertificate({ userId, eventId, applicationId, verifiedHours = 4, pointsAwarded = 50, adminUser }) {
-    const user = await this.findUserById(userId);
+  async issueCertificate({ userId, eventId, applicationId, verifiedHours = 4, pointsAwarded = 50, adminUser, linkedInPost, user: passedUser }) {
+    let user = passedUser && passedUser.fullName ? passedUser : await this.findUserById(userId);
+    if (!user && applicationId) {
+      const app = await this.getApplicationById(applicationId);
+      if (app?.applicantDetails?.email) {
+        user = await this.findUserByEmail(app.applicantDetails.email);
+      }
+    }
     const event = await this.getEventById(eventId);
-    if (!user || !event) throw new Error("User or Event not found for certificate issuance.");
+    if (!user) {
+      user = {
+        fullName: "Volunteer",
+        email: "",
+        role: "student",
+        college: "Anna University",
+      };
+    }
+    if (!event) {
+      event = {
+        title: "Volunteering Event",
+        category: "Volunteering",
+        date: new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }),
+        description: "",
+        skills: "",
+      };
+    }
 
     const idStr = (userId || "").toString();
     const eventIdStr = (eventId || "").toString();
@@ -1117,14 +1449,14 @@ const Storage = {
             { volunteerEmail: user.email, eventTitle: event.title }
           ]
         }).lean();
-        if (existingMongo) return { ...existingMongo, id: existingMongo.certificateId || existingMongo._id.toString() };
+        if (existingMongo) return { ...existingMongo, id: existingMongo.certificateId || existingMongo._id.toString(), isExisting: true };
       } catch (err) {}
     }
 
     const db = readDB();
     if (!Array.isArray(db.certificates)) db.certificates = [];
     const existing = db.certificates.find((c) => (c.userId || "").toString() === idStr && (c.eventId || "").toString() === eventIdStr);
-    if (existing) return existing;
+    if (existing) return { ...existing, isExisting: true };
 
     const randNum = Math.floor(1000 + Math.random() * 9000);
     const year = new Date().getFullYear();
@@ -1156,6 +1488,7 @@ const Storage = {
       signatoryName: "Sujith Kumar",
       signatoryTitle: "Founder & Managing Trustee, Maatram Foundation",
       verificationUrl: `${process.env.FRONTEND_URL || "http://localhost:5173"}/certificates/verify/${certId}`,
+      linkedInPost: linkedInPost || `I am proud to share that I have completed the volunteering initiative for "${event.title}" with Maatram Foundation! Dedicated ${Number(verifiedHours) || 4} hours to empower deserving youth. Grateful to be part of this impactful journey. Certificate ID: ${certId}. #MaatramFoundation #Volunteering #SocialImpact #StudentLeadership`,
       status: "Issued",
       createdAt: new Date().toISOString(),
     };
@@ -1180,17 +1513,19 @@ const Storage = {
     return cert;
   },
 
-  async getUserCertificates(userId) {
+    async getUserCertificates(userId) {
     const idStr = (userId || "").toString();
     const user = await this.findUserById(userId);
+    const appIdStr = (user?.applicationId || "").toString();
+    const em = (user?.email || "").toLowerCase().trim();
     let list = [];
 
     if (getIsConnected()) {
       try {
-        const query = user?.email
-          ? { $or: [{ userId: idStr }, { volunteerEmail: user.email }] }
-          : { userId: idStr };
-        const mongoCerts = await Certificate.find(query).lean();
+        const conditions = [{ userId: idStr }];
+        if (appIdStr) conditions.push({ userId: appIdStr });
+        if (em) conditions.push({ volunteerEmail: em });
+        const mongoCerts = await Certificate.find({ $or: conditions }).lean();
         if (mongoCerts && mongoCerts.length > 0) {
           list = mongoCerts.map((c) => ({ ...c, id: c.certificateId || c._id.toString() }));
         }
@@ -1198,9 +1533,15 @@ const Storage = {
     }
 
     const db = readDB();
-    const jsonCerts = (db.certificates || []).filter(
-      (c) => (c.userId || "").toString() === idStr || (user?.email && c.volunteerEmail === user.email)
-    );
+    const jsonCerts = (db.certificates || []).filter((c) => {
+      const cUid = (c.userId || "").toString();
+      const cEmail = (c.volunteerEmail || "").toLowerCase().trim();
+      return (
+        cUid === idStr ||
+        (appIdStr && cUid === appIdStr) ||
+        (em && cEmail === em)
+      );
+    });
 
     const merged = [...list];
     for (const jc of jsonCerts) {
@@ -1208,6 +1549,56 @@ const Storage = {
         merged.push(jc);
       }
     }
+
+    // Synthesize certificates for any completed applications that don't have a certificate record yet
+    try {
+      const myApps = await this.getMyApplications(userId, appIdStr, em);
+      for (const app of myApps) {
+        const isCompleted =
+          app.status === "Completed" ||
+          Boolean(app.pointsAwarded && app.pointsAwarded > 0) ||
+          Boolean(app.certificateId) ||
+          Boolean(app.completedAt);
+        if (isCompleted) {
+          const appTitle = app.opportunityTitle || "Volunteering Initiative";
+          const alreadyInList = merged.some(
+            (c) =>
+              (c.certificateId && c.certificateId === app.certificateId) ||
+              (c.eventTitle && c.eventTitle.toLowerCase().trim() === appTitle.toLowerCase().trim())
+          );
+          if (!alreadyInList) {
+            const certId = app.certificateId || `MF-CERT-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+            const synthCert = {
+              id: certId,
+              _id: certId,
+              certificateId: certId,
+              userId: idStr,
+              applicationId: (app.id || app._id || "").toString(),
+              eventId: (app.eventId || app.opportunityId || "").toString(),
+              volunteerName: user?.fullName || app.applicantDetails?.name || "Student Volunteer",
+              volunteerEmail: em || app.applicantDetails?.email || "",
+              volunteerRole: user?.role === "alumni" ? "Alumni Volunteer" : "Student Volunteer",
+              college: user?.college || app.applicantDetails?.college || "Anna University",
+              eventTitle: appTitle,
+              eventCategory: app.category || "Volunteering",
+              eventDate: app.eventDate || new Date().toLocaleDateString("en-IN"),
+              verifiedHours: Number(app.hours) || 4,
+              pointsAwarded: Number(app.pointsAwarded) || 50,
+              issueDate: new Date().toLocaleDateString("en-IN"),
+              signatoryName: "Sujith Kumar",
+              signatoryTitle: "Founder & Managing Trustee, Maatram Foundation",
+              status: "Issued",
+              createdAt: new Date().toISOString(),
+            };
+            merged.push(synthCert);
+            if (!Array.isArray(db.certificates)) db.certificates = [];
+            db.certificates.unshift(synthCert);
+            writeDB(db);
+          }
+        }
+      }
+    } catch (_) {}
+
     return merged;
   },
 
@@ -1408,19 +1799,56 @@ const Storage = {
     return log;
   },
 
-  // POINTS & TRANSACTIONS
-  async adjustUserPoints({ userId, points, type = "CREDIT", reason, adminRemarks, adminUser }) {
+  // POINTS & TRANSACTIONS (Guaranteed Unique Transaction Record per Volunteer + Event + Type)
+  async adjustUserPoints({ userId, points, type = "CREDIT", reason, adminRemarks, adminUser, eventId, eventName }) {
     const idStr = (userId || "").toString();
+    const eventIdStr = eventId ? (eventId._id || eventId.id || eventId).toString() : null;
     const ptsNum = Number(points) || 0;
     const delta = type === "DEBIT" ? -Math.abs(ptsNum) : Math.abs(ptsNum);
 
     let targetUser = await this.findUserById(idStr);
     if (!targetUser) throw new Error("User not found");
 
+    const transactionKey = eventIdStr ? `${idStr}_${eventIdStr}_${type}` : null;
+
+    // CRITICAL: Prevent duplicate awards for the same event and transaction type
+    if (eventIdStr && type === "CREDIT") {
+      // 1. Check in MongoDB
+      if (getIsConnected()) {
+        try {
+          const existingTx = await PointsTransaction.findOne({
+            $or: [
+              { transactionKey },
+              { userId: idStr, eventId: eventIdStr, type: "CREDIT" },
+            ],
+          }).lean();
+          if (existingTx) {
+            console.log(`[Storage] Points ALREADY AWARDED to ${idStr} for event ${eventIdStr}. Skipping double-crediting.`);
+            return { user: targetUser, transaction: existingTx, alreadyAwarded: true };
+          }
+        } catch (_) {}
+      }
+
+      // 2. Check in db.json
+      const db = readDB();
+      const existingTx = (db.pointsTransactions || []).find(
+        (t) =>
+          t.transactionKey === transactionKey ||
+          ((t.userId || "").toString() === idStr &&
+           (t.eventId || "").toString() === eventIdStr &&
+           t.type === "CREDIT")
+      );
+      if (existingTx) {
+        console.log(`[Storage] Points ALREADY AWARDED in db.json for ${idStr} on event ${eventIdStr}. Skipping.`);
+        return { user: targetUser, transaction: existingTx, alreadyAwarded: true };
+      }
+    }
+
     const newPoints = Math.max(0, (Number(targetUser.points) || 0) + delta);
     let updatedUserObj = { ...targetUser, points: newPoints };
 
     // Update in MongoDB
+    let createdTx = null;
     if (getIsConnected()) {
       try {
         if (mongoose.isValidObjectId(idStr)) {
@@ -1431,18 +1859,25 @@ const Storage = {
           ).select("-password").lean();
           if (uDoc) updatedUserObj = { ...uDoc, id: uDoc._id.toString() };
 
-          await PointsTransaction.create({
+          createdTx = await PointsTransaction.create({
             userId: idStr,
             applicationId: targetUser.applicationId || "MAA001",
             studentName: targetUser.fullName || "Volunteer",
+            eventId: eventIdStr,
+            eventName: eventName || "",
             type,
             points: Math.abs(ptsNum),
             reason: reason || "Manual point adjustment by Administrator",
             adminRemarks: adminRemarks || `Adjusted by ${adminUser?.fullName || "Admin"}`,
             adminName: adminUser?.fullName || "Admin Coordinator",
+            transactionKey,
           });
         }
       } catch (mErr) {
+        if (mErr.code === 11000) {
+          console.warn("[Storage] Duplicate points transaction caught by unique index:", mErr.message);
+          return { user: targetUser, transaction: null, alreadyAwarded: true };
+        }
         console.warn("MongoDB points adjustment notice:", mErr.message);
       }
     }
@@ -1458,17 +1893,20 @@ const Storage = {
     }
 
     if (!Array.isArray(db.pointsTransactions)) db.pointsTransactions = [];
-    const txId = "tx_" + Date.now();
+    const txId = createdTx ? createdTx._id.toString() : "tx_" + Date.now() + "_" + Math.floor(Math.random() * 1000);
     const tx = {
       id: txId,
       _id: txId,
       userId: idStr,
       applicationId: targetUser.applicationId || "MAA001",
       studentName: targetUser.fullName || "Volunteer",
+      eventId: eventIdStr,
+      eventName: eventName || "",
       type,
       points: Math.abs(ptsNum),
       reason: reason || "Manual point adjustment by Administrator",
       adminRemarks: adminRemarks || `Adjusted by ${adminUser?.fullName || "Admin"}`,
+      transactionKey,
       createdAt: new Date().toISOString(),
     };
     db.pointsTransactions.unshift(tx);
@@ -1482,7 +1920,7 @@ const Storage = {
       link: "/contributions",
     });
 
-    return { user: updatedUserObj, transaction: tx };
+    return { user: updatedUserObj, transaction: tx, alreadyAwarded: false };
   },
 
   async getPointsTransactions(filters = {}) {
@@ -1785,27 +2223,62 @@ const Storage = {
       if (key) userMap.set(key, u);
     }
 
+    let allApps = [];
+    if (getIsConnected()) {
+      try {
+        allApps = await Application.find({}).lean();
+      } catch (_) {}
+    }
+    if (!allApps.length && Array.isArray(db.applications)) {
+      allApps = db.applications;
+    }
+
     const users = Array.from(userMap.values())
-      .filter((u) => u.status !== "pending_approval")
+      .filter((u) => u.status !== "pending_approval" && !u.isDeleted && u.status !== "deleted")
       .sort((a, b) => (Number(b.points) || 0) - (Number(a.points) || 0) || (Number(b.totalHours) || 0) - (Number(a.totalHours) || 0));
 
-    return users.map((u, idx) => ({
-      rank: idx + 1,
-      id: (u._id || u.id || "").toString(),
-      applicationId: u.applicationId,
-      fullName: u.fullName,
-      name: u.fullName,
-      college: u.college || "Anna University",
-      department: u.department || "Computer Science",
-      zone: u.zone || "Zone 1",
-      batch: u.batch || "2022-2026",
-      points: Number(u.points) || 0,
-      totalHours: Number(u.totalHours) || 0,
-      completedEventsCount: Number(u.completedEventsCount) || 0,
-      eventsJoined: Number(u.eventsJoined) || 0,
-      avatar: u.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(u.fullName || "Volunteer")}`,
-      tier: u.tier || "Bronze",
-    }));
+    return users.map((u, idx) => {
+      const uId = (u._id || u.id || "").toString();
+      const uEmail = (u.email || "").toLowerCase();
+      const uAppId = u.applicationId || "";
+
+      const studentApps = (allApps || []).filter((a) => {
+        const aUId = (a.userId || a.user?._id || a.user?.id || (typeof a.user === "string" ? a.user : "") || "").toString();
+        const aEmail = (a.applicantDetails?.email || "").toLowerCase();
+        const aAppId = a.applicationId || a.applicantDetails?.applicationId || "";
+        return (uId && aUId === uId) || (uEmail && aEmail === uEmail) || (uAppId && aAppId === uAppId);
+      });
+
+      const distinctEvents = Array.from(new Set(studentApps.map((a) => a.opportunityTitle || a.title || "Community Drive").filter(Boolean)));
+
+      return {
+        rank: idx + 1,
+        id: uId,
+        _id: uId,
+        applicationId: uAppId,
+        fullName: u.fullName,
+        name: u.fullName,
+        college: u.college || "Anna University",
+        department: u.department || "Computer Science",
+        zone: u.zone || "Zone 1",
+        batch: u.batch || "2022-2026",
+        points: Number(u.points) || 0,
+        totalHours: Number(u.totalHours) || 0,
+        completedEventsCount: Math.max(Number(u.completedEventsCount) || 0, distinctEvents.length),
+        eventsJoined: Math.max(Number(u.eventsJoined) || 0, studentApps.length, distinctEvents.length),
+        participatedEvents: distinctEvents,
+        participatedEventDetails: studentApps.map((a) => ({
+          eventId: a.opportunityId || a.eventId,
+          eventTitle: a.opportunityTitle || a.title,
+          status: a.status,
+          attendanceStatus: a.attendanceStatus,
+          hours: a.hours,
+          points: a.pointsAwarded || 50,
+        })),
+        avatar: u.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(u.fullName || "Volunteer")}`,
+        tier: u.tier || "Bronze",
+      };
+    });
   },
 
   async logAdminActivity(data) {
@@ -1819,6 +2292,434 @@ const Storage = {
     db.adminActivityLogs.unshift(log);
     writeDB(db);
     return log;
+  },
+
+  // ══════════════════════════════════════════════════════════════
+  // ALUMNI ASSIGNMENT REQUESTS & WORKFLOW ENGINE
+  // ══════════════════════════════════════════════════════════════
+  async createAlumniAssignmentRequest({
+    eventId,
+    eventTitle,
+    eventDate,
+    eventLocation,
+    alumniId,
+    alumniName,
+    alumniEmail,
+    alumniApplicationId,
+    role = "Event Lead & Supervisor",
+    notes = "",
+    adminUser,
+  }) {
+    const eId = (eventId || "").toString();
+    const aId = (alumniId || "").toString();
+
+    const assignmentData = {
+      eventId: eId,
+      eventTitle: eventTitle || "Volunteering Initiative",
+      eventDate: eventDate || "Upcoming",
+      eventLocation: eventLocation || "Chennai, Tamil Nadu",
+      alumniId: aId,
+      alumniName: alumniName || "Alumni Mentor",
+      alumniEmail: (alumniEmail || "").toLowerCase().trim(),
+      alumniApplicationId: alumniApplicationId || "ALU001",
+      role: role || "Event Lead & Supervisor",
+      notes: notes || "",
+      status: "Pending",
+      assignedBy: adminUser?.fullName || "Admin Coordinator",
+      createdAt: new Date().toISOString(),
+    };
+
+    let saved = null;
+    if (getIsConnected()) {
+      try {
+        const doc = await AlumniAssignment.create(assignmentData);
+        saved = { ...doc.toObject(), id: doc._id.toString() };
+      } catch (err) {
+        console.warn("MongoDB AlumniAssignment create notice:", err.message);
+      }
+    }
+
+    const db = readDB();
+    if (!Array.isArray(db.alumniAssignments)) db.alumniAssignments = [];
+    const localId = saved ? saved.id : "assign_" + Date.now();
+    const localAssignment = { id: localId, _id: localId, ...assignmentData };
+    db.alumniAssignments.unshift(localAssignment);
+    writeDB(db);
+
+    // Notify admins of new pending assignment request
+    await this.createNotification({
+      userId: "admin",
+      type: "system",
+      title: `Alumni Assignment Request: ${assignmentData.alumniName} 📋`,
+      message: `Pending review: Assign ${assignmentData.alumniName} as "${assignmentData.role}" for "${assignmentData.eventTitle}".`,
+      link: "/admin/alumni",
+    });
+
+    return saved || localAssignment;
+  },
+
+  async getAlumniAssignments(filters = {}) {
+    let list = [];
+    if (getIsConnected()) {
+      try {
+        const query = {};
+        if (filters.status) query.status = filters.status;
+        if (filters.eventId) query.eventId = filters.eventId.toString();
+        if (filters.alumniId) query.alumniId = filters.alumniId.toString();
+        const docs = await AlumniAssignment.find(query).sort({ createdAt: -1 }).lean();
+        if (docs && docs.length > 0) {
+          list = docs.map((d) => ({ ...d, id: d._id.toString() }));
+        }
+      } catch (_) {}
+    }
+
+    const db = readDB();
+    const localList = (db.alumniAssignments || []).filter((a) => {
+      if (filters.status && a.status !== filters.status) return false;
+      if (filters.eventId && (a.eventId || "").toString() !== filters.eventId.toString()) return false;
+      if (filters.alumniId && (a.alumniId || "").toString() !== filters.alumniId.toString()) return false;
+      return true;
+    });
+
+    // Merge by id
+    const map = new Map();
+    localList.forEach((a) => map.set((a.id || a._id).toString(), a));
+    list.forEach((a) => map.set((a.id || a._id).toString(), a));
+    return Array.from(map.values());
+  },
+
+  async approveAlumniAssignment(assignmentId, adminUser) {
+    const idStr = assignmentId.toString();
+    let assignment = null;
+
+    if (getIsConnected()) {
+      try {
+        if (mongoose.isValidObjectId(idStr)) {
+          const doc = await AlumniAssignment.findByIdAndUpdate(
+            idStr,
+            { status: "Approved", reviewedBy: adminUser?.fullName || "Admin", reviewedAt: new Date() },
+            { new: true }
+          ).lean();
+          if (doc) assignment = { ...doc, id: doc._id.toString() };
+        }
+      } catch (_) {}
+    }
+
+    const db = readDB();
+    if (!Array.isArray(db.alumniAssignments)) db.alumniAssignments = [];
+    const idx = db.alumniAssignments.findIndex((a) => (a.id || a._id || "").toString() === idStr);
+    if (idx !== -1) {
+      db.alumniAssignments[idx].status = "Approved";
+      db.alumniAssignments[idx].reviewedBy = adminUser?.fullName || "Admin";
+      db.alumniAssignments[idx].reviewedAt = new Date().toISOString();
+      if (!assignment) assignment = db.alumniAssignments[idx];
+      writeDB(db);
+    }
+
+    if (!assignment) throw new Error("Assignment request not found.");
+
+    // 1. Automatically add Alumni to Event's official assignedAlumniList
+    const event = await this.getEventById(assignment.eventId);
+    if (event) {
+      const assignedItem = {
+        alumniId: assignment.alumniId,
+        name: assignment.alumniName,
+        email: assignment.alumniEmail,
+        role: assignment.role,
+        assignedAt: new Date(),
+      };
+
+      const updatedList = Array.isArray(event.assignedAlumniList) ? [...event.assignedAlumniList] : [];
+      const alreadyInList = updatedList.some((item) => (item.alumniId || "").toString() === assignment.alumniId.toString());
+      if (!alreadyInList) {
+        updatedList.push(assignedItem);
+      }
+
+      const displayStr = `${assignment.alumniName} (${assignment.role})`;
+      await this.updateEvent(
+        assignment.eventId,
+        { assignedAlumni: displayStr, assignedAlumniList: updatedList },
+        adminUser
+      );
+    }
+
+    // 2. Add to Alumni's User profile assignedWorks (for Alumni Dashboard)
+    const workItem = {
+      id: "work_" + Date.now(),
+      assignmentId: assignment.id || assignment._id,
+      eventId: assignment.eventId,
+      eventTitle: assignment.eventTitle,
+      role: assignment.role,
+      date: assignment.eventDate || "Upcoming",
+      location: assignment.eventLocation || "Chennai, Tamil Nadu",
+      description: assignment.notes || "Event supervision, student coordination, and on-ground impact mentorship.",
+      status: "Assigned",
+      assignedAt: new Date().toISOString(),
+    };
+
+    try {
+      const alumniUser = await this.findUserById(assignment.alumniId);
+      if (alumniUser) {
+        const works = Array.isArray(alumniUser.assignedWorks) ? [...alumniUser.assignedWorks] : [];
+        const exists = works.some((w) => (w.assignmentId || "").toString() === idStr);
+        if (!exists) {
+          works.unshift(workItem);
+          await this.updateUser(assignment.alumniId, {
+            assignedEvent: assignment.eventTitle,
+            assignedRole: assignment.role,
+            assignedDate: assignment.eventDate,
+            workDescription: assignment.notes,
+            assignedWorks: works,
+          });
+        }
+      }
+    } catch (uErr) {
+      console.warn("Update alumni assignedWorks note:", uErr.message);
+    }
+
+    // 3. Notify Alumni by Email
+    try {
+      await EmailService.sendAlumniAssignmentApproval({
+        alumni: { fullName: assignment.alumniName, email: assignment.alumniEmail },
+        event: { title: assignment.eventTitle, date: assignment.eventDate, location: assignment.eventLocation },
+        role: assignment.role,
+        notes: assignment.notes,
+      });
+    } catch (eErr) {
+      console.warn("Alumni email notification note:", eErr.message);
+    }
+
+    // 4. In-App Notification
+    await this.createNotification({
+      userId: assignment.alumniId.toString(),
+      type: "system",
+      title: "Leadership Assignment Approved! 🎓",
+      message: `You are officially assigned as "${assignment.role}" for "${assignment.eventTitle}". Check your Alumni Dashboard!`,
+      link: "/dashboard",
+    });
+
+    return assignment;
+  },
+
+  async rejectAlumniAssignment(assignmentId, adminUser, reason = "Position filled or schedule conflict.") {
+    const idStr = assignmentId.toString();
+    let assignment = null;
+
+    if (getIsConnected()) {
+      try {
+        if (mongoose.isValidObjectId(idStr)) {
+          const doc = await AlumniAssignment.findByIdAndUpdate(
+            idStr,
+            { status: "Rejected", reviewedBy: adminUser?.fullName || "Admin", reviewedAt: new Date(), notes: reason },
+            { new: true }
+          ).lean();
+          if (doc) assignment = { ...doc, id: doc._id.toString() };
+        }
+      } catch (_) {}
+    }
+
+    const db = readDB();
+    if (!Array.isArray(db.alumniAssignments)) db.alumniAssignments = [];
+    const idx = db.alumniAssignments.findIndex((a) => (a.id || a._id || "").toString() === idStr);
+    if (idx !== -1) {
+      db.alumniAssignments[idx].status = "Rejected";
+      db.alumniAssignments[idx].reviewedBy = adminUser?.fullName || "Admin";
+      db.alumniAssignments[idx].reviewedAt = new Date().toISOString();
+      db.alumniAssignments[idx].notes = reason;
+      if (!assignment) assignment = db.alumniAssignments[idx];
+      writeDB(db);
+    }
+
+    if (!assignment) throw new Error("Assignment request not found.");
+
+    await this.createNotification({
+      userId: assignment.alumniId.toString(),
+      type: "system",
+      title: `Assignment Update: ${assignment.eventTitle}`,
+      message: `The assignment request for "${assignment.eventTitle}" was marked as Rejected: ${reason}`,
+      link: "/dashboard",
+    });
+
+    return assignment;
+  },
+
+  // ══════════════════════════════════════════════════════════════
+  // EVENT REMINDER BLASTS & SCHEDULED REMINDERS ENGINE
+  // ══════════════════════════════════════════════════════════════
+  async sendEventReminderBlast(eventId, type = "instant", adminUser) {
+    const event = await this.getEventById(eventId);
+    if (!event) throw new Error("Event not found");
+
+    const apps = await this.getApplicationsByEvent(eventId);
+    const approvedApps = (apps || []).filter((a) => ["Approved", "Completed", "Assigned"].includes(a.status));
+
+    let sentCount = 0;
+    const recipients = [];
+
+    for (const app of approvedApps) {
+      const uId = app.userId || app.user?._id || app.user?.id;
+      const user = await this.findUserById(uId) || app.applicantDetails || {};
+      const volunteerEmail = user.email || app.applicantDetails?.email || EmailService.USER_TEST_TARGET_EMAIL;
+      const volunteerName = user.fullName || app.applicantDetails?.name || "Volunteer";
+
+      try {
+        if (type === "24h") {
+          await EmailService.send24HourReminder({ user: { fullName: volunteerName, email: volunteerEmail }, event });
+        } else if (type === "2h") {
+          await EmailService.send2HourReminder({ user: { fullName: volunteerName, email: volunteerEmail }, event });
+        } else {
+          await EmailService.sendEventReminder({ user: { fullName: volunteerName, email: volunteerEmail }, event });
+        }
+        sentCount++;
+        recipients.push({ name: volunteerName, email: volunteerEmail, status: "Sent" });
+      } catch (err) {
+        recipients.push({ name: volunteerName, email: volunteerEmail, status: "Failed", error: err.message });
+      }
+    }
+
+    // Mark event reminder flags
+    const updatePayload = { reminderSent: true };
+    if (type === "24h") updatePayload.reminder24hSent = true;
+    if (type === "2h") updatePayload.reminder2hSent = true;
+    await this.updateEvent(eventId, updatePayload, adminUser);
+
+    return { sentCount, totalApproved: approvedApps.length, recipients, type };
+  },
+
+  async processScheduledReminders() {
+    const allEvents = await this.getAllEvents();
+    const upcomingEvents = (allEvents || []).filter((e) =>
+      ["Upcoming", "Ongoing"].includes(e.eventStatus) || e.isActive
+    );
+
+    let sentCount = 0;
+    const now = Date.now();
+
+    for (const ev of upcomingEvents) {
+      if (!ev.date) continue;
+      const parsedDate = Date.parse(ev.date) || Date.parse(ev.date.replace(/ \([A-Za-z]+\)/, ""));
+      if (isNaN(parsedDate)) continue;
+
+      const diffHours = (parsedDate - now) / (1000 * 60 * 60);
+
+      // 24-hour reminder (within 24 hours)
+      if (diffHours <= 24 && diffHours > 2 && !ev.reminder24hSent) {
+        try {
+          const res = await this.sendEventReminderBlast(ev.id || ev._id, "24h");
+          sentCount += res.sentCount || 0;
+        } catch (_) {}
+      }
+
+      // 2-hour reminder (within 2 hours)
+      if (diffHours <= 2 && diffHours >= -1 && !ev.reminder2hSent) {
+        try {
+          const res = await this.sendEventReminderBlast(ev.id || ev._id, "2h");
+          sentCount += res.sentCount || 0;
+        } catch (_) {}
+      }
+    }
+
+    return { sentCount };
+  },
+
+  // ══════════════════════════════════════════════════════════════
+  // BULK EMAIL COMMUNICATOR (Applied, Approved, Registered, Participated)
+  // ══════════════════════════════════════════════════════════════
+  async sendBulkEmails({
+    eventId,
+    recipientGroup = "Approved",
+    emailType = "thank_you",
+    customSubject = "",
+    customMessage = "",
+    targetEmailOverride = null,
+    adminUser,
+  }) {
+    const event = await this.getEventById(eventId);
+    if (!event) throw new Error("Event not found");
+
+    const apps = await this.getApplicationsByEvent(eventId);
+    const attendanceRecords = await this.getEventAttendance(eventId);
+
+    // Filter recipients based on selected group
+    let targetedApps = [];
+    if (recipientGroup === "Approved") {
+      targetedApps = (apps || []).filter((a) => a.status === "Approved" || a.status === "Completed");
+    } else if (recipientGroup === "Participated") {
+      targetedApps = (apps || []).filter((a) => {
+        const uId = (a.userId || "").toString();
+        const isPresent = a.attendanceStatus === "Present";
+        const hasAttendance = (attendanceRecords || []).some(
+          (at) => (at.userId || "").toString() === uId && (at.status === "Present" || at.isVerified === true)
+        );
+        return isPresent || hasAttendance;
+      });
+    } else {
+      // Applied or Registered: all applicants for this event
+      targetedApps = apps || [];
+    }
+
+    let sentCount = 0;
+    let skippedDuplicates = 0;
+    let failedCount = 0;
+    const details = [];
+
+    for (const app of targetedApps) {
+      const uId = app.userId || app.user?._id || app.user?.id;
+      const user = await this.findUserById(uId) || app.applicantDetails || {};
+      const vEmail = targetEmailOverride || user.email || app.applicantDetails?.email || EmailService.USER_TEST_TARGET_EMAIL;
+      const vName = user.fullName || app.applicantDetails?.name || "Volunteer";
+
+      try {
+        let dispatchRes = null;
+        if (emailType === "thank_you") {
+          dispatchRes = await EmailService.sendThankYouMessage({
+            user: { fullName: vName, email: vEmail, role: user.role || "student" },
+            event,
+            hours: event.durationHours || 4,
+            points: event.points || 50,
+            overrideEmail: vEmail,
+          });
+        } else if (emailType === "event_reminder") {
+          dispatchRes = await EmailService.sendEventReminder({
+            user: { fullName: vName, email: vEmail },
+            event,
+          });
+        } else {
+          // Event Update
+          dispatchRes = await EmailService.sendEventUpdateEmail({
+            user: { fullName: vName, email: vEmail },
+            event,
+            updateMessage: customMessage || "Important event logistics update from Maatram Foundation.",
+            customSubject,
+          });
+        }
+
+        if (dispatchRes?.isDuplicate) {
+          skippedDuplicates++;
+          details.push({ name: vName, email: vEmail, status: "Skipped (Duplicate)" });
+        } else if (dispatchRes?.status === "Failed") {
+          failedCount++;
+          details.push({ name: vName, email: vEmail, status: "Failed", error: dispatchRes.errorDetails });
+        } else {
+          sentCount++;
+          details.push({ name: vName, email: vEmail, status: "Delivered" });
+        }
+      } catch (err) {
+        failedCount++;
+        details.push({ name: vName, email: vEmail, status: "Error", error: err.message });
+      }
+    }
+
+    return {
+      success: true,
+      sentCount,
+      skippedDuplicates,
+      failedCount,
+      totalTargeted: targetedApps.length,
+      recipientGroup,
+      emailType,
+      details,
+    };
   },
 };
 

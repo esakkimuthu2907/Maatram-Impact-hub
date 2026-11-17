@@ -78,36 +78,6 @@ export default function LoginPage() {
         return true;
       }
 
-      const isEsakki = idLower === "esakkimuthu2907@gmail.com" || idLower.includes("esakkimuthu") || idLower === "maa001";
-
-      if (isEsakki) {
-        const studentUser = {
-          id: "user_esakki_001",
-          applicationId: "MAA001",
-          fullName: "Esakkimuthu S",
-          name: "Esakkimuthu S",
-          email: "esakkimuthu2907@gmail.com",
-          college: "Anna University, Chennai",
-          department: "Computer Science & Engineering",
-          academicYear: "3rd Year",
-          zone: "Zone 1",
-          batch: "2022-2026",
-          role: "student",
-          status: "active",
-          points: 0,
-          totalHours: 0,
-          eventsJoined: 0,
-          completedEventsCount: 0,
-          badgesEarned: 0,
-          streakDays: 0,
-          tier: "Bronze",
-          token: "local-student-token-" + Date.now(),
-        };
-        setAuthUser(studentUser, studentUser.token);
-        navigate("/dashboard", { replace: true });
-        return true;
-      }
-
       return false;
     };
 

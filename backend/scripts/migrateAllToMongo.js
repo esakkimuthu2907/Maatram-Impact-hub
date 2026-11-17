@@ -42,12 +42,12 @@ async function run() {
   }
 
   // 2. Ensure Student exists
-  let student = await User.findOne({ email: 'esakkimuthu2907@gmail.com' });
-  const studentPassHash = await bcrypt.hash('Esakki@123', 10);
+  let student = await User.findOne({ email: 'student@maatram.org' });
+  const studentPassHash = await bcrypt.hash('Student@123', 10);
   if (!student) {
     student = await User.create({
-      fullName: 'Esakki Muthu',
-      email: 'esakkimuthu2907@gmail.com',
+      fullName: 'Kavitha R',
+      email: 'student@maatram.org',
       password: studentPassHash,
       role: 'student',
       applicationId: 'MAA001',

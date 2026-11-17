@@ -275,21 +275,178 @@ export function AppProvider({ children }) {
       }
       const statsRes = await usersAPI.getStats();
       if (statsRes && statsRes.data) {
-        setUser((prev) => ({
-          ...prev,
-          points: statsRes.data.points,
-          totalHours: statsRes.data.totalHours,
-          eventsJoined: statsRes.data.eventsJoined,
-          completedEventsCount: statsRes.data.completedEventsCount,
-          badgesEarned: statsRes.data.badgesEarned,
-          streakDays: statsRes.data.streakDays,
-          grade: statsRes.data.grade,
-        }));
+        setUser((prev) => {
+          const next = {
+            ...prev,
+            points: statsRes.data.points ?? prev?.points ?? 0,
+            totalHours: statsRes.data.totalHours ?? prev?.totalHours ?? 0,
+            eventsJoined: statsRes.data.eventsJoined ?? prev?.eventsJoined ?? 0,
+            completedEventsCount: statsRes.data.completedEventsCount ?? prev?.completedEventsCount ?? 0,
+            badgesEarned: statsRes.data.badgesEarned ?? prev?.badgesEarned ?? 0,
+            streakDays: statsRes.data.streakDays ?? prev?.streakDays ?? 0,
+            grade: statsRes.data.grade ?? prev?.grade,
+          };
+          try { localStorage.setItem("maatram_user", JSON.stringify(next)); } catch (_) {}
+          return next;
+        });
       }
     } catch (err) {
       console.warn("Points history notice:", err.message);
     }
   }, []);
+
+  /* ─── Refresh All Data (call after event completion / points award) ──────── */
+  const refreshAllData = useCallback(async () => {
+    try {
+      await Promise.allSettled([
+        fetchEvents(),
+        fetchApplications(),
+        fetchCertificates(),
+        fetchNotifications(),
+        fetchHourLogs(),
+      ]);
+      await fetchPointsHistory();
+      if (user?.role === "admin") {
+        await Promise.allSettled([fetchAdminStats(), fetchEmailLogs()]);
+      }
+      try {
+        const freshRes = await authAPI.getMe();
+        if (freshRes && freshRes.data) {
+          const fresh = freshRes.data;
+          setUser((prev) => {
+            const next = {
+              ...prev,
+              ...fresh,
+              name: fresh.fullName || fresh.name || prev?.name || "",
+              fullName: fresh.fullName || fresh.name || prev?.fullName || "",
+              id: (fresh._id || fresh.id || prev?.id || "").toString(),
+              _id: (fresh._id || fresh.id || prev?._id || "").toString(),
+              points: fresh.points ?? prev?.points ?? 0,
+              totalHours: fresh.totalHours ?? prev?.totalHours ?? 0,
+              completedEventsCount: fresh.completedEventsCount ?? prev?.completedEventsCount ?? 0,
+              eventsJoined: fresh.eventsJoined ?? prev?.eventsJoined ?? 0,
+            };
+            try { localStorage.setItem("maatram_user", JSON.stringify(next)); } catch (_) {}
+            return next;
+          });
+        }
+      } catch (_) {}
+    } catch (err) {
+      console.warn("refreshAllData notice:", err.message);
+    }
+  }, [
+    fetchEvents, fetchApplications, fetchCertificates, fetchNotifications,
+    fetchPointsHistory, fetchHourLogs, fetchAdminStats, fetchEmailLogs, user?.role,
+  ]);
+
+  /* ─── Mark Event Completed in Context (immediate in-memory update) ──────── */
+  const markEventCompletedInContext = useCallback((eventId, eventTitle, pointsAwarded, certData) => {
+    // 1. Immediately update applications state: Approved → Completed
+    setApplications((prev) => prev.map((app) => {
+      const matchById = eventId && (
+        (app.opportunityId || "").toString() === (eventId || "").toString() ||
+        (app.eventId || "").toString() === (eventId || "").toString()
+      );
+      const matchByTitle = eventTitle &&
+        (app.opportunityTitle || "").toLowerCase().trim() === (eventTitle || "").toLowerCase().trim();
+      if ((matchById || matchByTitle) &&
+          (app.status === "Approved" || app.status === "Assigned" || app.status === "Pending")) {
+        return {
+          ...app,
+          status: "Completed",
+          attendanceStatus: "Present",
+          pointsAwarded: pointsAwarded || app.pointsAwarded || 50,
+          certificateId: certData?.certificateId || app.certificateId,
+          completedAt: new Date().toISOString(),
+        };
+      }
+      return app;
+    }));
+
+    // 2. Update events state: mark event as Completed
+    setEvents((prev) => prev.map((e) => {
+      const matchById = eventId &&
+        (e.id || e._id || "").toString() === (eventId || "").toString();
+      const matchByTitle = eventTitle &&
+        (e.title || "").toLowerCase().trim() === (eventTitle || "").toLowerCase().trim();
+      if (matchById || matchByTitle) {
+        return { ...e, eventStatus: "Completed", status: "Completed", pointsDistributed: true };
+      }
+      return e;
+    }));
+
+    // 3. Add certificate to certificates state if provided
+    if (certData && certData.certificateId) {
+      setCertificates((prev) => {
+        const exists = prev.some((c) => c.certificateId === certData.certificateId);
+        if (exists) return prev;
+        return [certData, ...prev];
+      });
+    }
+
+    // 4. Immediately update user points/hours/completedEventsCount
+    setUser((prev) => {
+      if (!prev) return prev;
+      const updatedPoints = (Number(prev.points) || 0) + (Number(pointsAwarded) || 50);
+      const updatedHours = (Number(prev.totalHours) || 0) + 4;
+      const updatedEventsCount = (Number(prev.completedEventsCount) || 0) + 1;
+      const next = {
+        ...prev,
+        points: updatedPoints,
+        totalHours: updatedHours,
+        completedEventsCount: updatedEventsCount,
+        eventsJoined: Math.max(Number(prev.eventsJoined) || 0, updatedEventsCount),
+      };
+      try { localStorage.setItem("maatram_user", JSON.stringify(next)); } catch (_) {}
+      return next;
+    });
+
+    // 5. Cross-tab broadcast so student dashboard on the SAME session sees update
+    try {
+      localStorage.setItem('maatram_event_completed', JSON.stringify({
+        eventId: eventId || null,
+        eventTitle: eventTitle || null,
+        ts: Date.now(),
+      }));
+      window.dispatchEvent(new CustomEvent('maatram_event_completed', {
+        detail: { eventId, eventTitle, ts: Date.now() }
+      }));
+    } catch (_) {}
+  }, []);
+
+  /* Real-Time Sync: re-fetch when another tab OR current tab completes an event */
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const triggerRefresh = () => {
+      setTimeout(() => {
+        fetchApplications().catch(() => {});
+        fetchCertificates().catch(() => {});
+        fetchEvents().catch(() => {});
+        fetchPointsHistory().catch(() => {});
+      }, 500);
+    };
+    const handleStorage = (e) => {
+      if (e.key === 'maatram_event_completed' && e.newValue) {
+        triggerRefresh();
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+    window.addEventListener('maatram_event_completed', triggerRefresh);
+    return () => {
+      window.removeEventListener('storage', handleStorage);
+      window.removeEventListener('maatram_event_completed', triggerRefresh);
+    };
+  }, [isAuthenticated, fetchApplications, fetchCertificates, fetchEvents, fetchPointsHistory]);
+
+  /* Periodic Poll: re-fetch applications and certificates every 30 seconds */
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const pid = setInterval(() => {
+      fetchApplications().catch(() => {});
+      fetchCertificates().catch(() => {});
+    }, 30000);
+    return () => clearInterval(pid);
+  }, [isAuthenticated, fetchApplications, fetchCertificates]);
 
   /* Initial Loads */
   useEffect(() => {
@@ -831,6 +988,8 @@ export function AppProvider({ children }) {
         /* Points & History */
         pointsHistory,
         fetchPointsHistory,
+        refreshAllData,
+        markEventCompletedInContext,
         /* Notifications & Push */
         notifications,
         fetchNotifications,

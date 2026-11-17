@@ -32,7 +32,7 @@ export default function Sidebar({ collapsed, onToggleCollapse, isMobile, onClose
   const navigate = useNavigate();
   const { user, unreadCount, logout } = useApp();
 
-  const isAdmin = user?.role === "admin";
+  const isAdmin = user?.role === "admin" && (user?.email || "").toLowerCase().trim() === "admin@maatram.org";
   const isOpportunitiesActive = location.pathname.startsWith("/opportunities");
   const [opportunitiesOpen, setOpportunitiesOpen] = useState(true);
 
@@ -90,11 +90,6 @@ export default function Sidebar({ collapsed, onToggleCollapse, isMobile, onClose
       icon: Users,
     },
     {
-      title: "Alumni Mentors",
-      path: "/alumni",
-      icon: GraduationCap,
-    },
-    {
       title: "Leaderboard",
       path: "/leaderboard",
       icon: Trophy,
@@ -139,11 +134,6 @@ export default function Sidebar({ collapsed, onToggleCollapse, isMobile, onClose
       title: "Maatram Connect",
       path: "/connect",
       icon: Users,
-    },
-    {
-      title: "Alumni Mentors",
-      path: "/alumni",
-      icon: GraduationCap,
     },
     {
       title: "Leaderboard",
