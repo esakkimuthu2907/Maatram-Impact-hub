@@ -257,9 +257,9 @@ export default function StudentDashboard() {
   const avgPoints =
     allPoints.length > 0
       ? Math.round(
-          allPoints.reduce((a, b) => a + b, 0) /
-            allPoints.length
-        )
+        allPoints.reduce((a, b) => a + b, 0) /
+        allPoints.length
+      )
       : 0;
 
   const topScore =
@@ -285,7 +285,7 @@ export default function StudentDashboard() {
   );
 
   return (
-    <div className="dashboard-container">
+    <div className="dashboard-container" style={{ background: "#FFFFFF" }}>
 
       {/* SECTION A: WELCOME BANNER */}
 
@@ -607,6 +607,7 @@ export default function StudentDashboard() {
       >
         {[
           { key: "overview", label: "Overview", icon: Compass },
+          { key: "learning", label: "AI Learning Hub", icon: Sparkles, badge: "AI RAG" },
           { key: "events", label: "My Events", icon: Calendar, badge: myRegisteredEvents.length },
           { key: "certificates", label: "My Certificates", icon: Award, badge: allCertificates.length },
           { key: "linkedin", label: "My LinkedIn Content", icon: Share2 },
@@ -619,7 +620,13 @@ export default function StudentDashboard() {
             <button
               key={tab.key}
               type="button"
-              onClick={() => setDashboardSection(tab.key)}
+              onClick={() => {
+                if (tab.key === "learning") {
+                  navigate("/learning");
+                } else {
+                  setDashboardSection(tab.key);
+                }
+              }}
               style={{
                 display: "inline-flex",
                 alignItems: "center",
@@ -663,831 +670,916 @@ export default function StudentDashboard() {
       ══════════════════════════════════════════════════════════════════════ */}
       {dashboardSection === "overview" && (
         <>
-      {/* PHASE 4: HORIZONTAL UPCOMING EVENTS CAROUSEL (Left-to-Right Scrolling) */}
-      <div style={{ marginTop: 20, marginBottom: 24 }}>
-        <HorizontalEventCarousel
-          events={opportunities}
-          applications={applications}
-          onRegister={async (event) => {
-            try {
-              await applyForOpportunity(event.id || event._id, {
-                motivation: "Eager to contribute and volunteer for this drive.",
-              });
-              showToast(`Successfully registered for "${event.title}"! Application submitted for review.`);
-            } catch (err) {
-              showToast(err.message || "Failed to submit application", "error");
-            }
-          }}
-          onViewDetails={(event) => navigate(`/opportunities/${event.id || event._id}`)}
-        />
-      </div>
-
-      {/* SECTION C: VOLUNTEER RANKING & POINTS PROGRESS */}
-
-      <div
-        style={{
-          background: "#FFFFFF",
-          padding: "24px 28px",
-          borderRadius: 20,
-          border: "1.5px solid #E2E8F0",
-          boxShadow:
-            "0 4px 18px rgba(15, 23, 42, 0.04)",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: 10,
-            flexWrap: "wrap",
-            gap: 10,
-          }}
-        >
-          <div>
-            <strong
-              style={{
-                fontSize: 16,
-                color: "#0F172A",
-                fontWeight: 800,
-              }}
-            >
-              Volunteer Ranking: {currentTier.name}
-            </strong>
-
-            <span
-              style={{
-                fontSize: 13.5,
-                color: "#64748B",
-                display: "block",
-                marginTop: 2,
-              }}
-            >
-              {nextTier
-                ? `${pointsNeeded} points needed to reach ${nextTier.name}`
-                : "You have achieved the highest Green Gem Volunteer ranking!"}
-            </span>
-          </div>
-
-          <span
-            style={{
-              fontSize: 17,
-              fontWeight: 800,
-              color: "#0066CC",
-            }}
-          >
-            {userPoints} / {targetPts} pts
-          </span>
-        </div>
-
-        {/* Progress Bar */}
-
-        <div
-          style={{
-            height: 12,
-            background: "#E2E8F0",
-            borderRadius: 10,
-            overflow: "hidden",
-            position: "relative",
-          }}
-        >
+          {/* AI Learning & Gamification Hub Spotlight Banner */}
           <div
             style={{
-              width: `${progressPercent}%`,
-              height: "100%",
-              background:
-                "linear-gradient(90deg, #0066CC, #38BDF8)",
-              borderRadius: 10,
-              transition: "width 0.4s ease",
+              background: "linear-gradient(135deg, #0F172A 0%, #1E293B 100%)",
+              borderRadius: 18,
+              padding: "20px 24px",
+              marginTop: 14,
+              marginBottom: 20,
+              display: "flex",
+              flexWrap: "wrap",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 16,
+              color: "#FFFFFF",
+              boxShadow: "0 8px 24px rgba(15, 23, 42, 0.1)",
+              border: "1px solid rgba(255, 214, 41, 0.25)",
             }}
-          />
-        </div>
-
-        {/* Six Tier Milestones */}
-
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            marginTop: 14,
-            flexWrap: "wrap",
-            gap: 8,
-          }}
-        >
-          {TIERS_CONFIG.map((t) => (
-            <div
-              key={t.tier}
-              style={{
-                textAlign: "center",
-                opacity:
-                  userPoints >= t.minPoints ? 1 : 0.45,
-                flex: "1 1 80px",
-              }}
-            >
-              <strong
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 14, flex: 1, minWidth: 280 }}>
+              <div
                 style={{
-                  fontSize: 12.5,
+                  width: 48,
+                  height: 48,
+                  borderRadius: 14,
+                  background: "linear-gradient(135deg, #FFD629 0%, #F59E0B 100%)",
                   color: "#0F172A",
-                  display: "block",
-                  fontWeight: 700,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                  boxShadow: "0 4px 12px rgba(245, 158, 11, 0.35)",
                 }}
               >
-                {t.name}
-              </strong>
+                <Sparkles size={24} />
+              </div>
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: "#FFFFFF" }}>
+                    Maatram AI Learning Hub
+                  </h3>
+                  <span
+                    style={{
+                      background: "rgba(245, 158, 11, 0.2)",
+                      border: "1px solid rgba(245, 158, 11, 0.5)",
+                      color: "#FFD629",
+                      fontSize: 10.5,
+                      fontWeight: 800,
+                      padding: "2px 7px",
+                      borderRadius: 6,
+                    }}
+                  >
+                    RAG POWERED
+                  </span>
+                </div>
+                <p style={{ margin: "4px 0 0", fontSize: 13, color: "#94A3B8", lineHeight: 1.4 }}>
+                  Ask verified questions, test skills in the Daily Knowledge Challenge, earn virtual coins, and build leadership streaks!
+                </p>
+              </div>
+            </div>
 
-              <span
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <button
+                type="button"
+                onClick={() => navigate("/learning")}
                 style={{
-                  fontSize: 11.5,
-                  color: "#64748B",
+                  background: "linear-gradient(135deg, #FFD629 0%, #F59E0B 100%)",
+                  color: "#0F172A",
+                  border: "none",
+                  padding: "10px 18px",
+                  borderRadius: 12,
+                  fontSize: 13.5,
+                  fontWeight: 800,
+                  cursor: "pointer",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
+                  transition: "all 0.2s ease",
+                  boxShadow: "0 4px 12px rgba(245, 158, 11, 0.25)",
                 }}
               >
-                {t.milestoneLabel}
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* SECTION D: PEER LEADERSHIP COMPARISON */}
-
-      <div
-        style={{
-          background:
-            "linear-gradient(135deg, #F8FAFC 0%, #FFFFFF 100%)",
-          padding: "20px 28px",
-          borderRadius: 20,
-          border: "1.5px solid #E2E8F0",
-          boxShadow:
-            "0 2px 10px rgba(15, 23, 42, 0.03)",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: 16,
-            flexWrap: "wrap",
-            gap: 12,
-          }}
-        >
-          <div>
-            <strong
-              style={{
-                fontSize: 15,
-                color: "#0F172A",
-                fontWeight: 800,
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-              }}
-            >
-              <Trophy size={16} color="#D97706" />
-              Peer Leadership Comparison
-            </strong>
-          </div>
-
-          <Link
-            to="/leaderboard"
-            style={{
-              fontSize: 13,
-              fontWeight: 700,
-              color: "#2563EB",
-              textDecoration: "none",
-            }}
-          >
-            Full Leaderboard →
-          </Link>
-        </div>
-
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns:
-              "repeat(auto-fit, minmax(180px, 1fr))",
-            gap: 16,
-          }}
-        >
-          {/* Your Points */}
-
-          <div
-            style={{
-              background: "#FFFDF0",
-              padding: "14px 18px",
-              borderRadius: 14,
-              border: "1px solid #FEF08A",
-            }}
-          >
-            <span
-              style={{
-                fontSize: 11.5,
-                color: "#854D0E",
-                fontWeight: 700,
-                textTransform: "uppercase",
-              }}
-            >
-              Your Points
-            </span>
-
-            <div
-              style={{
-                fontSize: 22,
-                fontWeight: 800,
-                color: "#0F172A",
-                marginTop: 2,
-              }}
-            >
-              {userPoints} pts
-            </div>
-
-            <span
-              style={{
-                fontSize: 11.5,
-                color: "#B45309",
-                fontWeight: 600,
-              }}
-            >
-              Rank #{myRank} in Tamil Nadu
-            </span>
-          </div>
-
-          {/* Batch Average */}
-
-          <div
-            style={{
-              background: "#F8FAFC",
-              padding: "14px 18px",
-              borderRadius: 14,
-              border: "1px solid #E2E8F0",
-            }}
-          >
-            <span
-              style={{
-                fontSize: 11.5,
-                color: "#64748B",
-                fontWeight: 700,
-                textTransform: "uppercase",
-              }}
-            >
-              Batch Average
-            </span>
-
-            <div
-              style={{
-                fontSize: 22,
-                fontWeight: 800,
-                color: "#0F172A",
-                marginTop: 2,
-              }}
-            >
-              {avgPoints} pts
-            </div>
-
-            <span
-              style={{
-                fontSize: 11.5,
-                color: "#64748B",
-              }}
-            >
-              Across all students
-            </span>
-          </div>
-
-          {/* Top Contributor */}
-
-          <div
-            style={{
-              background: "#F0FDF4",
-              padding: "14px 18px",
-              borderRadius: 14,
-              border: "1px solid #BBF7D0",
-            }}
-          >
-            <span
-              style={{
-                fontSize: 11.5,
-                color: "#166534",
-                fontWeight: 700,
-                textTransform: "uppercase",
-              }}
-            >
-              Top Contributor
-            </span>
-
-            <div
-              style={{
-                fontSize: 22,
-                fontWeight: 800,
-                color: "#16A34A",
-                marginTop: 2,
-              }}
-            >
-              {topScore} pts
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* SECTION E: TWO-COLUMN MAIN CONTENT */}
-
-      <div className="dashboard-grid-layout">
-        <div className="dash-col-main">
-
-          {/* OPEN VOLUNTEERING DRIVES */}
-
-          <div className="dash-section-card">
-            <div className="section-card-header">
-              <div>
-                <h2>Open Volunteering Drives</h2>
-                <p>
-                  Register now to make a difference and earn
-                  impact points.
-                </p>
-              </div>
-
-              <Link
-                to="/opportunities"
-                className="view-all-link"
-              >
-                All Drives ({opportunities.length}){" "}
-                <ArrowRight size={15} />
-              </Link>
-            </div>
-
-            <div className="opp-list">
-              {upcomingOpportunities.length === 0 ? (
-                <div
-                  style={{
-                    padding: "36px 20px",
-                    textAlign: "center",
-                    color: "#64748B",
-                  }}
-                >
-                  <Calendar
-                    size={32}
-                    color="#94A3B8"
-                    style={{ marginBottom: 8 }}
-                  />
-
-                  <h4
-                    style={{
-                      margin: "0 0 4px",
-                      color: "#334155",
-                      fontSize: 15,
-                      fontWeight: 700,
-                    }}
-                  >
-                    No volunteering drives yet
-                  </h4>
-
-                  <p
-                    style={{
-                      margin: 0,
-                      fontSize: 13,
-                    }}
-                  >
-                    New opportunities created by
-                    administrators will appear here.
-                  </p>
-                </div>
-              ) : (
-                upcomingOpportunities.map((opp) => {
-                  const oppId = opp.id || opp._id;
-
-                  return (
-                    <div
-                      key={oppId}
-                      className="opp-item-card"
-                    >
-                      <img
-                        src={
-                          opp.image ||
-                          "https://images.unsplash.com/photo-1580582932707-520aed937b7b?auto=format&fit=crop&w=400&q=80"
-                        }
-                        alt={opp.title}
-                        className="opp-item-thumb"
-                      />
-
-                      <div className="opp-item-info">
-                        <div className="opp-tags-row">
-                          <span className="category-pill">
-                            {opp.category}
-                          </span>
-
-                          <span
-                            className={`mode-pill ${(opp.mode || "offline").toLowerCase()}`}
-                          >
-                            {opp.mode || "Offline"}
-                          </span>
-                        </div>
-
-                        <h3 className="opp-item-title">
-                          <Link
-                            to={`/opportunities/${oppId}`}
-                          >
-                            {opp.title}
-                          </Link>
-                        </h3>
-
-                        <div className="opp-item-meta">
-                          <span>
-                            <Calendar size={13} />{" "}
-                            {opp.date}
-                          </span>
-
-                          <span>
-                            <Star
-                              size={13}
-                              color="#F59E0B"
-                              fill="#F59E0B"
-                            />{" "}
-                            +{opp.points || 50} pts
-                          </span>
-
-                          <span>
-                            <Users size={13} />{" "}
-                            {opp.slotsAvailable ?? 10} slots
-                            left
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="opp-item-actions">
-                        <Link
-                          to={`/opportunities/${oppId}/apply`}
-                          className="apply-btn-sm"
-                        >
-                          Register Now
-                        </Link>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
+                Launch AI Hub <ArrowRight size={15} />
+              </button>
             </div>
           </div>
 
-          {/* MY REGISTERED EVENTS */}
-
-          <div className="dash-section-card">
-            <div className="section-card-header">
-              <div>
-                <h2>My Upcoming Events</h2>
-                <p>
-                  Your accepted volunteering drives.
-                </p>
-              </div>
-
-              <Link
-                to="/applications"
-                className="view-all-link"
-              >
-                All ({myRegisteredEvents.length})
-              </Link>
-            </div>
-
-            <div className="my-events-list">
-              {myRegisteredEvents.length === 0 ? (
-                <div className="empty-events-state">
-                  <Calendar
-                    size={32}
-                    color="#94A3B8"
-                    style={{ marginBottom: 8 }}
-                  />
-
-                  <h4>No registered events yet</h4>
-
-                  <p>
-                    Browse upcoming drives and submit your
-                    application to get started.
-                  </p>
-
-                  <Link
-                    to="/opportunities"
-                    className="dash-btn dash-btn-primary"
-                    style={{
-                      display: "inline-flex",
-                      padding: "7px 14px",
-                      fontSize: "12px",
-                    }}
-                  >
-                    Browse Opportunities
-                  </Link>
-                </div>
-              ) : (
-                myRegisteredEvents.map((app) => (
-                  <div
-                    key={app.id || app._id}
-                    className="my-event-card"
-                  >
-                    <div className="my-event-status-row">
-                      {(() => {
-                        const isAppCompleted =
-                          app.status === "Completed" ||
-                          Boolean(app.pointsAwarded && app.pointsAwarded > 0) ||
-                          Boolean(app.certificateId) ||
-                          Boolean(app.completedAt);
-                        if (isAppCompleted) {
-                          return (
-                            <span className="status-pill completed" style={{ background: "#DCFCE7", color: "#15803D", borderColor: "#86EFAC" }}>
-                              <CheckCircle2 size={12} />
-                              Completed
-                            </span>
-                          );
-                        }
-                        if (app.status === "Approved") {
-                          return (
-                            <span className="status-pill approved">
-                              <CheckCircle2 size={12} />
-                              Approved
-                            </span>
-                          );
-                        }
-                        return (
-                          <span className="status-pill pending">
-                            Pending Review
-                          </span>
-                        );
-                      })()}
-
-                      <span className="my-event-ref">
-                        {app.referenceId}
-                      </span>
-                    </div>
-
-                    <div className="my-event-info">
-                      <h4 className="my-event-title">
-                        {app.opportunityTitle}
-                      </h4>
-
-                      <p className="my-event-meta">
-                        <span>
-                          <Calendar size={13} />{" "}
-                          {app.eventDate}
-                        </span>
-                      </p>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-
-          {/* PHASE 2A: STUDENT INTERACTIVE EVENT CALENDAR */}
-          <div className="dash-section-card">
-            <div className="section-card-header">
-              <div>
-                <h2>Interactive Event Calendar</h2>
-                <p>
-                  Track registered drives, pending applications, and upcoming event dates.
-                </p>
-              </div>
-            </div>
-
-            <EventCalendar
-              mode="student"
+          {/* PHASE 4: HORIZONTAL UPCOMING EVENTS CAROUSEL (Left-to-Right Scrolling) */}
+          <div style={{ marginTop: 20, marginBottom: 24 }}>
+            <HorizontalEventCarousel
               events={opportunities}
               applications={applications}
-              onSelectEvent={(ev) => navigate(`/opportunities/${ev.id || ev._id}`)}
+              onRegister={async (event) => {
+                try {
+                  await applyForOpportunity(event.id || event._id, {
+                    motivation: "Eager to contribute and volunteer for this drive.",
+                  });
+                  showToast(`Successfully registered for "${event.title}"! Application submitted for review.`);
+                } catch (err) {
+                  showToast(err.message || "Failed to submit application", "error");
+                }
+              }}
+              onViewDetails={(event) => navigate(`/opportunities/${event.id || event._id}`)}
             />
           </div>
 
-          {/* RECENT POINTS TRANSACTIONS */}
+          {/* SECTION C: VOLUNTEER RANKING & POINTS PROGRESS */}
 
-          <div className="dash-section-card">
-            <div className="section-card-header">
+          <div
+            style={{
+              background: "#FFFFFF",
+              padding: "24px 28px",
+              borderRadius: 20,
+              border: "1.5px solid #E2E8F0",
+              boxShadow:
+                "0 4px 18px rgba(15, 23, 42, 0.04)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 10,
+                flexWrap: "wrap",
+                gap: 10,
+              }}
+            >
               <div>
-                <h2>Points &amp; Rewards</h2>
-                <p>Recent impact points earned.</p>
+                <strong
+                  style={{
+                    fontSize: 16,
+                    color: "#0F172A",
+                    fontWeight: 800,
+                  }}
+                >
+                  Volunteer Ranking: {currentTier.name}
+                </strong>
+
+                <span
+                  style={{
+                    fontSize: 13.5,
+                    color: "#64748B",
+                    display: "block",
+                    marginTop: 2,
+                  }}
+                >
+                  {nextTier
+                    ? `${pointsNeeded} points needed to reach ${nextTier.name}`
+                    : "You have achieved the highest Green Gem Volunteer ranking!"}
+                </span>
+              </div>
+
+              <span
+                style={{
+                  fontSize: 17,
+                  fontWeight: 800,
+                  color: "#0066CC",
+                }}
+              >
+                {userPoints} / {targetPts} pts
+              </span>
+            </div>
+
+            {/* Progress Bar */}
+
+            <div
+              style={{
+                height: 12,
+                background: "#E2E8F0",
+                borderRadius: 10,
+                overflow: "hidden",
+                position: "relative",
+              }}
+            >
+              <div
+                style={{
+                  width: `${progressPercent}%`,
+                  height: "100%",
+                  background:
+                    "linear-gradient(90deg, #0066CC, #38BDF8)",
+                  borderRadius: 10,
+                  transition: "width 0.4s ease",
+                }}
+              />
+            </div>
+
+            {/* Six Tier Milestones */}
+
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                marginTop: 14,
+                flexWrap: "wrap",
+                gap: 8,
+              }}
+            >
+              {TIERS_CONFIG.map((t) => (
+                <div
+                  key={t.tier}
+                  style={{
+                    textAlign: "center",
+                    opacity:
+                      userPoints >= t.minPoints ? 1 : 0.45,
+                    flex: "1 1 80px",
+                  }}
+                >
+                  <strong
+                    style={{
+                      fontSize: 12.5,
+                      color: "#0F172A",
+                      display: "block",
+                      fontWeight: 700,
+                    }}
+                  >
+                    {t.name}
+                  </strong>
+
+                  <span
+                    style={{
+                      fontSize: 11.5,
+                      color: "#64748B",
+                    }}
+                  >
+                    {t.milestoneLabel}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* SECTION D: PEER LEADERSHIP COMPARISON */}
+
+          <div
+            style={{
+              background:
+                "linear-gradient(135deg, #F8FAFC 0%, #FFFFFF 100%)",
+              padding: "20px 28px",
+              borderRadius: 20,
+              border: "1.5px solid #E2E8F0",
+              boxShadow:
+                "0 2px 10px rgba(15, 23, 42, 0.03)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 16,
+                flexWrap: "wrap",
+                gap: 12,
+              }}
+            >
+              <div>
+                <strong
+                  style={{
+                    fontSize: 15,
+                    color: "#0F172A",
+                    fontWeight: 800,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                  }}
+                >
+                  <Trophy size={16} color="#D97706" />
+                  Peer Leadership Comparison
+                </strong>
               </div>
 
               <Link
-                to="/contributions"
-                className="view-all-link"
+                to="/leaderboard"
+                style={{
+                  fontSize: 13,
+                  fontWeight: 700,
+                  color: "#2563EB",
+                  textDecoration: "none",
+                }}
               >
-                View All
+                Full Leaderboard →
               </Link>
             </div>
 
-            {pointsHistory && pointsHistory.length > 0 ? (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns:
+                  "repeat(auto-fit, minmax(180px, 1fr))",
+                gap: 16,
+              }}
+            >
+              {/* Your Points */}
+
               <div
                 style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 10,
+                  background: "#FFFDF0",
+                  padding: "14px 18px",
+                  borderRadius: 14,
+                  border: "1px solid #FEF08A",
                 }}
               >
-                {pointsHistory.slice(0, 3).map((tx) => (
-                  <div
-                    key={tx._id || tx.id}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      padding: "10px 12px",
-                      background: "#F8FAFC",
-                      borderRadius: 10,
-                      border: "1px solid #E2E8F0",
-                    }}
+                <span
+                  style={{
+                    fontSize: 11.5,
+                    color: "#854D0E",
+                    fontWeight: 700,
+                    textTransform: "uppercase",
+                  }}
+                >
+                  Your Points
+                </span>
+
+                <div
+                  style={{
+                    fontSize: 22,
+                    fontWeight: 800,
+                    color: "#0F172A",
+                    marginTop: 2,
+                  }}
+                >
+                  {userPoints} pts
+                </div>
+
+                <span
+                  style={{
+                    fontSize: 11.5,
+                    color: "#B45309",
+                    fontWeight: 600,
+                  }}
+                >
+                  Rank #{myRank} in Tamil Nadu
+                </span>
+              </div>
+
+              {/* Batch Average */}
+
+              <div
+                style={{
+                  background: "#F8FAFC",
+                  padding: "14px 18px",
+                  borderRadius: 14,
+                  border: "1px solid #E2E8F0",
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: 11.5,
+                    color: "#64748B",
+                    fontWeight: 700,
+                    textTransform: "uppercase",
+                  }}
+                >
+                  Batch Average
+                </span>
+
+                <div
+                  style={{
+                    fontSize: 22,
+                    fontWeight: 800,
+                    color: "#0F172A",
+                    marginTop: 2,
+                  }}
+                >
+                  {avgPoints} pts
+                </div>
+
+                <span
+                  style={{
+                    fontSize: 11.5,
+                    color: "#64748B",
+                  }}
+                >
+                  Across all students
+                </span>
+              </div>
+
+              {/* Top Contributor */}
+
+              <div
+                style={{
+                  background: "#F0FDF4",
+                  padding: "14px 18px",
+                  borderRadius: 14,
+                  border: "1px solid #BBF7D0",
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: 11.5,
+                    color: "#166534",
+                    fontWeight: 700,
+                    textTransform: "uppercase",
+                  }}
+                >
+                  Top Contributor
+                </span>
+
+                <div
+                  style={{
+                    fontSize: 22,
+                    fontWeight: 800,
+                    color: "#16A34A",
+                    marginTop: 2,
+                  }}
+                >
+                  {topScore} pts
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* SECTION E: TWO-COLUMN MAIN CONTENT */}
+
+          <div className="dashboard-grid-layout">
+            <div className="dash-col-main">
+
+              {/* OPEN VOLUNTEERING DRIVES */}
+
+              <div className="dash-section-card">
+                <div className="section-card-header">
+                  <div>
+                    <h2>Open Volunteering Drives</h2>
+                    <p>
+                      Register now to make a difference and earn
+                      impact points.
+                    </p>
+                  </div>
+
+                  <Link
+                    to="/opportunities"
+                    className="view-all-link"
                   >
+                    All Drives ({opportunities.length}){" "}
+                    <ArrowRight size={15} />
+                  </Link>
+                </div>
+
+                <div className="opp-list">
+                  {upcomingOpportunities.length === 0 ? (
                     <div
                       style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 10,
+                        padding: "36px 20px",
+                        textAlign: "center",
+                        color: "#64748B",
                       }}
                     >
-                      <div
+                      <Calendar
+                        size={32}
+                        color="#94A3B8"
+                        style={{ marginBottom: 8 }}
+                      />
+
+                      <h4
                         style={{
-                          width: 32,
-                          height: 32,
-                          borderRadius: 8,
-                          background:
-                            tx.type === "DEBIT"
-                              ? "#FEE2E2"
-                              : "#FEF9C3",
-                          color:
-                            tx.type === "DEBIT"
-                              ? "#DC2626"
-                              : "#CA8A04",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
+                          margin: "0 0 4px",
+                          color: "#334155",
+                          fontSize: 15,
                           fontWeight: 700,
                         }}
                       >
-                        <Coins size={16} />
-                      </div>
-
-                      <div>
-                        <strong
-                          style={{
-                            fontSize: 13,
-                            color: "#0F172A",
-                            display: "block",
-                          }}
-                        >
-                          {tx.eventName ||
-                            tx.reason ||
-                            "Volunteer Activity"}
-                        </strong>
-
-                        <span
-                          style={{
-                            fontSize: 11,
-                            color: "#64748B",
-                          }}
-                        >
-                          {tx.createdAt
-                            ? new Date(
-                                tx.createdAt
-                              ).toLocaleDateString("en-IN")
-                            : "Recent"}
-                        </span>
-                      </div>
-                    </div>
-
-                    <span
-                      style={{
-                        fontWeight: 800,
-                        fontSize: 13.5,
-                        color:
-                          tx.type === "DEBIT"
-                            ? "#DC2626"
-                            : "#16A34A",
-                      }}
-                    >
-                      {tx.type === "DEBIT" ? "-" : "+"}
-                      {tx.points} pts
-                    </span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p
-                style={{
-                  fontSize: 13,
-                  color: "#94A3B8",
-                  margin: 0,
-                  padding: "8px 0",
-                }}
-              >
-                No points transactions recorded yet. Join
-                events to earn impact points!
-              </p>
-            )}
-          </div>
-
-          {/* RECENT NOTIFICATIONS */}
-
-          <div className="dash-section-card">
-            <div className="section-card-header">
-              <div>
-                <h2>Recent Notifications</h2>
-                <p>
-                  Updates, badges and drive approvals.
-                </p>
-              </div>
-
-              <Link
-                to="/notifications"
-                className="view-all-link"
-              >
-                View All
-              </Link>
-            </div>
-
-            {notifications && notifications.length > 0 ? (
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 10,
-                }}
-              >
-                {notifications.slice(0, 3).map((item) => (
-                  <div
-                    key={item._id || item.id}
-                    style={{
-                      display: "flex",
-                      alignItems: "flex-start",
-                      gap: 10,
-                      padding: "10px 12px",
-                      background: item.isRead
-                        ? "#FFFFFF"
-                        : "#EFF6FF",
-                      borderRadius: 10,
-                      border: "1px solid",
-                      borderColor: item.isRead
-                        ? "#E2E8F0"
-                        : "#BFDBFE",
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: 28,
-                        height: 28,
-                        borderRadius: "50%",
-                        background: "#DBEAFE",
-                        color: "#1E40AF",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        flexShrink: 0,
-                        marginTop: 2,
-                      }}
-                    >
-                      <Bell size={14} />
-                    </div>
-
-                    <div
-                      style={{
-                        flex: 1,
-                        minWidth: 0,
-                      }}
-                    >
-                      <strong
-                        style={{
-                          fontSize: 13,
-                          color: "#0F172A",
-                          display: "block",
-                        }}
-                      >
-                        {item.title}
-                      </strong>
+                        No volunteering drives yet
+                      </h4>
 
                       <p
                         style={{
-                          fontSize: 12,
-                          color: "#475569",
-                          margin: "2px 0 0",
-                          lineHeight: 1.4,
+                          margin: 0,
+                          fontSize: 13,
                         }}
                       >
-                        {item.message}
+                        New opportunities created by
+                        administrators will appear here.
                       </p>
                     </div>
-                  </div>
-                ))}
+                  ) : (
+                    upcomingOpportunities.map((opp) => {
+                      const oppId = opp.id || opp._id;
+
+                      return (
+                        <div
+                          key={oppId}
+                          className="opp-item-card"
+                        >
+                          <img
+                            src={
+                              opp.image ||
+                              "https://images.unsplash.com/photo-1580582932707-520aed937b7b?auto=format&fit=crop&w=400&q=80"
+                            }
+                            alt={opp.title}
+                            className="opp-item-thumb"
+                          />
+
+                          <div className="opp-item-info">
+                            <div className="opp-tags-row">
+                              <span className="category-pill">
+                                {opp.category}
+                              </span>
+
+                              <span
+                                className={`mode-pill ${(opp.mode || "offline").toLowerCase()}`}
+                              >
+                                {opp.mode || "Offline"}
+                              </span>
+                            </div>
+
+                            <h3 className="opp-item-title">
+                              <Link
+                                to={`/opportunities/${oppId}`}
+                              >
+                                {opp.title}
+                              </Link>
+                            </h3>
+
+                            <div className="opp-item-meta">
+                              <span>
+                                <Calendar size={13} />{" "}
+                                {opp.date}
+                              </span>
+
+                              <span>
+                                <Star
+                                  size={13}
+                                  color="#F59E0B"
+                                  fill="#F59E0B"
+                                />{" "}
+                                +{opp.points || 50} pts
+                              </span>
+
+                              <span>
+                                <Users size={13} />{" "}
+                                {opp.slotsAvailable ?? 10} slots
+                                left
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="opp-item-actions">
+                            <Link
+                              to={`/opportunities/${oppId}/apply`}
+                              className="apply-btn-sm"
+                            >
+                              Register Now
+                            </Link>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
               </div>
-            ) : (
-              <p
-                style={{
-                  fontSize: 13,
-                  color: "#94A3B8",
-                  margin: 0,
-                  padding: "8px 0",
-                }}
-              >
-                No new notifications. You're all caught
-                up!
-              </p>
-            )}
+
+              {/* MY REGISTERED EVENTS */}
+
+              <div className="dash-section-card">
+                <div className="section-card-header">
+                  <div>
+                    <h2>My Upcoming Events</h2>
+                    <p>
+                      Your accepted volunteering drives.
+                    </p>
+                  </div>
+
+                  <Link
+                    to="/applications"
+                    className="view-all-link"
+                  >
+                    All ({myRegisteredEvents.length})
+                  </Link>
+                </div>
+
+                <div className="my-events-list">
+                  {myRegisteredEvents.length === 0 ? (
+                    <div className="empty-events-state">
+                      <Calendar
+                        size={32}
+                        color="#94A3B8"
+                        style={{ marginBottom: 8 }}
+                      />
+
+                      <h4>No registered events yet</h4>
+
+                      <p>
+                        Browse upcoming drives and submit your
+                        application to get started.
+                      </p>
+
+                      <Link
+                        to="/opportunities"
+                        className="dash-btn dash-btn-primary"
+                        style={{
+                          display: "inline-flex",
+                          padding: "7px 14px",
+                          fontSize: "12px",
+                        }}
+                      >
+                        Browse Opportunities
+                      </Link>
+                    </div>
+                  ) : (
+                    myRegisteredEvents.map((app) => (
+                      <div
+                        key={app.id || app._id}
+                        className="my-event-card"
+                      >
+                        <div className="my-event-status-row">
+                          {(() => {
+                            const isAppCompleted =
+                              app.status === "Completed" ||
+                              Boolean(app.pointsAwarded && app.pointsAwarded > 0) ||
+                              Boolean(app.certificateId) ||
+                              Boolean(app.completedAt);
+                            if (isAppCompleted) {
+                              return (
+                                <span className="status-pill completed" style={{ background: "#DCFCE7", color: "#15803D", borderColor: "#86EFAC" }}>
+                                  <CheckCircle2 size={12} />
+                                  Completed
+                                </span>
+                              );
+                            }
+                            if (app.status === "Approved") {
+                              return (
+                                <span className="status-pill approved">
+                                  <CheckCircle2 size={12} />
+                                  Approved
+                                </span>
+                              );
+                            }
+                            return (
+                              <span className="status-pill pending">
+                                Pending Review
+                              </span>
+                            );
+                          })()}
+
+                          <span className="my-event-ref">
+                            {app.referenceId}
+                          </span>
+                        </div>
+
+                        <div className="my-event-info">
+                          <h4 className="my-event-title">
+                            {app.opportunityTitle}
+                          </h4>
+
+                          <p className="my-event-meta">
+                            <span>
+                              <Calendar size={13} />{" "}
+                              {app.eventDate}
+                            </span>
+                          </p>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* PHASE 2A: STUDENT INTERACTIVE EVENT CALENDAR */}
+              <div className="dash-section-card">
+                <div className="section-card-header">
+                  <div>
+                    <h2>Interactive Event Calendar</h2>
+                    <p>
+                      Track registered drives, pending applications, and upcoming event dates.
+                    </p>
+                  </div>
+                </div>
+
+                <EventCalendar
+                  mode="student"
+                  events={opportunities}
+                  applications={applications}
+                  onSelectEvent={(ev) => navigate(`/opportunities/${ev.id || ev._id}`)}
+                />
+              </div>
+
+              {/* RECENT POINTS TRANSACTIONS */}
+
+              <div className="dash-section-card">
+                <div className="section-card-header">
+                  <div>
+                    <h2>Points &amp; Rewards</h2>
+                    <p>Recent impact points earned.</p>
+                  </div>
+
+                  <Link
+                    to="/contributions"
+                    className="view-all-link"
+                  >
+                    View All
+                  </Link>
+                </div>
+
+                {pointsHistory && pointsHistory.length > 0 ? (
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 10,
+                    }}
+                  >
+                    {pointsHistory.slice(0, 3).map((tx) => (
+                      <div
+                        key={tx._id || tx.id}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          padding: "10px 12px",
+                          background: "#F8FAFC",
+                          borderRadius: 10,
+                          border: "1px solid #E2E8F0",
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 10,
+                          }}
+                        >
+                          <div
+                            style={{
+                              width: 32,
+                              height: 32,
+                              borderRadius: 8,
+                              background:
+                                tx.type === "DEBIT"
+                                  ? "#FEE2E2"
+                                  : "#FEF9C3",
+                              color:
+                                tx.type === "DEBIT"
+                                  ? "#DC2626"
+                                  : "#CA8A04",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              fontWeight: 700,
+                            }}
+                          >
+                            <Coins size={16} />
+                          </div>
+
+                          <div>
+                            <strong
+                              style={{
+                                fontSize: 13,
+                                color: "#0F172A",
+                                display: "block",
+                              }}
+                            >
+                              {tx.eventName ||
+                                tx.reason ||
+                                "Volunteer Activity"}
+                            </strong>
+
+                            <span
+                              style={{
+                                fontSize: 11,
+                                color: "#64748B",
+                              }}
+                            >
+                              {tx.createdAt
+                                ? new Date(
+                                  tx.createdAt
+                                ).toLocaleDateString("en-IN")
+                                : "Recent"}
+                            </span>
+                          </div>
+                        </div>
+
+                        <span
+                          style={{
+                            fontWeight: 800,
+                            fontSize: 13.5,
+                            color:
+                              tx.type === "DEBIT"
+                                ? "#DC2626"
+                                : "#16A34A",
+                          }}
+                        >
+                          {tx.type === "DEBIT" ? "-" : "+"}
+                          {tx.points} pts
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p
+                    style={{
+                      fontSize: 13,
+                      color: "#94A3B8",
+                      margin: 0,
+                      padding: "8px 0",
+                    }}
+                  >
+                    No points transactions recorded yet. Join
+                    events to earn impact points!
+                  </p>
+                )}
+              </div>
+
+              {/* RECENT NOTIFICATIONS */}
+
+              <div className="dash-section-card">
+                <div className="section-card-header">
+                  <div>
+                    <h2>Recent Notifications</h2>
+                    <p>
+                      Updates, badges and drive approvals.
+                    </p>
+                  </div>
+
+                  <Link
+                    to="/notifications"
+                    className="view-all-link"
+                  >
+                    View All
+                  </Link>
+                </div>
+
+                {notifications && notifications.length > 0 ? (
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 10,
+                    }}
+                  >
+                    {notifications.slice(0, 3).map((item) => (
+                      <div
+                        key={item._id || item.id}
+                        style={{
+                          display: "flex",
+                          alignItems: "flex-start",
+                          gap: 10,
+                          padding: "10px 12px",
+                          background: item.isRead
+                            ? "#FFFFFF"
+                            : "#EFF6FF",
+                          borderRadius: 10,
+                          border: "1px solid",
+                          borderColor: item.isRead
+                            ? "#E2E8F0"
+                            : "#BFDBFE",
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: 28,
+                            height: 28,
+                            borderRadius: "50%",
+                            background: "#DBEAFE",
+                            color: "#1E40AF",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            flexShrink: 0,
+                            marginTop: 2,
+                          }}
+                        >
+                          <Bell size={14} />
+                        </div>
+
+                        <div
+                          style={{
+                            flex: 1,
+                            minWidth: 0,
+                          }}
+                        >
+                          <strong
+                            style={{
+                              fontSize: 13,
+                              color: "#0F172A",
+                              display: "block",
+                            }}
+                          >
+                            {item.title}
+                          </strong>
+
+                          <p
+                            style={{
+                              fontSize: 12,
+                              color: "#475569",
+                              margin: "2px 0 0",
+                              lineHeight: 1.4,
+                            }}
+                          >
+                            {item.message}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p
+                    style={{
+                      fontSize: 13,
+                      color: "#94A3B8",
+                      margin: 0,
+                      padding: "8px 0",
+                    }}
+                  >
+                    No new notifications. You're all caught
+                    up!
+                  </p>
+                )}
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
-      </>
-    )}
+        </>
+      )}
 
       {/* ═════════════════════════════════════════════════════════════════════
           TAB 2: MY EVENTS (Registered & Participated Events)

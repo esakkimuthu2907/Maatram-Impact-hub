@@ -22,6 +22,16 @@ import {
 import { useApp } from "../../context/AppContext";
 import "./StudentDashboard.css";
 
+// Status colour palette used by the filter pills and the cards
+const STATUS_THEME = {
+  All: { main: "#FFD629", text: "#151515", soft: "#FFFFFF", border: "#E2E8F0", idle: "#64748B" }, // brand yellow
+  Approved: { main: "#2563EB", text: "#FFFFFF", soft: "#EFF6FF", border: "#BFDBFE", idle: "#1D4ED8" }, // blue
+  Completed: { main: "#16A34A", text: "#FFFFFF", soft: "#F0FDF4", border: "#BBF7D0", idle: "#15803D" }, // green
+  Pending: { main: "#F97316", text: "#FFFFFF", soft: "#FFF7ED", border: "#FED7AA", idle: "#C2410C" }, // orange
+  Rejected: { main: "#DC2626", text: "#FFFFFF", soft: "#FEF2F2", border: "#FECACA", idle: "#B91C1C" }, // red
+  Cancelled: { main: "#64748B", text: "#FFFFFF", soft: "#F8FAFC", border: "#E2E8F0", idle: "#64748B" }, // grey
+};
+
 export default function MyApplicationsPage() {
   const {
     applications = [],
@@ -78,7 +88,7 @@ export default function MyApplicationsPage() {
   };
 
   return (
-    <div className="dashboard-container" style={{ maxWidth: 1180, margin: "0 auto", padding: "28px 24px" }}>
+    <div className="dashboard-container" style={{ maxWidth: 1180, margin: "0 auto", padding: "28px 24px", background: "#FFFFFF" }}>
       {/* SECTION HEADER */}
       <div className="section-header-row" style={{ marginBottom: 28 }}>
         <div>
@@ -175,36 +185,32 @@ export default function MyApplicationsPage() {
         </div>
 
         <div className="format-pills-row" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          {["All", "Approved", "Completed", "Pending", "Cancelled"].map((st) => (
-            <button
-              key={st}
-              className={`format-pill-btn ${filter === st ? "active" : ""}`}
-              onClick={() => setFilter(st)}
-              style={{
-                padding: "8px 16px",
-                borderRadius: 20,
-                fontSize: 13,
-                fontWeight: 600,
-                border:
-                  filter === st
-                    ? st === "Completed"
-                      ? "1px solid #22C55E"
-                      : "1px solid #FFD629"
-                    : "1px solid #E2E8F0",
-                background:
-                  filter === st
-                    ? st === "Completed"
-                      ? "#22C55E"
-                      : "#FFD629"
-                    : "#FFFFFF",
-                color: filter === st ? (st === "Completed" ? "#FFFFFF" : "#151515") : "#64748B",
-                cursor: "pointer",
-                transition: "all 0.2s ease",
-              }}
-            >
-              {st}
-            </button>
-          ))}
+          {["All", "Approved", "Completed", "Pending", "Rejected", "Cancelled"].map((st) => {
+            const t = STATUS_THEME[st];
+            const active = filter === st;
+            return (
+              <button
+                key={st}
+                className={`format-pill-btn ${active ? "active" : ""}`}
+                onClick={() => setFilter(st)}
+                style={{
+                  padding: "8px 16px",
+                  borderRadius: 20,
+                  fontSize: 13,
+                  fontWeight: 700,
+                  // White by default; colour appears only when the pill is clicked (active)
+                  border: `1.5px solid ${active ? t.main : "#E2E8F0"}`,
+                  background: active ? t.main : "#FFFFFF",
+                  color: active ? t.text : "#64748B",
+                  boxShadow: active ? `0 4px 12px ${t.main}55` : "none",
+                  cursor: "pointer",
+                  transition: "all 0.2s ease",
+                }}
+              >
+                {st}
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -284,32 +290,39 @@ export default function MyApplicationsPage() {
             const isApproved = !isCompleted && app.status === "Approved";
             const isPending = app.status === "Pending";
             const isCancelled = app.status === "Cancelled";
+            const isRejected = app.status === "Rejected";
             const appId = app.id || app._id;
 
             // Border color based on status
             const borderColor = isCompleted
               ? "#86EFAC"
               : isApproved
-              ? "#93C5FD"
-              : isPending
-              ? "#FDE68A"
-              : "#E2E8F0";
+                ? "#93C5FD"
+                : isPending
+                  ? "#FDBA74"
+                  : isRejected
+                    ? "#FCA5A5"
+                    : "#E2E8F0";
 
             // Status badge colors
             const badgeBg = isCompleted
               ? "#DCFCE7"
               : isApproved
-              ? "#DBEAFE"
-              : isPending
-              ? "#FEF3C7"
-              : "#F1F5F9";
+                ? "#DBEAFE"
+                : isPending
+                  ? "#FFEDD5"
+                  : isRejected
+                    ? "#FEE2E2"
+                    : "#F1F5F9";
             const badgeColor = isCompleted
               ? "#15803D"
               : isApproved
-              ? "#1D4ED8"
-              : isPending
-              ? "#92400E"
-              : "#64748B";
+                ? "#1D4ED8"
+                : isPending
+                  ? "#C2410C"
+                  : isRejected
+                    ? "#B91C1C"
+                    : "#64748B";
 
             return (
               <div
@@ -389,7 +402,8 @@ export default function MyApplicationsPage() {
                     >
                       {isCompleted && <CheckCircle2 size={13} color="#15803D" />}
                       {isApproved && <CheckCircle2 size={13} color="#1D4ED8" />}
-                      {isPending && <Clock3 size={13} color="#92400E" />}
+                      {isPending && <Clock3 size={13} color="#C2410C" />}
+                      {isRejected && <XCircle size={13} color="#B91C1C" />}
                       {isCancelled && <XCircle size={13} color="#64748B" />}
                       {isCompleted ? "✅ Completed" : app.status}
                     </span>
@@ -527,7 +541,7 @@ export default function MyApplicationsPage() {
                       View Details <ChevronRight size={14} />
                     </Link>
 
-                    {!isCancelled && !isCompleted && (
+                    {!isCancelled && !isCompleted && !isRejected && (
                       <button
                         onClick={() => cancelApplication(appId)}
                         style={{

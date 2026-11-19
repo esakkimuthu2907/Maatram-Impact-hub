@@ -23,6 +23,7 @@ import {
   X,
   TrendingUp,
   FileSpreadsheet,
+  Bot,
 } from "lucide-react";
 import MaatramLogo from "../common/MaatramLogo";
 import { useApp } from "../../context/AppContext";
@@ -65,6 +66,12 @@ export default function Sidebar({ collapsed, onToggleCollapse, isMobile, onClose
       icon: TrendingUp,
     },
     {
+      title: "AI Learning Hub",
+      path: "/admin/learning",
+      icon: Sparkles,
+      badge: "AI RAG",
+    },
+    {
       title: "Volunteer Leaderboard",
       path: "/leaderboard",
       icon: Trophy,
@@ -83,6 +90,11 @@ export default function Sidebar({ collapsed, onToggleCollapse, isMobile, onClose
       title: "Opportunities & Leads",
       path: "/opportunities",
       icon: Compass,
+    },
+    {
+      title: "AI Learning Hub",
+      path: "/learning",
+      icon: Sparkles,
     },
     {
       title: "Maatram Connect",
@@ -118,7 +130,12 @@ export default function Sidebar({ collapsed, onToggleCollapse, isMobile, onClose
       path: "/dashboard",
       icon: LayoutDashboard,
     },
-    
+    {
+      title: "AI Learning Hub",
+      path: "/learning",
+      icon: Sparkles,
+      badge: "AI RAG",
+    },
     {
       title: "Opportunities",
       path: "/opportunities",
@@ -129,7 +146,7 @@ export default function Sidebar({ collapsed, onToggleCollapse, isMobile, onClose
       path: "/applications",
       icon: FileText,
     },
-   
+
     {
       title: "Maatram Connect",
       path: "/connect",
@@ -145,12 +162,7 @@ export default function Sidebar({ collapsed, onToggleCollapse, isMobile, onClose
       path: "/contributions",
       icon: HeartHandshake,
     },
-    {
-      title: "Volunteer Reports",
-      path: "/reports",
-      icon: TrendingUp,
-    },
-    
+
     {
       title: "Settings",
       path: "/settings",
@@ -161,8 +173,8 @@ export default function Sidebar({ collapsed, onToggleCollapse, isMobile, onClose
   const navLinks = isAdmin
     ? adminNavLinks
     : user?.role === "alumni"
-    ? alumniNavLinks
-    : studentNavLinks;
+      ? alumniNavLinks
+      : studentNavLinks;
 
   const handleLinkClick = () => {
     if (isMobile) onCloseMobile?.();
@@ -205,8 +217,8 @@ export default function Sidebar({ collapsed, onToggleCollapse, isMobile, onClose
             item.path === "/dashboard"
               ? location.pathname === "/dashboard"
               : item.path === "/admin/dashboard"
-              ? location.pathname === "/admin" || location.pathname === "/admin/dashboard"
-              : location.pathname.startsWith(item.path);
+                ? location.pathname === "/admin" || location.pathname === "/admin/dashboard"
+                : location.pathname.startsWith(item.path);
 
           if (item.hasSubmenu) {
             return (

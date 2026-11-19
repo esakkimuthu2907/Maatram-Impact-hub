@@ -11,21 +11,63 @@ import {
   GraduationCap,
   TrendingUp,
   Zap,
-  Filter,
   RotateCcw,
   MapPin,
   Calendar,
-  Sparkles,
   X,
-  CheckCircle2,
+  Gem,
+  Crown,
+  Leaf,
 } from "lucide-react";
 import { useApp } from "../../context/AppContext";
 import { usersAPI } from "../../api/usersAPI";
-import { adminAPI } from "../../api/adminAPI";
 import "./StudentDashboard.css";
 
 /* ─────────────── helpers ─────────────── */
 const MEDAL = ["🥇", "🥈", "🥉"];
+
+/* Single source of truth for the table grid (header + rows)
+   Volunteer column is now a fixed width so the gap before College is small */
+const STUDENT_GRID = "56px 235px 1.3fr 80px 110px 100px 90px 200px";
+const COLLEGE_STUDENT_GRID = "50px 220px 1fr 80px 90px 80px 90px 200px";
+const ZONE_COLLEGE_GRID = "50px 330px 80px 90px 90px 100px 1fr";
+
+/* Zone-wise tab shows only this zone */
+const ZONE_TO_SHOW = "Zone 1";
+const ZONE_REGION = "North Tamil Nadu & Chennai Region";
+
+/* Colour theme for each tab button */
+const TAB_THEME = {
+  Overall: {
+    grad: "linear-gradient(135deg,#0F172A,#1D4ED8)",
+    tint: "#EFF6FF",
+    text: "#1D4ED8",
+    glow: "rgba(29,78,216,0.45)",
+  },
+  College: {
+    grad: "linear-gradient(135deg,#6D28D9,#C026D3)",
+    tint: "#FAF5FF",
+    text: "#7E22CE",
+    glow: "rgba(168,85,247,0.45)",
+  },
+  Zone: {
+    grad: "linear-gradient(135deg,#047857,#14B8A6)",
+    tint: "#ECFDF5",
+    text: "#047857",
+    glow: "rgba(16,185,129,0.45)",
+  },
+};
+
+/* Work out 1st-4th year from "2023-2027" style batches (academic year starts ~June) */
+function yearOfStudy(u) {
+  const ay = String(u.academicYear || "").match(/[1-4]/);
+  if (ay) return Number(ay[0]);
+  const m = String(u.batch || "").match(/(\d{4})/);
+  if (!m) return null;
+  const now = new Date();
+  const yr = now.getFullYear() - Number(m[1]) + (now.getMonth() >= 5 ? 1 : 0);
+  return yr >= 1 && yr <= 4 ? yr : null;
+}
 
 function rankMedal(rank) {
   if (rank <= 3) return <span style={{ fontSize: 22 }}>{MEDAL[rank - 1]}</span>;
@@ -38,9 +80,9 @@ function rankMedal(rank) {
         width: 32,
         height: 32,
         borderRadius: "50%",
-        background: "rgba(255,255,255,0.08)",
-        border: "1px solid rgba(255,255,255,0.15)",
-        color: "#CBD5E1",
+        background: "#F1F5F9",
+        border: "1px solid #E2E8F0",
+        color: "#475569",
         fontWeight: 700,
         fontSize: 13,
       }}
@@ -50,143 +92,173 @@ function rankMedal(rank) {
   );
 }
 
-function badgeTierColor(tier) {
-  if (!tier) return { bg: "#1E3A5F", color: "#93C5FD" };
+/* Tier styles – gradient, glow & icon */
+function badgeTierStyle(tier) {
+  const base = {
+    bg: "linear-gradient(135deg,#1E3A5F,#1E40AF)",
+    color: "#93C5FD",
+    border: "rgba(147,197,253,0.45)",
+    glow: "rgba(147,197,253,0.25)",
+    iconBg: "linear-gradient(135deg,#93C5FD,#3B82F6)",
+    iconColor: "#1E3A5F",
+    icon: Award,
+  };
+  if (!tier) return base;
   const t = tier.toLowerCase();
-  if (t.includes("green"))    return { bg: "#052e16", color: "#4ade80" };
-  if (t.includes("platinum")) return { bg: "#1e293b", color: "#e2e8f0" };
-  if (t.includes("diamond"))  return { bg: "#172554", color: "#93c5fd" };
-  if (t.includes("gold"))     return { bg: "#2d1a00", color: "#fbbf24" };
-  if (t.includes("silver"))   return { bg: "#1e293b", color: "#cbd5e1" };
-  return                             { bg: "#2d1a00", color: "#fb923c" };
+  if (t.includes("green"))
+    return {
+      bg: "linear-gradient(135deg,#052e16,#14532d)",
+      color: "#4ade80",
+      border: "rgba(74,222,128,0.45)",
+      glow: "rgba(74,222,128,0.3)",
+      iconBg: "linear-gradient(135deg,#86efac,#16a34a)",
+      iconColor: "#052e16",
+      icon: Leaf,
+    };
+  if (t.includes("platinum"))
+    return {
+      bg: "linear-gradient(135deg,#1e293b,#334155)",
+      color: "#e2e8f0",
+      border: "rgba(226,232,240,0.45)",
+      glow: "rgba(226,232,240,0.25)",
+      iconBg: "linear-gradient(135deg,#f1f5f9,#94a3b8)",
+      iconColor: "#1e293b",
+      icon: Crown,
+    };
+  if (t.includes("diamond"))
+    return {
+      bg: "linear-gradient(135deg,#172554,#1e3a8a)",
+      color: "#93c5fd",
+      border: "rgba(147,197,253,0.5)",
+      glow: "rgba(96,165,250,0.35)",
+      iconBg: "linear-gradient(135deg,#bfdbfe,#3b82f6)",
+      iconColor: "#172554",
+      icon: Gem,
+    };
+  if (t.includes("gold"))
+    return {
+      bg: "linear-gradient(135deg,#2d1a00,#78350f)",
+      color: "#fbbf24",
+      border: "rgba(251,191,36,0.5)",
+      glow: "rgba(251,191,36,0.3)",
+      iconBg: "linear-gradient(135deg,#fde68a,#f59e0b)",
+      iconColor: "#78350f",
+      icon: Trophy,
+    };
+  if (t.includes("silver"))
+    return {
+      bg: "linear-gradient(135deg,#1e293b,#334155)",
+      color: "#cbd5e1",
+      border: "rgba(203,213,225,0.45)",
+      glow: "rgba(148,163,184,0.3)",
+      iconBg: "linear-gradient(135deg,#e2e8f0,#94a3b8)",
+      iconColor: "#1e293b",
+      icon: Star,
+    };
+  /* bronze / default */
+  return {
+    bg: "linear-gradient(135deg,#2d1a00,#431407)",
+    color: "#fb923c",
+    border: "rgba(251,146,60,0.45)",
+    glow: "rgba(251,146,60,0.28)",
+    iconBg: "linear-gradient(135deg,#fdba74,#ea580c)",
+    iconColor: "#431407",
+    icon: Medal,
+  };
 }
 
-/* ─────────────── College Podium Card ─────────────── */
-function CollegePodiumCard({ college, rank, isMine }) {
-  const gradients = [
-    "linear-gradient(135deg,#78350F,#D97706,#F59E0B)",
-    "linear-gradient(135deg,#374151,#9CA3AF,#D1D5DB)",
-    "linear-gradient(135deg,#431407,#9A3412,#EA580C)",
-  ];
-  const labels = ["🥇 1st Place", "🥈 2nd Place", "🥉 3rd Place"];
-  const sizes  = [120, 100, 100];
-
+/* ─────────────── Tier Badge (last column pill) ─────────────── */
+function TierBadge({ tier }) {
+  const s = badgeTierStyle(tier);
+  const Icon = s.icon;
   return (
-    <div
+    <span
+      title={tier}
       style={{
-        flex: 1,
-        minWidth: 180,
-        borderRadius: 20,
-        padding: "24px 20px",
-        background: gradients[rank - 1],
-        display: "flex",
-        flexDirection: "column",
+        display: "inline-flex",
         alignItems: "center",
-        gap: 10,
-        position: "relative",
-        boxShadow: isMine
-          ? "0 0 0 3px #FBBF24, 0 8px 32px rgba(0,0,0,0.5)"
-          : "0 8px 32px rgba(0,0,0,0.4)",
-        order: rank === 1 ? 0 : rank === 2 ? -1 : 1,
+        gap: 8,
+        padding: "4px 14px 4px 4px",
+        borderRadius: 999,
+        background: s.bg,
+        border: `1px solid ${s.border}`,
+        boxShadow: `0 4px 14px ${s.glow}, inset 0 1px 0 rgba(255,255,255,0.12)`,
+        color: s.color,
+        fontSize: 11.5,
+        fontWeight: 800,
+        letterSpacing: 0.2,
+        whiteSpace: "nowrap",
       }}
     >
-      {isMine && (
-        <span
-          style={{
-            position: "absolute",
-            top: -14,
-            left: "50%",
-            transform: "translateX(-50%)",
-            background: "#FBBF24",
-            color: "#1C1917",
-            fontSize: 11,
-            fontWeight: 800,
-            padding: "3px 12px",
-            borderRadius: 20,
-            whiteSpace: "nowrap",
-          }}
-        >
-          Your College
-        </span>
-      )}
-
-      <div
+      <span
         style={{
-          width: sizes[rank - 1],
-          height: sizes[rank - 1],
+          width: 24,
+          height: 24,
           borderRadius: "50%",
-          background: "rgba(0,0,0,0.25)",
-          display: "flex",
+          background: s.iconBg,
+          display: "inline-flex",
           alignItems: "center",
           justifyContent: "center",
-          fontSize: rank === 1 ? 44 : 36,
-          border: "3px solid rgba(255,255,255,0.3)",
+          boxShadow: "0 2px 6px rgba(0,0,0,0.35)",
+          flexShrink: 0,
         }}
       >
-        <Building2 size={rank === 1 ? 42 : 32} color="#fff" />
-      </div>
-
-      <span style={{ fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,0.75)" }}>
-        {labels[rank - 1]}
+        <Icon size={13} color={s.iconColor} strokeWidth={2.4} />
       </span>
-      <h3
+      {tier}
+    </span>
+  );
+}
+
+/* ─────────────── Active filter chip ─────────────── */
+function FilterChip({ icon, label, onRemove }) {
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 5,
+        background: "#DBEAFE",
+        color: "#1E3A8A",
+        border: "1px solid #93C5FD",
+        borderRadius: 20,
+        padding: "3px 10px",
+        fontSize: 12,
+        fontWeight: 700,
+      }}
+    >
+      {icon} {label}
+      <button
+        onClick={onRemove}
         style={{
-          margin: 0,
-          color: "#fff",
-          fontSize: 15,
-          fontWeight: 800,
-          textAlign: "center",
-          lineHeight: 1.3,
+          background: "none",
+          border: "none",
+          cursor: "pointer",
+          padding: 0,
+          lineHeight: 1,
+          color: "#1D4ED8",
         }}
       >
-        {college.collegeName || college.name || "College"}
-      </h3>
-
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center", marginTop: 4 }}>
-        <span
-          style={{
-            background: "rgba(0,0,0,0.25)",
-            borderRadius: 10,
-            padding: "4px 10px",
-            color: "#fff",
-            fontSize: 12,
-            fontWeight: 700,
-          }}
-        >
-          {college.totalPoints ?? 0} pts
-        </span>
-        <span
-          style={{
-            background: "rgba(0,0,0,0.2)",
-            borderRadius: 10,
-            padding: "4px 10px",
-            color: "rgba(255,255,255,0.85)",
-            fontSize: 12,
-          }}
-        >
-          {college.totalStudents ?? 0} students
-        </span>
-      </div>
-    </div>
+        <X size={12} />
+      </button>
+    </span>
   );
 }
 
 /* ─────────────── Main Component ─────────────── */
 export default function LeaderboardPage() {
   const { user, opportunities = [], applications = [] } = useApp();
-  const [activeTab, setActiveTab]             = useState("Overall");
-  const [search, setSearch]                   = useState("");
+  const [activeTab, setActiveTab] = useState("Overall");
+  const [search, setSearch] = useState("");
   const [selectedCollege, setSelectedCollege] = useState("All");
-  const [selectedZone, setSelectedZone]       = useState("All");
-  const [selectedYear, setSelectedYear]       = useState("All");
-  const [selectedEvent, setSelectedEvent]     = useState("All");
-  const [collegeSearch, setCollegeSearch]     = useState("");
+  const [selectedZone, setSelectedZone] = useState("All");
+  const [selectedYear, setSelectedYear] = useState("All");
+  const [selectedEvent, setSelectedEvent] = useState("All");
+  const [collegeSearch, setCollegeSearch] = useState("");
   const [collegeYearFilter, setCollegeYearFilter] = useState("All");
-  const [zoneFilter, setZoneFilter]           = useState("All");
   const [zoneCollegeSearch, setZoneCollegeSearch] = useState("");
   const [leaderboardData, setLeaderboardData] = useState([]);
-  const [collegeLeaderboard, setCollegeLeaderboard] = useState([]);
-  const [loading, setLoading]                 = useState(true);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadData() {
@@ -221,20 +293,20 @@ export default function LeaderboardPage() {
               (u.points || 0) >= 1500
                 ? "Green Gem Leader"
                 : (u.points || 0) >= 1000
-                ? "Platinum Volunteer"
-                : (u.points || 0) >= 500
-                ? "Diamond Volunteer"
-                : (u.points || 0) >= 250
-                ? "Gold Impact Champion"
-                : (u.points || 0) >= 100
-                ? "Silver Star Volunteer"
-                : "Bronze Social Leader",
+                  ? "Platinum Volunteer"
+                  : (u.points || 0) >= 500
+                    ? "Diamond Volunteer"
+                    : (u.points || 0) >= 250
+                      ? "Gold Impact Champion"
+                      : (u.points || 0) >= 100
+                        ? "Silver Star Volunteer"
+                        : "Bronze Social Leader",
             category: "Students",
             isCurrentUser: user
               ? u.applicationId === user.applicationId ||
-                u.id === user.id ||
-                u.id === user._id ||
-                u.email === user.email
+              u.id === user.id ||
+              u.id === user._id ||
+              u.email === user.email
               : false,
           }));
           setLeaderboardData(mapped);
@@ -263,15 +335,6 @@ export default function LeaderboardPage() {
           ]);
         }
 
-        /* ── college leaderboard ── */
-        try {
-          const rRes = await adminAPI.getReports();
-          if (rRes?.data?.collegeLeaderboard) {
-            setCollegeLeaderboard(rRes.data.collegeLeaderboard);
-          }
-        } catch (_) {
-          /* college leaderboard is optional */
-        }
       } catch (err) {
         console.warn("Could not load leaderboard:", err);
       } finally {
@@ -317,7 +380,8 @@ export default function LeaderboardPage() {
           (u.college || "").toLowerCase().includes(q) ||
           (u.zone || "").toLowerCase().includes(q) ||
           (u.department || "").toLowerCase().includes(q) ||
-          (u.batch || "").toLowerCase().includes(q)
+          (u.batch || "").toLowerCase().includes(q) ||
+          (u.badgeTier || "").toLowerCase().includes(q)
       );
     }
 
@@ -391,133 +455,16 @@ export default function LeaderboardPage() {
   };
 
   /* derived stats & rankings */
-  const myCollegeName = user?.college || "Anna University";
-
-  // 1. Student rankings filtered by search for legacy compatibility
   const filteredUsers = filteredAndRankedStudents;
 
-  // 2. Computed College Leaderboard
-  const computedColleges = React.useMemo(() => {
-    const map = new Map();
-    leaderboardData.forEach((u) => {
-      const col = u.college || "Anna University, Chennai";
-      if (!map.has(col)) {
-        map.set(col, {
-          collegeName: col,
-          totalStudents: 0,
-          totalPoints: 0,
-          totalHours: 0,
-          topVolunteer: u.name,
-          highestPoints: 0,
-        });
-      }
-      const entry = map.get(col);
-      entry.totalStudents += 1;
-      entry.totalPoints += Number(u.points) || 0;
-      entry.totalHours += Number(u.totalHours) || 0;
-      if ((Number(u.points) || 0) >= entry.highestPoints) {
-        entry.highestPoints = Number(u.points) || 0;
-        entry.topVolunteer = u.name;
-      }
-    });
-
-    // Merge with any backend reports college leaderboard if available
-    collegeLeaderboard.forEach((c) => {
-      const name = c.collegeName || c.name;
-      if (name && !map.has(name)) {
-        map.set(name, {
-          collegeName: name,
-          totalStudents: c.totalStudents || 1,
-          totalPoints: c.totalPoints || 0,
-          totalHours: c.totalHours || 0,
-          topVolunteer: c.topVolunteer || "Volunteers",
-          highestPoints: c.totalPoints || 0,
-        });
-      }
-    });
-
-    const list = Array.from(map.values()).sort(
-      (a, b) => b.totalPoints - a.totalPoints || b.totalStudents - a.totalStudents
-    );
-    return list;
-  }, [leaderboardData, collegeLeaderboard]);
-
-  const filteredColleges = computedColleges.filter((c) => {
-    const q = search.trim().toLowerCase();
-    if (!q) return true;
-    return (c.collegeName || "").toLowerCase().includes(q);
-  });
-
-  // ── College-tab dedicated search (independent from Overall search)
-  const collegeTabFiltered = React.useMemo(() => {
-    // First, filter the underlying student data by year if needed
-    let baseData = leaderboardData;
-    if (collegeYearFilter !== "All") {
-      baseData = leaderboardData.filter(
-        (u) => (u.batch || "").trim() === collegeYearFilter.trim()
-      );
-    }
-
-    // Re-aggregate colleges from year-filtered students
-    const map = new Map();
-    baseData.forEach((u) => {
-      const col = u.college || "Anna University, Chennai";
-      if (!map.has(col)) {
-        map.set(col, {
-          collegeName: col,
-          totalStudents: 0,
-          totalPoints: 0,
-          totalHours: 0,
-          topVolunteer: u.name,
-          highestPoints: 0,
-        });
-      }
-      const entry = map.get(col);
-      entry.totalStudents += 1;
-      entry.totalPoints += Number(u.points) || 0;
-      entry.totalHours += Number(u.totalHours) || 0;
-      if ((Number(u.points) || 0) >= entry.highestPoints) {
-        entry.highestPoints = Number(u.points) || 0;
-        entry.topVolunteer = u.name;
-      }
-    });
-    let yearFiltered = Array.from(map.values()).sort(
-      (a, b) => b.totalPoints - a.totalPoints || b.totalStudents - a.totalStudents
-    );
-    // If no year filter, merge backend college leaderboard too
-    if (collegeYearFilter === "All") {
-      collegeLeaderboard.forEach((c) => {
-        const name = c.collegeName || c.name;
-        if (name && !map.has(name)) {
-          yearFiltered.push({
-            collegeName: name,
-            totalStudents: c.totalStudents || 1,
-            totalPoints: c.totalPoints || 0,
-            totalHours: c.totalHours || 0,
-            topVolunteer: c.topVolunteer || "Volunteers",
-            highestPoints: c.totalPoints || 0,
-          });
-        }
-      });
-      yearFiltered.sort((a, b) => b.totalPoints - a.totalPoints || b.totalStudents - a.totalStudents);
-    }
-
-    // Then apply the name search
-    const q = collegeSearch.trim().toLowerCase();
-    if (!q) return yearFiltered;
-    return yearFiltered.filter((c) =>
-      (c.collegeName || "").toLowerCase().includes(q) ||
-      (c.topVolunteer || "").toLowerCase().includes(q)
-    );
-  }, [leaderboardData, collegeLeaderboard, collegeSearch, collegeYearFilter]);
-
-  // ── Zone-tab: filter students by selected zone, aggregate colleges inside it
-  const zoneTabStudents = React.useMemo(() => {
-    if (zoneFilter === "All") return leaderboardData;
-    return leaderboardData.filter(
-      (u) => (u.zone || "Zone 1").trim() === zoneFilter.trim()
-    );
-  }, [leaderboardData, zoneFilter]);
+  // Zone-tab: filter students by selected zone, aggregate colleges inside it
+  const zoneTabStudents = React.useMemo(
+    () =>
+      leaderboardData.filter(
+        (u) => (u.zone || "Zone 1").trim() === ZONE_TO_SHOW
+      ),
+    [leaderboardData]
+  );
 
   const zoneTabColleges = React.useMemo(() => {
     const map = new Map();
@@ -541,73 +488,65 @@ export default function LeaderboardPage() {
   const zoneTabCollegesFiltered = React.useMemo(() => {
     const q = zoneCollegeSearch.trim().toLowerCase();
     if (!q) return zoneTabColleges;
-    return zoneTabColleges.filter((c) =>
-      (c.collegeName || "").toLowerCase().includes(q)
+    return zoneTabColleges.filter(
+      (c) =>
+        (c.collegeName || "").toLowerCase().includes(q) ||
+        (c.topVolunteer || "").toLowerCase().includes(q)
     );
   }, [zoneTabColleges, zoneCollegeSearch]);
 
-  // 3. Computed Zone Leaderboard (Zone 1, Zone 2, Zone 3)
-  const zoneRankings = React.useMemo(() => {
-    const ZONES = [
-      {
-        zoneName: "Zone 1",
-        region: "North Tamil Nadu & Chennai Region",
-        districts: "Chennai, Tiruvallur, Kanchipuram, Chengalpattu, Vellore",
-      },
-      {
-        zoneName: "Zone 2",
-        region: "Central & Western Tamil Nadu",
-        districts: "Coimbatore, Salem, Erode, Tiruppur, Trichy, Karur",
-      },
-      {
-        zoneName: "Zone 3",
-        region: "Southern Tamil Nadu",
-        districts: "Madurai, Tirunelveli, Tenkasi, Thoothukudi, Kanyakumari, Theni",
-      },
-    ];
-
-    const aggregated = ZONES.map((z) => {
-      const zoneStudents = leaderboardData.filter(
-        (u) => (u.zone || "").trim() === z.zoneName || (!u.zone && z.zoneName === "Zone 1")
-      );
-      const totalPoints = zoneStudents.reduce((sum, s) => sum + (Number(s.points) || 0), 0);
-      const totalHours = zoneStudents.reduce((sum, s) => sum + (Number(s.totalHours) || 0), 0);
-      const totalVolunteers = zoneStudents.length;
-      const topStudent =
-        [...zoneStudents].sort((a, b) => (b.points || 0) - (a.points || 0))[0]?.name ||
-        "Active Volunteers";
-      const leadingCollege =
-        [...zoneStudents].sort((a, b) => (b.points || 0) - (a.points || 0))[0]?.college ||
-        "Anna University, Chennai";
-
-      return {
-        ...z,
-        totalPoints,
-        totalHours,
-        totalVolunteers,
-        topStudent,
-        leadingCollege,
-      };
-    }).sort((a, b) => b.totalPoints - a.totalPoints || b.totalVolunteers - a.totalVolunteers);
-
-    return aggregated;
-  }, [leaderboardData]);
-
-  const topThree   = leaderboardData.slice(0, 3);
+  const topThree = leaderboardData.slice(0, 3);
   const myStanding = leaderboardData.find((u) => u.isCurrentUser) || {};
-  const myRank     = myStanding.rank     ?? (user?.rank     ?? "–");
-  const myPoints   = myStanding.points   ?? (user?.points   ?? 0);
-  const myHours    = myStanding.totalHours ?? (user?.totalHours ?? 0);
-  const myEvents   = myStanding.eventsJoined ?? (user?.eventsJoined ?? 0);
+  const myRank = myStanding.rank ?? (user?.rank ?? "–");
+  const myPoints = myStanding.points ?? (user?.points ?? 0);
+  const myHours = myStanding.totalHours ?? (user?.totalHours ?? 0);
+  const myEvents = myStanding.eventsJoined ?? (user?.eventsJoined ?? 0);
 
-  const topColleges = computedColleges.slice(0, 3);
-  const topZones = zoneRankings.slice(0, 3);
+  /* ── My college only ── */
+  const myCollegeLabel = user?.college || myStanding.college || "";
+  const myZoneLabel = myStanding.zone || user?.zone || "Zone 1";
+
+  const myCollegeAll = useMemo(() => {
+    const mine = myCollegeLabel.toLowerCase().trim();
+    if (!mine) return [];
+    return leaderboardData.filter((u) => {
+      const c = (u.college || "").toLowerCase().trim();
+      return c && (c === mine || c.includes(mine) || mine.includes(c));
+    });
+  }, [leaderboardData, myCollegeLabel]);
+
+  const myCollegeRanked = useMemo(() => {
+    let list = [...myCollegeAll];
+    if (collegeYearFilter !== "All") {
+      if (/^[1-4]/.test(collegeYearFilter)) {
+        list = list.filter((u) => yearOfStudy(u) === Number(collegeYearFilter[0]));
+      } else {
+        list = list.filter((u) => (u.batch || "").trim() === collegeYearFilter.trim());
+      }
+    }
+    const q = collegeSearch.trim().toLowerCase();
+    if (q) list = list.filter((u) => (u.name || "").toLowerCase().includes(q));
+    list.sort(
+      (a, b) =>
+        (Number(b.points) || 0) - (Number(a.points) || 0) ||
+        (Number(b.totalHours) || 0) - (Number(a.totalHours) || 0) ||
+        (Number(b.eventsJoined) || 0) - (Number(a.eventsJoined) || 0)
+    );
+    return list.map((u, idx) => ({ ...u, rank: idx + 1 }));
+  }, [myCollegeAll, collegeYearFilter, collegeSearch]);
+
+  const myCollegeTotals = {
+    students: myCollegeAll.length,
+    points: myCollegeAll.reduce((sum, u) => sum + (Number(u.points) || 0), 0),
+    hours: myCollegeAll.reduce((sum, u) => sum + (Number(u.totalHours) || 0), 0),
+    top: [...myCollegeAll].sort((a, b) => (b.points || 0) - (a.points || 0))[0]?.name || "—",
+  };
 
   /* ─── styles ─── */
   const heroStyle = {
     background: "linear-gradient(135deg,#1E1B4B 0%,#312E81 50%,#4338CA 100%)",
     borderRadius: 20,
-    padding: "20px 26px",
+    padding: "28px 26px",
     marginBottom: 24,
     position: "relative",
     overflow: "hidden",
@@ -627,90 +566,185 @@ export default function LeaderboardPage() {
     gap: 1,
   };
 
-  const tabBtnStyle = (active) => ({
-    padding: "8px 18px",
-    borderRadius: 50,
-    border: "none",
-    cursor: "pointer",
-    fontWeight: 700,
+  /* Tab buttons – each tab has its own colour */
+  const tabBtnStyle = (active, key) => {
+    const t = TAB_THEME[key];
+    return {
+      padding: "10px 22px",
+      borderRadius: 50,
+      cursor: "pointer",
+      fontWeight: 800,
+      fontSize: 13.5,
+      letterSpacing: 0.2,
+      transition: "all .2s",
+      border: active ? "1.5px solid transparent" : `1.5px solid ${t.text}33`,
+      background: active ? t.grad : t.tint,
+      color: active ? "#fff" : t.text,
+      boxShadow: active ? `0 6px 18px ${t.glow}` : "none",
+      transform: active ? "translateY(-1px)" : "none",
+    };
+  };
+
+  const filterSelectStyle = (isActive) => ({
+    border: "1.5px solid #93C5FD",
+    borderRadius: 8,
+    padding: "5px 10px",
     fontSize: 13,
-    transition: "all .2s",
-    background: active
-      ? "linear-gradient(135deg,#4F46E5,#7C3AED)"
-      : "rgba(99,102,241,0.1)",
-    color: active ? "#fff" : "#6366F1",
-    boxShadow: active ? "0 4px 15px rgba(79,70,229,0.4)" : "none",
+    color: "#0F172A",
+    background: "#fff",
+    fontWeight: isActive ? 700 : 500,
+    outline: "none",
+    cursor: "pointer",
   });
 
-  /* college table row highlight */
-  const isMyCollege = (c) =>
-    user?.college &&
-    (c.collegeName || c.name || "")
-      .toLowerCase()
-      .trim()
-      .includes(user.college.toLowerCase().trim());
+  const rowBorderLeft = (u, isMe) =>
+    isMe
+      ? "4px solid #F59E0B"
+      : u.rank === 1
+        ? "4px solid #FBBF24"
+        : u.rank === 2
+          ? "4px solid #94A3B8"
+          : u.rank === 3
+            ? "4px solid #EA580C"
+            : "4px solid transparent";
+
+  const rowBackground = (isMe, i) =>
+    isMe
+      ? "linear-gradient(90deg,#FFF7ED,#FFFBEB)"
+      : i % 2 === 0
+        ? "#fff"
+        : "#F8FAFF";
 
   return (
-    <div className="dashboard-container">
+    <div
+      className="dashboard-container"
+      style={{ background: "transparent", minHeight: 0 }}
+    >
 
-      {/* ═══════════════ HERO BANNER (COMPACT & BALANCED) ═══════════════ */}
+      {/* ═══════════════ HERO BANNER (ordered, justified row) ═══════════════ */}
       <div style={heroStyle}>
         {/* decorative circles */}
         <div
           style={{
             position: "absolute",
-            top: -40,
-            right: -40,
-            width: 140,
-            height: 140,
+            top: -50,
+            right: -50,
+            width: 170,
+            height: 170,
             borderRadius: "50%",
             background: "rgba(255,255,255,0.06)",
             pointerEvents: "none",
           }}
         />
+        <div
+          style={{
+            position: "absolute",
+            bottom: -60,
+            left: -40,
+            width: 150,
+            height: 150,
+            borderRadius: "50%",
+            background: "rgba(255,255,255,0.05)",
+            pointerEvents: "none",
+          }}
+        />
 
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16 }}>
-          {/* Left: Title & Subtitle */}
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <div
+          style={{
+            position: "relative",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 20,
+          }}
+        >
+          {/* Title */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-start", gap: 14, flexWrap: "wrap", alignSelf: "flex-start" }}>
             <div
               style={{
-                background: "rgba(255,255,255,0.16)",
-                borderRadius: 12,
-                padding: 9,
+                background: "rgba(255,255,255,0.18)",
+                borderRadius: 14,
+                padding: 12,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
               }}
             >
-              <Trophy size={24} color="#FCD34D" />
+              <Trophy size={30} color="#FCD34D" />
             </div>
-            <div>
-              <h1 style={{ margin: 0, color: "#fff", fontSize: 22, fontWeight: 900, lineHeight: 1.15 }}>
+            <div style={{ textAlign: "left" }}>
+              <h1 style={{ margin: 0, color: "#fff", fontSize: 28, fontWeight: 900, lineHeight: 1.15, letterSpacing: 0.2 }}>
                 Volunteer Impact Leaderboard
               </h1>
-              <p style={{ margin: "2px 0 0", color: "rgba(255,255,255,0.72)", fontSize: 13 }}>
+              <p style={{ margin: "4px 0 0", color: "rgba(255,255,255,0.88)", fontSize: 14.5, fontWeight: 500 }}>
                 Top student contributors across Tamil Nadu 🌟
               </p>
             </div>
           </div>
 
-          {/* Right: KPI Chips Row */}
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+          {/* One ordered row: College · Zone · Rank · Points · Hours · Events */}
+          <div
+            style={{
+              width: "100%",
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+              gap: 14,
+              paddingTop: 20,
+              borderTop: "1px solid rgba(255,255,255,0.18)",
+            }}
+          >
             {[
-              { label: "My Rank",   value: `#${myRank}`,       icon: <Trophy size={14} color="#FCD34D" /> },
-              { label: "Points",    value: `${myPoints} pts`,   icon: <Zap size={14} color="#A78BFA" /> },
-              { label: "Hours",     value: `${myHours} hrs`,    icon: <Clock size={14} color="#34D399" /> },
-              { label: "Events",    value: `${myEvents} joined`,icon: <Star size={14} color="#FB923C" /> },
-            ].map((chip) => (
-              <div key={chip.label} style={kpiChipStyle}>
-                <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                  {chip.icon}
-                  <span style={{ fontSize: 10.5, color: "rgba(255,255,255,0.7)", fontWeight: 600 }}>
-                    {chip.label}
+              { label: "College", value: myCollegeLabel || "Not set", icon: <Building2 size={16} color="#C7D2FE" />, span: 2, small: true },
+              { label: "Zone", value: myZoneLabel, icon: <MapPin size={16} color="#FCD34D" />, gold: true },
+              { label: "My Rank", value: `#${myRank}`, icon: <Trophy size={16} color="#FCD34D" /> },
+              { label: "Points", value: `${myPoints} pts`, icon: <Zap size={16} color="#C4B5FD" /> },
+              { label: "Hours", value: `${myHours} hrs`, icon: <Clock size={16} color="#34D399" /> },
+              { label: "Events", value: `${myEvents} joined`, icon: <Star size={16} color="#FB923C" /> },
+            ].map((tile) => (
+              <div
+                key={tile.label}
+                style={{
+                  gridColumn: tile.span ? `span ${tile.span}` : undefined,
+                  minHeight: 94,
+                  padding: "14px 16px",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  textAlign: "center",
+                  borderRadius: 14,
+                  background: tile.gold ? "rgba(252,211,77,0.16)" : "rgba(255,255,255,0.12)",
+                  border: tile.gold
+                    ? "1px solid rgba(252,211,77,0.6)"
+                    : "1px solid rgba(255,255,255,0.22)",
+                  backdropFilter: "blur(10px)",
+                  color: "#fff",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+                  {tile.icon}
+                  <span
+                    style={{
+                      fontSize: 12,
+                      color: "rgba(255,255,255,0.88)",
+                      fontWeight: 700,
+                      textTransform: "uppercase",
+                      letterSpacing: 0.6,
+                    }}
+                  >
+                    {tile.label}
                   </span>
                 </div>
-                <span style={{ fontSize: 16, fontWeight: 900, letterSpacing: 0.2 }}>
-                  {chip.value}
+                <span
+                  style={{
+                    fontSize: tile.small ? 16 : 22,
+                    fontWeight: tile.small ? 800 : 900,
+                    lineHeight: 1.25,
+                    color: tile.gold ? "#FDE68A" : "#fff",
+                  }}
+                >
+                  {tile.value}
                 </span>
               </div>
             ))}
@@ -744,7 +778,6 @@ export default function LeaderboardPage() {
                 alignItems: "center",
                 gap: 8,
                 boxShadow: "0 8px 32px rgba(0,0,0,0.3)",
-                marginBottom: 0,
               }}
             >
               <div
@@ -767,7 +800,7 @@ export default function LeaderboardPage() {
                 style={{ width: 68, height: 68, borderRadius: "50%", border: "3px solid #9CA3AF", objectFit: "cover" }}
               />
               <strong style={{ color: "#F9FAFB", fontSize: 14, textAlign: "center" }}>{topThree[1].name}</strong>
-              <span style={{ color: "#6B7280", fontSize: 12, textAlign: "center" }}>{topThree[1].college}</span>
+              <span style={{ color: "#9CA3AF", fontSize: 12, textAlign: "center" }}>{topThree[1].college}</span>
               <div
                 style={{
                   background: "rgba(156,163,175,0.15)",
@@ -883,7 +916,7 @@ export default function LeaderboardPage() {
                 style={{ width: 68, height: 68, borderRadius: "50%", border: "3px solid #EA580C", objectFit: "cover" }}
               />
               <strong style={{ color: "#F9FAFB", fontSize: 14, textAlign: "center" }}>{topThree[2].name}</strong>
-              <span style={{ color: "#9A3412", fontSize: 12, textAlign: "center" }}>{topThree[2].college}</span>
+              <span style={{ color: "#FDBA74", fontSize: 12, textAlign: "center" }}>{topThree[2].college}</span>
               <div
                 style={{
                   background: "rgba(234,88,12,0.2)",
@@ -920,12 +953,12 @@ export default function LeaderboardPage() {
           {[
             { key: "Overall", label: "Overall Student Leaderboard", icon: "🏆" },
             { key: "College", label: "College-wise Leaderboard", icon: "🏛️" },
-            { key: "Zone",    label: "Zone-wise Leaderboard",    icon: "📍" },
+            { key: "Zone", label: "Zone-wise Leaderboard", icon: "📍" },
           ].map(({ key, label, icon }) => (
             <button
               key={key}
               onClick={() => setActiveTab(key)}
-              style={tabBtnStyle(activeTab === key)}
+              style={tabBtnStyle(activeTab === key, key)}
             >
               <span style={{ marginRight: 6 }}>{icon}</span>
               {label}
@@ -933,34 +966,36 @@ export default function LeaderboardPage() {
           ))}
         </div>
 
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            background: "#F8FAFC",
-            border: "1.5px solid #E2E8F0",
-            borderRadius: 12,
-            padding: "9px 14px",
-            maxWidth: 320,
-            flex: 1,
-          }}
-        >
-          <Search size={16} color="#94A3B8" />
-          <input
-            type="text"
-            placeholder={
-              activeTab === "Zone"
-                ? "Search zone or district…"
-                : activeTab === "College"
-                ? "Search college…"
-                : "Search student, college, zone…"
-            }
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            style={{ border: "none", outline: "none", background: "transparent", flex: 1, fontSize: 13.5, color: "#334155" }}
-          />
-        </div>
+        {activeTab === "Overall" && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              background: "#F8FAFC",
+              border: "1.5px solid #E2E8F0",
+              borderRadius: 12,
+              padding: "9px 14px",
+              maxWidth: 320,
+              flex: 1,
+            }}
+          >
+            <Search size={16} color="#94A3B8" />
+            <input
+              type="text"
+              placeholder={
+                activeTab === "Zone"
+                  ? "Search zone or district…"
+                  : activeTab === "College"
+                    ? "Search college…"
+                    : "Search student, college, zone…"
+              }
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              style={{ border: "none", outline: "none", background: "transparent", flex: 1, fontSize: 13.5, color: "#334155" }}
+            />
+          </div>
+        )}
       </div>
 
       {/* ═══════════════ TAB 1: OVERALL STUDENT LEADERBOARD ═══════════════ */}
@@ -969,9 +1004,9 @@ export default function LeaderboardPage() {
           style={{
             background: "#fff",
             borderRadius: 20,
-            border: "1px solid #E8EDF5",
+            border: "1px solid #DBEAFE",
             overflow: "hidden",
-            boxShadow: "0 4px 24px rgba(0,0,0,0.06)",
+            boxShadow: "0 8px 30px rgba(15,23,42,0.10)",
             marginBottom: 32,
           }}
         >
@@ -979,8 +1014,8 @@ export default function LeaderboardPage() {
           <div
             style={{
               padding: "16px 20px",
-              background: "linear-gradient(90deg,#F8F7FF,#EEF2FF)",
-              borderBottom: "1px solid #E8EDF5",
+              background: "linear-gradient(90deg,#EFF6FF,#DBEAFE)",
+              borderBottom: "1px solid #BFDBFE",
               display: "flex",
               flexWrap: "wrap",
               gap: 10,
@@ -989,21 +1024,11 @@ export default function LeaderboardPage() {
           >
             {/* College filter */}
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <Building2 size={14} color="#6366F1" />
+              <Building2 size={14} color="#1D4ED8" />
               <select
                 value={selectedCollege}
                 onChange={(e) => setSelectedCollege(e.target.value)}
-                style={{
-                  border: "1.5px solid #C7D2FE",
-                  borderRadius: 8,
-                  padding: "5px 10px",
-                  fontSize: 13,
-                  color: "#334155",
-                  background: "#fff",
-                  fontWeight: selectedCollege !== "All" ? 700 : 400,
-                  outline: "none",
-                  cursor: "pointer",
-                }}
+                style={filterSelectStyle(selectedCollege !== "All")}
               >
                 <option value="All">All Colleges</option>
                 {collegeOptions.map((c) => (
@@ -1014,21 +1039,11 @@ export default function LeaderboardPage() {
 
             {/* Zone filter */}
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <MapPin size={14} color="#6366F1" />
+              <MapPin size={14} color="#1D4ED8" />
               <select
                 value={selectedZone}
                 onChange={(e) => setSelectedZone(e.target.value)}
-                style={{
-                  border: "1.5px solid #C7D2FE",
-                  borderRadius: 8,
-                  padding: "5px 10px",
-                  fontSize: 13,
-                  color: "#334155",
-                  background: "#fff",
-                  fontWeight: selectedZone !== "All" ? 700 : 400,
-                  outline: "none",
-                  cursor: "pointer",
-                }}
+                style={filterSelectStyle(selectedZone !== "All")}
               >
                 {zoneOptions.map((z) => (
                   <option key={z} value={z}>{z}</option>
@@ -1038,21 +1053,11 @@ export default function LeaderboardPage() {
 
             {/* Year-wise filter */}
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <Clock size={14} color="#6366F1" />
+              <Clock size={14} color="#1D4ED8" />
               <select
                 value={selectedYear}
                 onChange={(e) => setSelectedYear(e.target.value)}
-                style={{
-                  border: "1.5px solid #C7D2FE",
-                  borderRadius: 8,
-                  padding: "5px 10px",
-                  fontSize: 13,
-                  color: "#334155",
-                  background: "#fff",
-                  fontWeight: selectedYear !== "All" ? 700 : 400,
-                  outline: "none",
-                  cursor: "pointer",
-                }}
+                style={filterSelectStyle(selectedYear !== "All")}
               >
                 <option value="All">All Years</option>
                 <option value="1st Year">1st Year</option>
@@ -1068,22 +1073,11 @@ export default function LeaderboardPage() {
 
             {/* Event filter */}
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <Calendar size={14} color="#6366F1" />
+              <Calendar size={14} color="#1D4ED8" />
               <select
                 value={selectedEvent}
                 onChange={(e) => setSelectedEvent(e.target.value)}
-                style={{
-                  border: "1.5px solid #C7D2FE",
-                  borderRadius: 8,
-                  padding: "5px 10px",
-                  fontSize: 13,
-                  color: "#334155",
-                  background: "#fff",
-                  fontWeight: selectedEvent !== "All" ? 700 : 400,
-                  outline: "none",
-                  cursor: "pointer",
-                  maxWidth: 220,
-                }}
+                style={{ ...filterSelectStyle(selectedEvent !== "All"), maxWidth: 220 }}
               >
                 <option value="All">All Events</option>
                 {eventOptions.map((ev) => (
@@ -1102,8 +1096,8 @@ export default function LeaderboardPage() {
                   gap: 6,
                   padding: "5px 14px",
                   borderRadius: 20,
-                  border: "1.5px solid #6366F1",
-                  background: "linear-gradient(135deg,#4F46E5,#7C3AED)",
+                  border: "1.5px solid #1D4ED8",
+                  background: "linear-gradient(135deg,#0F172A,#1D4ED8)",
                   color: "#fff",
                   fontSize: 12.5,
                   fontWeight: 700,
@@ -1126,11 +1120,6 @@ export default function LeaderboardPage() {
               </button>
             )}
 
-            {/* Spacer + result count */}
-            <span style={{ marginLeft: "auto", fontSize: 12.5, color: "#6B7280", fontWeight: 600 }}>
-              <Sparkles size={13} color="#6366F1" style={{ marginRight: 4, verticalAlign: "middle" }} />
-              Showing <strong style={{ color: "#4F46E5" }}>{filteredAndRankedStudents.length}</strong> ranked student{filteredAndRankedStudents.length !== 1 ? "s" : ""}
-            </span>
           </div>
 
           {/* Active Filter Chips */}
@@ -1141,146 +1130,42 @@ export default function LeaderboardPage() {
                 flexWrap: "wrap",
                 gap: 8,
                 padding: "10px 20px",
-                background: "#FAFBFF",
-                borderBottom: "1px solid #EEF2FF",
+                background: "#F8FBFF",
+                borderBottom: "1px solid #DBEAFE",
               }}
             >
               {selectedCollege !== "All" && (
-                <span
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 5,
-                    background: "#EEF2FF",
-                    color: "#4F46E5",
-                    border: "1px solid #C7D2FE",
-                    borderRadius: 20,
-                    padding: "3px 10px",
-                    fontSize: 12,
-                    fontWeight: 700,
-                  }}
-                >
-                  <Building2 size={11} /> {selectedCollege}
-                  <button
-                    onClick={() => setSelectedCollege("All")}
-                    style={{ background: "none", border: "none", cursor: "pointer", padding: 0, lineHeight: 1, color: "#6366F1" }}
-                  >
-                    <X size={12} />
-                  </button>
-                </span>
+                <FilterChip icon={<Building2 size={11} />} label={selectedCollege} onRemove={() => setSelectedCollege("All")} />
               )}
               {selectedZone !== "All" && (
-                <span
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 5,
-                    background: "#EEF2FF",
-                    color: "#4F46E5",
-                    border: "1px solid #C7D2FE",
-                    borderRadius: 20,
-                    padding: "3px 10px",
-                    fontSize: 12,
-                    fontWeight: 700,
-                  }}
-                >
-                  <MapPin size={11} /> {selectedZone}
-                  <button
-                    onClick={() => setSelectedZone("All")}
-                    style={{ background: "none", border: "none", cursor: "pointer", padding: 0, lineHeight: 1, color: "#6366F1" }}
-                  >
-                    <X size={12} />
-                  </button>
-                </span>
+                <FilterChip icon={<MapPin size={11} />} label={selectedZone} onRemove={() => setSelectedZone("All")} />
               )}
               {selectedYear !== "All" && (
-                <span
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 5,
-                    background: "#EEF2FF",
-                    color: "#4F46E5",
-                    border: "1px solid #C7D2FE",
-                    borderRadius: 20,
-                    padding: "3px 10px",
-                    fontSize: 12,
-                    fontWeight: 700,
-                  }}
-                >
-                  <Clock size={11} /> Year: {selectedYear}
-                  <button
-                    onClick={() => setSelectedYear("All")}
-                    style={{ background: "none", border: "none", cursor: "pointer", padding: 0, lineHeight: 1, color: "#6366F1" }}
-                  >
-                    <X size={12} />
-                  </button>
-                </span>
+                <FilterChip icon={<Clock size={11} />} label={`Year: ${selectedYear}`} onRemove={() => setSelectedYear("All")} />
               )}
               {selectedEvent !== "All" && (
-                <span
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 5,
-                    background: "#EEF2FF",
-                    color: "#4F46E5",
-                    border: "1px solid #C7D2FE",
-                    borderRadius: 20,
-                    padding: "3px 10px",
-                    fontSize: 12,
-                    fontWeight: 700,
-                  }}
-                >
-                  <Calendar size={11} /> {selectedEvent}
-                  <button
-                    onClick={() => setSelectedEvent("All")}
-                    style={{ background: "none", border: "none", cursor: "pointer", padding: 0, lineHeight: 1, color: "#6366F1" }}
-                  >
-                    <X size={12} />
-                  </button>
-                </span>
+                <FilterChip icon={<Calendar size={11} />} label={selectedEvent} onRemove={() => setSelectedEvent("All")} />
               )}
               {search.trim() && (
-                <span
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 5,
-                    background: "#EEF2FF",
-                    color: "#4F46E5",
-                    border: "1px solid #C7D2FE",
-                    borderRadius: 20,
-                    padding: "3px 10px",
-                    fontSize: 12,
-                    fontWeight: 700,
-                  }}
-                >
-                  <Search size={11} /> "{search.trim()}"
-                  <button
-                    onClick={() => setSearch("")}
-                    style={{ background: "none", border: "none", cursor: "pointer", padding: 0, lineHeight: 1, color: "#6366F1" }}
-                  >
-                    <X size={12} />
-                  </button>
-                </span>
+                <FilterChip icon={<Search size={11} />} label={`"${search.trim()}"`} onRemove={() => setSearch("")} />
               )}
             </div>
           )}
 
-          {/* Table header */}
+          {/* Table header – dark navy with white text */}
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "60px 1.4fr 1.2fr 90px 90px 100px 90px",
-              padding: "14px 20px",
-              background: "linear-gradient(90deg,#F8F7FF,#EEF2FF)",
-              borderBottom: "1px solid #E8EDF5",
-              fontWeight: 700,
-              fontSize: 12,
-              color: "#6366F1",
+              gridTemplateColumns: STUDENT_GRID,
+              columnGap: 10,
+              padding: "16px 20px",
+              background: "linear-gradient(90deg,#0F172A 0%,#1E3A8A 100%)",
+              borderBottom: "3px solid #3B82F6",
+              fontWeight: 800,
+              fontSize: 12.5,
+              color: "#FFFFFF",
               textTransform: "uppercase",
-              letterSpacing: 0.5,
+              letterSpacing: 0.9,
             }}
           >
             <span>Rank</span>
@@ -1290,6 +1175,7 @@ export default function LeaderboardPage() {
             <span className="desktop-only" style={{ textAlign: "center" }}>Events</span>
             <span className="desktop-only" style={{ textAlign: "right" }}>Hours</span>
             <span style={{ textAlign: "right" }}>Points</span>
+            <span className="desktop-only" style={{ textAlign: "center" }}>Badge</span>
           </div>
 
           {/* Table rows */}
@@ -1305,22 +1191,20 @@ export default function LeaderboardPage() {
           ) : (
             filteredUsers.map((u, i) => {
               const isMe = u.isCurrentUser || (user && u.name === user.name);
-              const tierColors = badgeTierColor(u.badgeTier);
               return (
                 <div
                   key={u.rank + "_" + u.name + "_" + i}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = "#EEF4FF")}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = rowBackground(isMe, i))}
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "60px 1.4fr 1.2fr 90px 90px 100px 90px",
-                    padding: "14px 20px",
+                    gridTemplateColumns: STUDENT_GRID,
+                    columnGap: 10,
+                    padding: "12px 20px",
                     alignItems: "center",
-                    borderBottom: "1px solid #F1F5F9",
-                    background: isMe
-                      ? "linear-gradient(90deg,#FFF7ED,#FFFBEB)"
-                      : i % 2 === 0
-                      ? "#fff"
-                      : "#FAFBFF",
-                    borderLeft: isMe ? "4px solid #F59E0B" : "4px solid transparent",
+                    borderBottom: "1px solid #E2E8F0",
+                    background: rowBackground(isMe, i),
+                    borderLeft: rowBorderLeft(u, isMe),
                     transition: "background .15s",
                   }}
                 >
@@ -1337,8 +1221,8 @@ export default function LeaderboardPage() {
                           width: 32,
                           height: 32,
                           borderRadius: "50%",
-                          background: "#F1F5F9",
-                          color: "#64748B",
+                          background: "#E0E7FF",
+                          color: "#1E3A8A",
                           fontWeight: 800,
                           fontSize: 13,
                         }}
@@ -1349,55 +1233,58 @@ export default function LeaderboardPage() {
                   </div>
 
                   {/* Volunteer info */}
-                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
                     <img
                       src={u.avatar}
                       alt={u.name}
-                      style={{ width: 42, height: 42, borderRadius: "50%", objectFit: "cover", border: `2px solid ${isMe ? "#F59E0B" : "#E2E8F0"}` }}
+                      style={{
+                        width: 42,
+                        height: 42,
+                        borderRadius: "50%",
+                        objectFit: "cover",
+                        flexShrink: 0,
+                        border: `2px solid ${isMe ? "#F59E0B" : "#BFDBFE"}`,
+                      }}
                     />
-                    <div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <strong style={{ color: "#1E293B", fontSize: 14 }}>{u.name}</strong>
-                        {isMe && (
-                          <span
-                            style={{
-                              background: "linear-gradient(90deg,#F59E0B,#FBBF24)",
-                              color: "#78350F",
-                              fontSize: 10,
-                              fontWeight: 800,
-                              padding: "2px 8px",
-                              borderRadius: 20,
-                            }}
-                          >
-                            You
-                          </span>
-                        )}
-                      </div>
-                      <span
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+                      <strong
                         style={{
-                          display: "inline-block",
-                          marginTop: 3,
-                          fontSize: 11,
-                          fontWeight: 700,
-                          padding: "2px 8px",
-                          borderRadius: 10,
-                          background: tierColors.bg,
-                          color: tierColors.color,
+                          color: "#0F172A",
+                          fontSize: 15,
+                          fontWeight: 800,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
                         }}
                       >
-                        {u.badgeTier}
-                      </span>
+                        {u.name}
+                      </strong>
+                      {isMe && (
+                        <span
+                          style={{
+                            background: "linear-gradient(90deg,#F59E0B,#FBBF24)",
+                            color: "#78350F",
+                            fontSize: 10,
+                            fontWeight: 800,
+                            padding: "2px 8px",
+                            borderRadius: 20,
+                            flexShrink: 0,
+                          }}
+                        >
+                          You
+                        </span>
+                      )}
                     </div>
                   </div>
 
                   {/* College */}
-                  <div className="desktop-only" style={{ color: "#64748B", fontSize: 13 }}>
+                  <div className="desktop-only" style={{ color: "#334155", fontSize: 13.5, fontWeight: 600 }}>
                     {u.college}
                   </div>
 
                   {/* Zone */}
                   <div className="desktop-only" style={{ textAlign: "center" }}>
-                    <span style={{ background: "#F1F5F9", color: "#475569", padding: "3px 8px", borderRadius: 8, fontSize: 12, fontWeight: 700 }}>
+                    <span style={{ background: "#E0E7FF", color: "#1E3A8A", padding: "3px 8px", borderRadius: 8, fontSize: 12, fontWeight: 800 }}>
                       {u.zone || "Zone 1"}
                     </span>
                   </div>
@@ -1410,12 +1297,12 @@ export default function LeaderboardPage() {
                         alignItems: "center",
                         gap: 4,
                         background: "#FFF7ED",
-                        color: "#D97706",
-                        border: "1px solid #FDE68A",
+                        color: "#C2410C",
+                        border: "1px solid #FDBA74",
                         padding: "3px 9px",
                         borderRadius: 20,
                         fontSize: 12,
-                        fontWeight: 700,
+                        fontWeight: 800,
                       }}
                     >
                       <Star size={11} color="#F59E0B" fill="#F59E0B" />
@@ -1430,15 +1317,15 @@ export default function LeaderboardPage() {
                         display: "inline-flex",
                         alignItems: "center",
                         gap: 5,
-                        background: "#EFF6FF",
-                        color: "#2563EB",
+                        background: "#DBEAFE",
+                        color: "#1D4ED8",
                         borderRadius: 10,
                         padding: "4px 10px",
                         fontSize: 12,
-                        fontWeight: 700,
+                        fontWeight: 800,
                       }}
                     >
-                      <Clock size={12} color="#2563EB" />
+                      <Clock size={12} color="#1D4ED8" />
                       {u.totalHours || 0} hrs
                     </span>
                   </div>
@@ -1447,14 +1334,19 @@ export default function LeaderboardPage() {
                   <div style={{ textAlign: "right" }}>
                     <strong
                       style={{
-                        color: isMe ? "#D97706" : "#6366F1",
-                        fontSize: 16,
+                        color: isMe ? "#D97706" : "#1D4ED8",
+                        fontSize: 18,
                         fontWeight: 900,
                       }}
                     >
                       {u.points}
                       <span style={{ fontSize: 11, fontWeight: 600, marginLeft: 2, opacity: 0.7 }}>pts</span>
                     </strong>
+                  </div>
+
+                  {/* Badge (last column) */}
+                  <div className="desktop-only" style={{ textAlign: "center" }}>
+                    <TierBadge tier={u.badgeTier} />
                   </div>
                 </div>
               );
@@ -1463,14 +1355,14 @@ export default function LeaderboardPage() {
         </div>
       )}
 
-      {/* ═══════════════ TAB 2: COLLEGE-WISE LEADERBOARD ═══════════════ */}
+      {/* ═══════════════ TAB 2: MY COLLEGE LEADERBOARD (white) ═══════════════ */}
       {activeTab === "College" && (
         <div
           style={{
-            background: "linear-gradient(135deg, #1E1B4B 0%, #2D1065 50%, #1E1035 100%)",
+            background: "#FFFFFF",
             borderRadius: 20,
-            border: "1.5px solid rgba(167, 139, 250, 0.35)",
-            boxShadow: "0 10px 36px rgba(30, 27, 75, 0.32)",
+            border: "1px solid #E2E8F0",
+            boxShadow: "0 4px 24px rgba(15,23,42,0.08)",
             padding: "24px 22px",
             marginBottom: 32,
           }}
@@ -1483,350 +1375,98 @@ export default function LeaderboardPage() {
                   width: 44,
                   height: 44,
                   borderRadius: 12,
-                  background: "linear-gradient(135deg,#4338CA,#7C3AED)",
+                  background: "linear-gradient(135deg,#6D28D9,#C026D3)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
+                  boxShadow: "0 6px 16px rgba(168,85,247,0.35)",
                 }}
               >
-                <Building2 size={20} color="#fff" />
+                <GraduationCap size={22} color="#fff" />
               </div>
               <div>
-                <h2 style={{ margin: 0, color: "#fff", fontSize: 20, fontWeight: 900 }}>
-                  🏛️ College-wise Leaderboard
+                <h2 style={{ margin: 0, color: "#0F172A", fontSize: 20, fontWeight: 900 }}>
+                  🏛️ {myCollegeLabel || "My College"} Leaderboard
                 </h2>
-                <p style={{ margin: 0, color: "rgba(255,255,255,0.65)", fontSize: 13, marginTop: 2 }}>
-                  Institutions ranked by total student volunteering impact across Tamil Nadu
+                <p style={{ margin: "2px 0 0", color: "#64748B", fontSize: 13 }}>
+                  Volunteers from your college ranked by impact points
                 </p>
               </div>
             </div>
 
-            {/* College Controls: Year filter + Search */}
+            {/* Controls: Year filter + Search + Reset */}
             <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-              {/* Year filter dropdown */}
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <Clock size={14} color="#A78BFA" />
+                <Clock size={14} color="#7E22CE" />
                 <select
                   value={collegeYearFilter}
                   onChange={(e) => setCollegeYearFilter(e.target.value)}
                   style={{
-                    border: "1.5px solid rgba(167,139,250,0.4)",
+                    border: "1.5px solid #DDD6FE",
                     borderRadius: 10,
-                    padding: "7px 12px",
+                    padding: "8px 12px",
                     fontSize: 13,
-                    color: "#fff",
-                    background: "rgba(255,255,255,0.1)",
-                    fontWeight: 700,
+                    color: "#0F172A",
+                    background: "#fff",
+                    fontWeight: collegeYearFilter !== "All" ? 800 : 600,
                     outline: "none",
                     cursor: "pointer",
                   }}
                 >
-                  <option value="All" style={{ color: "#000" }}>All Years</option>
-                  <option value="4 Year" style={{ color: "#000" }}>4th Year</option>
-                  <option value="3 Year" style={{ color: "#000" }}>3rd Year</option>
-                  <option value="2 Year" style={{ color: "#000" }}>2nd Year</option>
-                  <option value="1 Year" style={{ color: "#000" }}>1st Year</option>
-                  <option value="2022-2026" style={{ color: "#000" }}>2022-2026 Batch</option>
-                  <option value="2023-2027" style={{ color: "#000" }}>2023-2027 Batch</option>
-                  <option value="2021-2025" style={{ color: "#000" }}>2021-2025 Batch</option>
-                  <option value="2020-2024" style={{ color: "#000" }}>2020-2024 Batch</option>
+                  <option value="All">All Years</option>
+                  <option value="1st Year">1st Year</option>
+                  <option value="2nd Year">2nd Year</option>
+                  <option value="3rd Year">3rd Year</option>
+                  <option value="4th Year">4th Year</option>
+                  <option value="2023-2027">2023-2027 Batch</option>
+                  <option value="2022-2026">2022-2026 Batch</option>
+                  <option value="2021-2025">2021-2025 Batch</option>
+                  <option value="2020-2024">2020-2024 Batch</option>
                 </select>
               </div>
 
-              {/* College Search Box */}
               <div
                 style={{
                   display: "flex",
                   alignItems: "center",
                   gap: 8,
-                  background: "rgba(255,255,255,0.1)",
-                  border: "1.5px solid rgba(255,255,255,0.2)",
+                  background: "#F8FAFC",
+                  border: "1.5px solid #E2E8F0",
                   borderRadius: 12,
                   padding: "8px 14px",
                   minWidth: 240,
                 }}
               >
-                <Search size={15} color="rgba(255,255,255,0.7)" />
+                <Search size={15} color="#94A3B8" />
                 <input
                   type="text"
-                  placeholder="Search college or volunteer…"
+                  placeholder="Search volunteer…"
                   value={collegeSearch}
                   onChange={(e) => setCollegeSearch(e.target.value)}
-                  style={{
-                    border: "none",
-                    outline: "none",
-                    background: "transparent",
-                    flex: 1,
-                    fontSize: 13,
-                    color: "#fff",
-                  }}
+                  style={{ border: "none", outline: "none", background: "transparent", flex: 1, fontSize: 13, color: "#334155" }}
                 />
                 {collegeSearch && (
                   <button
                     onClick={() => setCollegeSearch("")}
-                    style={{ background: "none", border: "none", cursor: "pointer", padding: 0, lineHeight: 1, color: "rgba(255,255,255,0.6)" }}
+                    style={{ background: "none", border: "none", cursor: "pointer", padding: 0, lineHeight: 1, color: "#94A3B8" }}
                   >
                     <X size={14} />
                   </button>
                 )}
               </div>
-            </div>
-          </div>
 
-          {/* Results counter */}
-          {collegeSearch.trim() && (
-            <div style={{ marginBottom: 12, fontSize: 12.5, color: "rgba(255,255,255,0.6)" }}>
-              Showing <strong style={{ color: "#A5B4FC" }}>{collegeTabFiltered.length}</strong> college{collegeTabFiltered.length !== 1 ? "s" : ""} matching "{collegeSearch}"
-            </div>
-          )}
-
-          {/* Top 3 College Podium */}
-          {topColleges.length > 0 && (
-            <div
-              style={{
-                display: "flex",
-                gap: 16,
-                marginBottom: 28,
-                flexWrap: "wrap",
-                justifyContent: "center",
-                alignItems: "stretch",
-              }}
-            >
-              {topColleges.map((c, i) => (
-                <CollegePodiumCard
-                  key={c.collegeName || c.name || i}
-                  college={c}
-                  rank={i + 1}
-                  isMine={isMyCollege(c)}
-                />
-              ))}
-            </div>
-          )}
-
-          {/* Full College Table */}
-          {collegeTabFiltered.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "40px 20px", color: "rgba(255,255,255,0.4)" }}>
-              <Building2 size={40} style={{ marginBottom: 10, opacity: 0.3 }} />
-              <p style={{ margin: 0, fontSize: 14 }}>No colleges found matching "{collegeSearch}".</p>
-            </div>
-          ) : (
-            <div style={{ borderRadius: 16, overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)" }}>
-              {/* Table header */}
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "56px 1.4fr 110px 110px 120px 1fr",
-                  padding: "12px 20px",
-                  background: "rgba(255,255,255,0.05)",
-                  borderBottom: "1px solid rgba(255,255,255,0.08)",
-                  fontWeight: 700,
-                  fontSize: 11,
-                  color: "rgba(255,255,255,0.5)",
-                  textTransform: "uppercase",
-                  letterSpacing: 0.6,
-                }}
-              >
-                <span>Rank</span>
-                <span>College</span>
-                <span style={{ textAlign: "center" }}>Students</span>
-                <span style={{ textAlign: "right" }}>Total Hours</span>
-                <span style={{ textAlign: "right" }}>Total Points</span>
-                <span style={{ textAlign: "right" }}>Leading Volunteer</span>
-              </div>
-
-              {/* Rows */}
-              {collegeTabFiltered.map((c, i) => {
-                const mine = isMyCollege(c);
-                const rank = i + 1;
-                return (
-                  <div
-                    key={c.collegeName || c.name || i}
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "56px 1.4fr 110px 110px 120px 1fr",
-                      padding: "14px 20px",
-                      alignItems: "center",
-                      borderBottom: "1px solid rgba(255,255,255,0.05)",
-                      background: mine
-                        ? "rgba(251,191,36,0.07)"
-                        : i % 2 === 0
-                        ? "rgba(255,255,255,0.02)"
-                        : "transparent",
-                      borderLeft: mine ? "4px solid #FBBF24" : "4px solid transparent",
-                      transition: "background .15s",
-                    }}
-                  >
-                    <div>{rankMedal(rank)}</div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <div
-                        style={{
-                          width: 36,
-                          height: 36,
-                          borderRadius: 10,
-                          background: mine
-                            ? "linear-gradient(135deg,#B45309,#D97706)"
-                            : "rgba(99,102,241,0.2)",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          flexShrink: 0,
-                        }}
-                      >
-                        <GraduationCap size={18} color={mine ? "#FCD34D" : "#818CF8"} />
-                      </div>
-                      <span style={{ color: mine ? "#FCD34D" : "#F1F5F9", fontWeight: mine ? 800 : 600, fontSize: 13.5 }}>
-                        {c.collegeName || c.name}
-                        {mine && (
-                          <span style={{ marginLeft: 8, background: "#D97706", color: "#1C1917", fontSize: 10, fontWeight: 900, padding: "2px 7px", borderRadius: 20 }}>
-                            Your College
-                          </span>
-                        )}
-                      </span>
-                    </div>
-
-                    <div style={{ textAlign: "center" }}>
-                      <span style={{ background: "rgba(99,102,241,0.15)", color: "#A5B4FC", borderRadius: 10, padding: "4px 10px", fontSize: 12, fontWeight: 700 }}>
-                        <Users size={11} style={{ marginRight: 4 }} />
-                        {c.totalStudents ?? 0}
-                      </span>
-                    </div>
-
-                    <div style={{ textAlign: "right", color: "#6EE7B7", fontSize: 13, fontWeight: 700 }}>
-                      <Clock size={11} style={{ marginRight: 3 }} />
-                      {(c.totalHours ?? 0).toLocaleString()} hrs
-                    </div>
-
-                    <div style={{ textAlign: "right", color: mine ? "#FCD34D" : "#C7D2FE", fontWeight: 800, fontSize: 15 }}>
-                      {(c.totalPoints ?? 0).toLocaleString()} pts
-                    </div>
-
-                    <div style={{ textAlign: "right", color: "rgba(255,255,255,0.7)", fontSize: 12.5, fontWeight: 600 }}>
-                      ⭐ {c.topVolunteer || "Student Leader"}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ═══════════════ TAB 3: ZONE-WISE LEADERBOARD ═══════════════ */}
-      {activeTab === "Zone" && (
-        <div
-          style={{
-            background: "linear-gradient(135deg, #064E3B 0%, #065F46 50%, #022C22 100%)",
-            borderRadius: 20,
-            border: "1.5px solid rgba(52, 211, 153, 0.35)",
-            boxShadow: "0 10px 36px rgba(6, 78, 59, 0.32)",
-            padding: "24px 22px",
-            marginBottom: 32,
-          }}
-        >
-          {/* Section Header */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <div
-                style={{
-                  width: 44,
-                  height: 44,
-                  borderRadius: 12,
-                  background: "linear-gradient(135deg,#059669,#10B981)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <MapPin size={22} color="#fff" />
-              </div>
-              <div>
-                <h2 style={{ margin: 0, color: "#fff", fontSize: 20, fontWeight: 900 }}>
-                  📍 Zone-wise Leaderboard
-                </h2>
-                <p style={{ margin: 0, color: "rgba(255,255,255,0.75)", fontSize: 13, marginTop: 2 }}>
-                  Community service performance aggregated across Zone 1, Zone 2, and Zone 3
-                </p>
-              </div>
-            </div>
-
-            {/* Zone Filter Controls */}
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
-              {/* Zone Selector */}
-              <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                <MapPin size={14} color="#6EE7B7" />
-                <select
-                  value={zoneFilter}
-                  onChange={(e) => { setZoneFilter(e.target.value); setZoneCollegeSearch(""); }}
-                  style={{
-                    border: "1.5px solid rgba(52,211,153,0.4)",
-                    borderRadius: 9,
-                    padding: "6px 12px",
-                    fontSize: 13,
-                    color: "#fff",
-                    background: "rgba(255,255,255,0.1)",
-                    fontWeight: 700,
-                    outline: "none",
-                    cursor: "pointer",
-                  }}
-                >
-                  <option value="All" style={{ color: "#000" }}>All Zones</option>
-                  <option value="Zone 1" style={{ color: "#000" }}>Zone 1 – North TN & Chennai</option>
-                  <option value="Zone 2" style={{ color: "#000" }}>Zone 2 – Central & Western TN</option>
-                  <option value="Zone 3" style={{ color: "#000" }}>Zone 3 – Southern TN</option>
-                </select>
-              </div>
-
-              {/* College search within selected zone */}
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  background: "rgba(255,255,255,0.1)",
-                  border: "1.5px solid rgba(52,211,153,0.3)",
-                  borderRadius: 10,
-                  padding: "6px 12px",
-                  minWidth: 200,
-                }}
-              >
-                <Search size={14} color="#6EE7B7" />
-                <input
-                  type="text"
-                  placeholder="Search college in zone…"
-                  value={zoneCollegeSearch}
-                  onChange={(e) => setZoneCollegeSearch(e.target.value)}
-                  style={{
-                    border: "none",
-                    outline: "none",
-                    background: "transparent",
-                    flex: 1,
-                    fontSize: 13,
-                    color: "#fff",
-                  }}
-                />
-                {zoneCollegeSearch && (
-                  <button
-                    onClick={() => setZoneCollegeSearch("")}
-                    style={{ background: "none", border: "none", cursor: "pointer", padding: 0, lineHeight: 1, color: "#6EE7B7" }}
-                  >
-                    <X size={13} />
-                  </button>
-                )}
-              </div>
-
-              {/* Reset zone filters */}
-              {(zoneFilter !== "All" || zoneCollegeSearch) && (
+              {(collegeYearFilter !== "All" || collegeSearch) && (
                 <button
-                  onClick={() => { setZoneFilter("All"); setZoneCollegeSearch(""); }}
+                  onClick={() => { setCollegeYearFilter("All"); setCollegeSearch(""); }}
                   style={{
                     display: "inline-flex",
                     alignItems: "center",
                     gap: 5,
-                    padding: "6px 13px",
+                    padding: "8px 14px",
                     borderRadius: 20,
-                    border: "1.5px solid #6EE7B7",
-                    background: "rgba(16,185,129,0.2)",
-                    color: "#6EE7B7",
+                    border: "none",
+                    background: "linear-gradient(135deg,#6D28D9,#C026D3)",
+                    color: "#fff",
                     fontSize: 12.5,
                     fontWeight: 700,
                     cursor: "pointer",
@@ -1838,155 +1478,335 @@ export default function LeaderboardPage() {
             </div>
           </div>
 
-          {/* Zone summary stats strip (when a zone is selected) */}
-          {zoneFilter !== "All" && (
-            <div
-              style={{
-                display: "flex",
-                gap: 16,
-                flexWrap: "wrap",
-                marginBottom: 20,
-                padding: "14px 18px",
-                background: "rgba(255,255,255,0.06)",
-                borderRadius: 14,
-                border: "1px solid rgba(52,211,153,0.2)",
-              }}
-            >
-              {[
-                { label: "Volunteers", value: zoneTabStudents.length, icon: <Users size={15} color="#6EE7B7" /> },
-                { label: "Colleges", value: zoneTabColleges.length, icon: <Building2 size={15} color="#A5B4FC" /> },
-                { label: "Total Points", value: zoneTabStudents.reduce((s, u) => s + (Number(u.points) || 0), 0).toLocaleString(), icon: <Star size={15} color="#FCD34D" fill="#FCD34D" /> },
-                { label: "Total Hours", value: zoneTabStudents.reduce((s, u) => s + (Number(u.totalHours) || 0), 0) + " hrs", icon: <Clock size={15} color="#34D399" /> },
-              ].map((stat) => (
-                <div key={stat.label} style={{ display: "flex", alignItems: "center", gap: 8, color: "#fff" }}>
-                  {stat.icon}
-                  <span style={{ fontSize: 13, color: "rgba(255,255,255,0.7)" }}>{stat.label}:</span>
-                  <strong style={{ fontSize: 14 }}>{stat.value}</strong>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Zone Podium (Zone 1, Zone 2, Zone 3) – click to filter */}
+          {/* College summary strip */}
           <div
             style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-              gap: 16,
-              marginBottom: 24,
+              display: "flex",
+              gap: 24,
+              flexWrap: "wrap",
+              marginBottom: 20,
+              padding: "14px 18px",
+              background: "#FAF5FF",
+              borderRadius: 14,
+              border: "1px solid #E9D5FF",
             }}
           >
-            {topZones.map((z, idx) => {
-              const isSelected = zoneFilter === z.zoneName;
-              return (
-                <div
-                  key={z.zoneName}
-                  onClick={() => setZoneFilter(isSelected ? "All" : z.zoneName)}
-                  style={{
-                    background: isSelected ? "rgba(16,185,129,0.25)" : "rgba(255,255,255,0.08)",
-                    backdropFilter: "blur(10px)",
-                    border: isSelected
-                      ? "2px solid #10B981"
-                      : idx === 0
-                      ? "2px solid #FBBF24"
-                      : "1px solid rgba(255,255,255,0.15)",
-                    borderRadius: 16,
-                    padding: "20px 22px",
-                    color: "#fff",
-                    cursor: "pointer",
-                    transition: "all .2s",
-                    transform: isSelected ? "translateY(-3px)" : "none",
-                    boxShadow: isSelected ? "0 8px 24px rgba(16,185,129,0.3)" : "none",
-                  }}
-                >
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                    <span style={{ fontSize: 24 }}>{MEDAL[idx] || "⭐"}</span>
-                    <span style={{
-                      background: isSelected ? "#10B981" : "rgba(16,185,129,0.6)",
-                      color: "#fff",
-                      fontSize: 11,
-                      fontWeight: 800,
-                      padding: "2px 8px",
-                      borderRadius: 20,
-                    }}>
-                      {isSelected ? "✓ Selected" : `#${idx + 1} Ranked`}
-                    </span>
-                  </div>
-                  <h3 style={{ margin: "0 0 4px", fontSize: 18, fontWeight: 900, color: "#fff" }}>
-                    {z.zoneName}
-                  </h3>
-                  <p style={{ fontSize: 12, color: "#A7F3D0", margin: "0 0 14px", lineHeight: 1.4 }}>
-                    {z.region}
-                  </p>
-                  <div style={{ display: "flex", justifyContent: "space-between", borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: 10, fontSize: 13 }}>
-                    <span>Volunteers: <strong>{z.totalVolunteers}</strong></span>
-                    <span style={{ color: "#FCD34D", fontWeight: 800 }}>{z.totalPoints} pts</span>
-                  </div>
-                  <div style={{ marginTop: 6, fontSize: 11, color: "rgba(255,255,255,0.5)", textAlign: "center" }}>
-                    {isSelected ? "Click to deselect" : "Click to filter"}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Full Zone Table */}
-          <div style={{ borderRadius: 16, overflow: "hidden", border: "1px solid rgba(255,255,255,0.1)" }}>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "56px 120px 1.5fr 100px 110px 120px 1fr",
-                padding: "12px 20px",
-                background: "rgba(255,255,255,0.06)",
-                fontWeight: 700,
-                fontSize: 11,
-                color: "#A7F3D0",
-                textTransform: "uppercase",
-                letterSpacing: 0.6,
-              }}
-            >
-              <span>Rank</span>
-              <span>Zone</span>
-              <span>Coverage Districts</span>
-              <span style={{ textAlign: "center" }}>Volunteers</span>
-              <span style={{ textAlign: "right" }}>Total Hours</span>
-              <span style={{ textAlign: "right" }}>Total Points</span>
-              <span style={{ textAlign: "right" }}>Leading College</span>
-            </div>
-
-            {zoneRankings.map((z, idx) => (
-              <div
-                key={z.zoneName}
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "56px 120px 1.5fr 100px 110px 120px 1fr",
-                  padding: "14px 20px",
-                  alignItems: "center",
-                  borderBottom: "1px solid rgba(255,255,255,0.06)",
-                  background: idx % 2 === 0 ? "rgba(255,255,255,0.02)" : "transparent",
-                  color: "#fff",
-                }}
-              >
-                <div>{rankMedal(idx + 1)}</div>
-                <div style={{ fontWeight: 800, fontSize: 14, color: "#6EE7B7" }}>{z.zoneName}</div>
-                <div style={{ fontSize: 12.5, color: "rgba(255,255,255,0.8)" }}>{z.districts}</div>
-                <div style={{ textAlign: "center" }}>
-                  <span style={{ background: "rgba(16,185,129,0.2)", color: "#A7F3D0", padding: "3px 8px", borderRadius: 8, fontSize: 12, fontWeight: 700 }}>
-                    {z.totalVolunteers}
-                  </span>
-                </div>
-                <div style={{ textAlign: "right", color: "#6EE7B7", fontSize: 13, fontWeight: 700 }}>
-                  {z.totalHours} hrs
-                </div>
-                <div style={{ textAlign: "right", color: "#FCD34D", fontWeight: 800, fontSize: 15 }}>
-                  {z.totalPoints} pts
-                </div>
-                <div style={{ textAlign: "right", color: "#E2E8F0", fontSize: 12.5 }}>
-                  {z.leadingCollege}
-                </div>
+            {[
+              { label: "Volunteers", value: myCollegeTotals.students, icon: <Users size={15} color="#7E22CE" /> },
+              { label: "Total Points", value: myCollegeTotals.points.toLocaleString(), icon: <Star size={15} color="#F59E0B" fill="#F59E0B" /> },
+              { label: "Total Hours", value: myCollegeTotals.hours + " hrs", icon: <Clock size={15} color="#059669" /> },
+              { label: "Top Volunteer", value: myCollegeTotals.top, icon: <Trophy size={15} color="#D97706" /> },
+            ].map((stat) => (
+              <div key={stat.label} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                {stat.icon}
+                <span style={{ fontSize: 13, color: "#64748B", fontWeight: 600 }}>{stat.label}:</span>
+                <strong style={{ fontSize: 14, color: "#0F172A" }}>{stat.value}</strong>
               </div>
             ))}
           </div>
+
+          {/* Volunteers table (own college only) */}
+          {myCollegeRanked.length === 0 ? (
+            <div style={{ textAlign: "center", padding: "40px 20px", color: "#94A3B8" }}>
+              <Building2 size={40} style={{ marginBottom: 10, opacity: 0.4 }} />
+              <p style={{ margin: 0, fontSize: 14 }}>No volunteers found for this filter.</p>
+            </div>
+          ) : (
+            <div style={{ borderRadius: 16, overflow: "hidden", border: "1px solid #E2E8F0", maxWidth: 1180, margin: "0 auto" }}>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: COLLEGE_STUDENT_GRID,
+                  columnGap: 10,
+                  padding: "15px 20px",
+                  background: "linear-gradient(90deg,#0F172A,#4C1D95)",
+                  borderBottom: "3px solid #C026D3",
+                  fontWeight: 800,
+                  fontSize: 12,
+                  color: "#FFFFFF",
+                  textTransform: "uppercase",
+                  letterSpacing: 0.9,
+                }}
+              >
+                <span>Rank</span>
+                <span>Volunteer</span>
+                <span>College</span>
+                <span style={{ textAlign: "center" }}>Zone</span>
+                <span style={{ textAlign: "center" }}>Events</span>
+                <span style={{ textAlign: "center" }}>Hours</span>
+                <span style={{ textAlign: "center" }}>Points</span>
+                <span style={{ textAlign: "center" }}>Badge</span>
+              </div>
+
+              {myCollegeRanked.map((u, i) => {
+                const isMe = u.isCurrentUser;
+                const base = isMe
+                  ? "linear-gradient(90deg,#FFF7ED,#FFFBEB)"
+                  : i % 2 === 0
+                    ? "#FFFFFF"
+                    : "#FAFAFF";
+                return (
+                  <div
+                    key={u.rank + "_" + u.name + "_" + i}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = "#F5F3FF")}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = base)}
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: COLLEGE_STUDENT_GRID,
+                      columnGap: 10,
+                      padding: "12px 20px",
+                      alignItems: "center",
+                      borderBottom: "1px solid #F1F5F9",
+                      background: base,
+                      borderLeft: isMe ? "4px solid #F59E0B" : "4px solid transparent",
+                      transition: "background .15s",
+                    }}
+                  >
+                    <div>{rankMedal(u.rank)}</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+                      <img
+                        src={u.avatar}
+                        alt={u.name}
+                        style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover", flexShrink: 0, border: `2px solid ${isMe ? "#F59E0B" : "#E9D5FF"}` }}
+                      />
+                      <strong style={{ color: "#0F172A", fontSize: 15, fontWeight: 800 }}>{u.name}</strong>
+                      {isMe && (
+                        <span style={{ background: "linear-gradient(90deg,#F59E0B,#FBBF24)", color: "#78350F", fontSize: 10, fontWeight: 800, padding: "2px 8px", borderRadius: 20 }}>
+                          You
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ color: "#334155", fontSize: 13.5, fontWeight: 600, lineHeight: 1.3 }}>
+                      {u.college}
+                    </div>
+                    <div style={{ textAlign: "center", color: "#0F172A", fontSize: 13.5, fontWeight: 800 }}>
+                      {u.zone || "Zone 1"}
+                    </div>
+                    <div style={{ textAlign: "center", color: "#7E22CE", fontWeight: 800, fontSize: 15 }}>
+                      {u.eventsJoined || u.completedEventsCount || 0}
+                      <span style={{ fontSize: 11, fontWeight: 600, marginLeft: 3, opacity: 0.7 }}>Events</span>
+                    </div>
+                    <div style={{ textAlign: "center", color: "#047857", fontWeight: 800, fontSize: 15 }}>
+                      {u.totalHours || 0}
+                      <span style={{ fontSize: 11, fontWeight: 600, marginLeft: 3, opacity: 0.7 }}>hrs</span>
+                    </div>
+                    <div style={{ textAlign: "center", color: isMe ? "#D97706" : "#6D28D9", fontWeight: 900, fontSize: 17 }}>
+                      {u.points}
+                      <span style={{ fontSize: 11, fontWeight: 600, marginLeft: 2, opacity: 0.7 }}>pts</span>
+                    </div>
+                    <div style={{ textAlign: "center" }}>
+                      <TierBadge tier={u.badgeTier} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ═══════════════ TAB 3: ZONE 1 COLLEGE LEADERBOARD (white) ═══════════════ */}
+      {activeTab === "Zone" && (
+        <div
+          style={{
+            background: "#FFFFFF",
+            borderRadius: 20,
+            border: "1px solid #E2E8F0",
+            boxShadow: "0 4px 24px rgba(15,23,42,0.08)",
+            padding: "24px 22px",
+            marginBottom: 32,
+          }}
+        >
+          {/* Section Header */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 12,
+                  background: "linear-gradient(135deg,#047857,#14B8A6)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  boxShadow: "0 6px 16px rgba(16,185,129,0.35)",
+                }}
+              >
+                <MapPin size={22} color="#fff" />
+              </div>
+              <div>
+                <h2 style={{ margin: 0, color: "#0F172A", fontSize: 20, fontWeight: 900 }}>
+                  📍 {ZONE_TO_SHOW} College Leaderboard
+                </h2>
+                <p style={{ margin: "2px 0 0", color: "#64748B", fontSize: 13 }}>
+                  Colleges in {ZONE_TO_SHOW} ({ZONE_REGION}) ranked by volunteering impact
+                </p>
+              </div>
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                background: "#F8FAFC",
+                border: "1.5px solid #E2E8F0",
+                borderRadius: 12,
+                padding: "8px 14px",
+                minWidth: 240,
+              }}
+            >
+              <Search size={15} color="#94A3B8" />
+              <input
+                type="text"
+                placeholder="Search college…"
+                value={zoneCollegeSearch}
+                onChange={(e) => setZoneCollegeSearch(e.target.value)}
+                style={{ border: "none", outline: "none", background: "transparent", flex: 1, fontSize: 13, color: "#334155" }}
+              />
+              {zoneCollegeSearch && (
+                <button
+                  onClick={() => setZoneCollegeSearch("")}
+                  style={{ background: "none", border: "none", cursor: "pointer", padding: 0, lineHeight: 1, color: "#94A3B8" }}
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Zone summary strip */}
+          <div
+            style={{
+              display: "flex",
+              gap: 24,
+              flexWrap: "wrap",
+              marginBottom: 20,
+              padding: "14px 18px",
+              background: "#ECFDF5",
+              borderRadius: 14,
+              border: "1px solid #A7F3D0",
+            }}
+          >
+            {[
+              { label: "Colleges", value: zoneTabColleges.length, icon: <Building2 size={15} color="#047857" /> },
+              { label: "Volunteers", value: zoneTabStudents.length, icon: <Users size={15} color="#047857" /> },
+              { label: "Total Points", value: zoneTabStudents.reduce((sum, u) => sum + (Number(u.points) || 0), 0).toLocaleString(), icon: <Star size={15} color="#F59E0B" fill="#F59E0B" /> },
+              { label: "Total Hours", value: zoneTabStudents.reduce((sum, u) => sum + (Number(u.totalHours) || 0), 0) + " hrs", icon: <Clock size={15} color="#059669" /> },
+            ].map((stat) => (
+              <div key={stat.label} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                {stat.icon}
+                <span style={{ fontSize: 13, color: "#64748B", fontWeight: 600 }}>{stat.label}:</span>
+                <strong style={{ fontSize: 14, color: "#0F172A" }}>{stat.value}</strong>
+              </div>
+            ))}
+          </div>
+
+          {/* Colleges table (Zone 1 only) */}
+          {zoneTabCollegesFiltered.length === 0 ? (
+            <div style={{ textAlign: "center", padding: "40px 20px", color: "#94A3B8" }}>
+              <Building2 size={40} style={{ marginBottom: 10, opacity: 0.4 }} />
+              <p style={{ margin: 0, fontSize: 14 }}>No colleges found in {ZONE_TO_SHOW}.</p>
+            </div>
+          ) : (
+            <div style={{ borderRadius: 16, overflow: "hidden", border: "1px solid #E2E8F0", maxWidth: 1100, margin: "0 auto" }}>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: ZONE_COLLEGE_GRID,
+                  columnGap: 10,
+                  padding: "15px 20px",
+                  background: "linear-gradient(90deg,#022C22,#047857)",
+                  borderBottom: "3px solid #14B8A6",
+                  fontWeight: 800,
+                  fontSize: 12,
+                  color: "#FFFFFF",
+                  textTransform: "uppercase",
+                  letterSpacing: 0.9,
+                }}
+              >
+                <span>Rank</span>
+                <span>College</span>
+                <span style={{ textAlign: "center" }}>Zone</span>
+                <span style={{ textAlign: "center" }}>Volunteers</span>
+                <span style={{ textAlign: "center" }}>Hours</span>
+                <span style={{ textAlign: "center" }}>Points</span>
+                <span>Leading Volunteer</span>
+              </div>
+
+              {zoneTabCollegesFiltered.map((c, idx) => {
+                const mine =
+                  myCollegeLabel &&
+                  (c.collegeName || "").toLowerCase().includes(myCollegeLabel.toLowerCase().trim());
+                const base = mine
+                  ? "linear-gradient(90deg,#FFF7ED,#FFFBEB)"
+                  : idx % 2 === 0
+                    ? "#FFFFFF"
+                    : "#F7FDFA";
+                return (
+                  <div
+                    key={c.collegeName + idx}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = "#ECFDF5")}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = base)}
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: ZONE_COLLEGE_GRID,
+                      columnGap: 10,
+                      padding: "14px 20px",
+                      alignItems: "center",
+                      borderBottom: "1px solid #F1F5F9",
+                      background: base,
+                      borderLeft: mine ? "4px solid #F59E0B" : "4px solid transparent",
+                      transition: "background .15s",
+                    }}
+                  >
+                    <div>{rankMedal(idx + 1)}</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <div
+                        style={{
+                          width: 36,
+                          height: 36,
+                          borderRadius: 10,
+                          background: mine ? "linear-gradient(135deg,#F59E0B,#FBBF24)" : "#D1FAE5",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          flexShrink: 0,
+                        }}
+                      >
+                        <GraduationCap size={18} color={mine ? "#78350F" : "#047857"} />
+                      </div>
+                      <span style={{ fontWeight: 800, fontSize: 14, color: "#0F172A" }}>
+                        {c.collegeName}
+                        {mine && (
+                          <span style={{ marginLeft: 8, background: "linear-gradient(90deg,#F59E0B,#FBBF24)", color: "#78350F", fontSize: 10, fontWeight: 800, padding: "2px 8px", borderRadius: 20 }}>
+                            Your College
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                    <div style={{ textAlign: "center", color: "#0F172A", fontSize: 13.5, fontWeight: 800 }}>
+                      {ZONE_TO_SHOW}
+                    </div>
+                    <div style={{ textAlign: "center", color: "#7E22CE", fontWeight: 800, fontSize: 15 }}>
+                      {c.totalStudents}
+                    </div>
+                    <div style={{ textAlign: "center", color: "#047857", fontWeight: 800, fontSize: 15 }}>
+                      {c.totalHours}
+                      <span style={{ fontSize: 11, fontWeight: 600, marginLeft: 3, opacity: 0.7 }}>hrs</span>
+                    </div>
+                    <div style={{ textAlign: "center", color: mine ? "#D97706" : "#047857", fontWeight: 900, fontSize: 17 }}>
+                      {c.totalPoints}
+                      <span style={{ fontSize: 11, fontWeight: 600, marginLeft: 2, opacity: 0.7 }}>pts</span>
+                    </div>
+                    <div style={{ color: "#334155", fontSize: 13.5, fontWeight: 700 }}>
+                      ⭐ {c.topVolunteer}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
     </div>

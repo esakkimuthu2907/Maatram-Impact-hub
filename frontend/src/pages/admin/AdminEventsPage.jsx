@@ -663,7 +663,7 @@ export default function AdminEventsPage() {
         await updateOpportunity(event.id || event._id, { eventStatus: "Completed", status: "Completed", pointsDistributed: true }).catch(() => { });
       }
       if (typeof refreshAllData === "function") {
-        refreshAllData().catch(() => {});
+        refreshAllData().catch(() => { });
       }
       showToast(res.message || "Event completed successfully! Points, certificates, and emails dispatched to approved volunteers.");
     } catch (err) {
@@ -701,7 +701,7 @@ export default function AdminEventsPage() {
         await updateOpportunity(awardModal.opp.id || awardModal.opp._id, { eventStatus: "Completed", status: "Completed", pointsDistributed: true }).catch(() => { });
       }
       if (typeof refreshAllData === "function") {
-        refreshAllData().catch(() => {});
+        refreshAllData().catch(() => { });
       }
       showToast(res.message || "Points awarded successfully!");
     } catch (err) {
@@ -1269,12 +1269,12 @@ export default function AdminEventsPage() {
                       <td>
                         <span
                           className={`status-pill ${app.status === "Approved"
-                              ? "approved"
-                              : app.status === "Rejected"
-                                ? "rejected"
-                                : app.status === "Completed"
-                                  ? "approved"
-                                  : "pending"
+                            ? "approved"
+                            : app.status === "Rejected"
+                              ? "rejected"
+                              : app.status === "Completed"
+                                ? "approved"
+                                : "pending"
                             }`}
                         >
                           {app.status === "Approved" && <CheckCircle2 size={13} />}
@@ -1493,12 +1493,12 @@ export default function AdminEventsPage() {
                         <td>
                           <span
                             className={`status-pill ${status === "Verified"
-                                ? "approved"
-                                : status === "Rejected"
-                                  ? "rejected"
-                                  : status === "Correction Requested"
-                                    ? "cancelled"
-                                    : "pending"
+                              ? "approved"
+                              : status === "Rejected"
+                                ? "rejected"
+                                : status === "Correction Requested"
+                                  ? "cancelled"
+                                  : "pending"
                               }`}
                           >
                             {status}

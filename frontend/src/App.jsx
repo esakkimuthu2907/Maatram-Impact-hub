@@ -16,6 +16,7 @@ import ErrorBoundary from "./components/common/ErrorBoundary";
 // Auth Pages
 import LoginPage from "./pages/auth/LoginPage";
 import RegistrationPage from "./pages/auth/RegistrationPage";
+import PublicDashboard from "./pages/public/Dashboard";
 
 // Student Pages
 import StudentDashboard from "./pages/student/StudentDashboard";
@@ -26,12 +27,20 @@ import MyApplicationsPage from "./pages/student/MyApplicationsPage";
 import ProfilePage from "./pages/student/ProfilePage";
 import LeaderboardPage from "./pages/student/LeaderboardPage";
 import ContributionsPage from "./pages/student/ContributionsPage";
-import ReportsPage from "./pages/student/ReportsPage";
 import NotificationsPage from "./pages/student/NotificationsPage";
 import SettingsPage from "./pages/student/SettingsPage";
 import ConnectPage from "./pages/student/ConnectPage";
 import AlumniPage from "./pages/student/AlumniPage";
 import AlumniDashboard from "./pages/student/AlumniDashboard";
+// Games Pages
+import GamesDashboard from "./pages/games/GamesDashboard";
+import ZipGame from "./pages/games/ZipGame";
+import WendGame from "./pages/games/WendGame";
+import GamesLeaderboard from "./pages/games/GamesLeaderboard";
+import GamesBadges from "./pages/games/GamesBadges";
+import GamesHistory from "./pages/games/GamesHistory";
+import UserGameProfile from "./pages/games/UserGameProfile";
+import AdminGameManagement from "./pages/games/AdminGameManagement";
 
 // Admin Pages
 import AdminDashboard from "./pages/admin/AdminDashboard";
@@ -40,6 +49,7 @@ import AdminUsersPage from "./pages/admin/AdminUsersPage";
 import AdminStudentProfilePage from "./pages/admin/AdminStudentProfilePage";
 import AdminAlumniPage from "./pages/admin/AdminAlumniPage";
 import AdminReportsPage from "./pages/admin/AdminReportsPage";
+
 
 // Alumni Pages
 
@@ -76,7 +86,9 @@ export default function App() {
           <Routes>
             {/* Public Authentication Routes */}
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/volunteering" element={<PublicDashboard />} />
             <Route path="/register" element={<RegistrationPage />} />
+
 
             {/* Root redirect */}
             <Route path="/" element={<RootRedirect />} />
@@ -115,7 +127,27 @@ export default function App() {
               }
             />
             <Route
+              path="/opportunities/admissions"
+              element={
+                <ProtectedRoute>
+                  <AppLayout>
+                    <OpportunitiesPage />
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/opportunities/sangamam"
+              element={
+                <ProtectedRoute>
+                  <AppLayout>
+                    <OpportunitiesPage />
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/opportunities/alumni-connect"
               element={
                 <ProtectedRoute>
                   <AppLayout>
@@ -145,6 +177,16 @@ export default function App() {
               }
             />
             <Route
+              path="/opportunities/special-projects"
+              element={
+                <ProtectedRoute>
+                  <AppLayout>
+                    <OpportunitiesPage />
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/opportunities/karpom-karpipom"
               element={
                 <ProtectedRoute>
@@ -155,7 +197,37 @@ export default function App() {
               }
             />
             <Route
+              path="/opportunities/skill-development"
+              element={
+                <ProtectedRoute>
+                  <AppLayout>
+                    <OpportunitiesPage />
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/opportunities/maatram"
+              element={
+                <ProtectedRoute>
+                  <AppLayout>
+                    <OpportunitiesPage />
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/opportunities/maatram-core"
+              element={
+                <ProtectedRoute>
+                  <AppLayout>
+                    <OpportunitiesPage />
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/opportunities/category/:categorySlug"
               element={
                 <ProtectedRoute>
                   <AppLayout>
@@ -188,7 +260,7 @@ export default function App() {
             />
 
             {/* Applications, Profile, Impact & Reporting Modules */}
-            
+
             <Route
               path="/applications"
               element={
@@ -209,6 +281,79 @@ export default function App() {
                 </ProtectedRoute>
               }
             />
+            {/* Games & Challenges System */}
+            <Route
+              path="/games"
+              element={
+                <ProtectedRoute>
+                  <AppLayout>
+                    <GamesDashboard />
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/games/zip"
+              element={
+                <ProtectedRoute>
+                  <AppLayout>
+                    <ZipGame />
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/games/wend"
+              element={
+                <ProtectedRoute>
+                  <AppLayout>
+                    <WendGame />
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/games/leaderboard"
+              element={
+                <ProtectedRoute>
+                  <AppLayout>
+                    <GamesLeaderboard />
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/games/badges"
+              element={
+                <ProtectedRoute>
+                  <AppLayout>
+                    <GamesBadges />
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/games/history"
+              element={
+                <ProtectedRoute>
+                  <AppLayout>
+                    <GamesHistory />
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/games/profile"
+              element={
+                <ProtectedRoute>
+                  <AppLayout>
+                    <UserGameProfile />
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route path="/learning" element={<Navigate to="/games" replace />} />
+            <Route path="/ai-learning" element={<Navigate to="/games" replace />} />
             <Route
               path="/leaderboard"
               element={
@@ -229,16 +374,7 @@ export default function App() {
                 </ProtectedRoute>
               }
             />
-            <Route
-              path="/reports"
-              element={
-                <ProtectedRoute>
-                  <AppLayout>
-                    <ReportsPage />
-                  </AppLayout>
-                </ProtectedRoute>
-              }
-            />
+
             <Route
               path="/notifications"
               element={
@@ -346,6 +482,17 @@ export default function App() {
                 </ProtectedRoute>
               }
             />
+            <Route
+              path="/admin/games"
+              element={
+                <ProtectedRoute adminOnly={true}>
+                  <AppLayout>
+                    <AdminGameManagement />
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route path="/admin/learning" element={<Navigate to="/admin/games" replace />} />
 
             {/* Catch-all Fallback */}
             <Route path="*" element={<RootRedirect />} />

@@ -243,7 +243,7 @@ export default function ConnectPage() {
         if (res?.data && Array.isArray(res.data)) {
           setPosts(res.data);
         }
-      }).catch(() => {});
+      }).catch(() => { });
     }
   }, [activeSection]);
 
@@ -438,7 +438,7 @@ export default function ConnectPage() {
     };
     const updated = { ...chatMessages, [chatKey]: [...(chatMessages[chatKey] || []), myMsg] };
     setChatMessages(updated);
-    try { localStorage.setItem("maatram_connect_chat_v3", JSON.stringify(updated)); } catch {}
+    try { localStorage.setItem("maatram_connect_chat_v3", JSON.stringify(updated)); } catch { }
 
     try {
       await messagesAPI.sendMessage({ recipientId: partnerId, text: textToSend });
@@ -455,7 +455,7 @@ export default function ConnectPage() {
   const handleLikePost = async (postId) => {
     try {
       await postsAPI.likePost(postId);
-    } catch {}
+    } catch { }
     setPosts((prev) => prev.map((p) =>
       p.id === postId ? { ...p, liked: !p.liked, likes: p.liked ? p.likes - 1 : p.likes + 1 } : p
     ));
@@ -577,10 +577,10 @@ export default function ConnectPage() {
   /* ─── Section config ────────────────────────────────────────────────────── */
   const SECTIONS = [
     { key: "suggested", label: "Suggested", icon: Sparkles, badge: filteredUsers.length },
-    { key: "messages",  label: "Messages",  icon: MessageSquare, badge: unreadMsgCount > 0 ? unreadMsgCount : connectedUsers.length },
-    { key: "requests",  label: "Sent",      icon: Clock, badge: sentRequests.length },
-    { key: "received",  label: "Requests",  icon: Bell, badge: receivedRequests.length },
-    { key: "posts",     label: "Posts",     icon: Globe, badge: posts.length },
+    { key: "messages", label: "Messages", icon: MessageSquare, badge: unreadMsgCount > 0 ? unreadMsgCount : connectedUsers.length },
+    { key: "requests", label: "Sent", icon: Clock, badge: sentRequests.length },
+    { key: "received", label: "Requests", icon: Bell, badge: receivedRequests.length },
+    { key: "posts", label: "Posts", icon: Globe, badge: posts.length },
   ];
 
   /* ══════════════════════════════════════════════════════════════════════════
@@ -684,7 +684,7 @@ export default function ConnectPage() {
         <div className="mc2-section">
           {loading ? (
             <div className="mc2-loading">
-              {[1,2,3,4,5,6].map((i) => <div key={i} className="mc2-skeleton-card" />)}
+              {[1, 2, 3, 4, 5, 6].map((i) => <div key={i} className="mc2-skeleton-card" />)}
             </div>
           ) : filteredUsers.length === 0 ? (
             <div className="mc2-empty-state">
@@ -1388,7 +1388,7 @@ export default function ConnectPage() {
               <button className="mc2-profile-close" onClick={() => setConnectPromptUser(null)}><X size={16} /></button>
             </div>
             <div className="mc2-profile-body" style={{ textAlign: "center", paddingTop: 10 }}>
-              <div style={{ display: "flex", justifyContent: "center", marginTop: -40, marginBottom: 12 }}>
+              <div style={{ display: "flex", justifyContent: "center", marginTop: -40, marginBottom: 12, position: "relative", zIndex: 2 }}>
                 <img
                   src={connectPromptUser.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(connectPromptUser.fullName)}`}
                   alt={connectPromptUser.fullName}

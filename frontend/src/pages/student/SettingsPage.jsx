@@ -17,6 +17,44 @@ import { useApp } from "../../context/AppContext";
 import MaatramLogo from "../../components/common/MaatramLogo";
 import "./StudentDashboard.css";
 
+/* Layout overrides: white page, fixed (sticky) left menu, scrolling right panel */
+const layoutCSS = `
+  .settings-page-root {
+    background: #FFFFFF !important;
+  }
+  .settings-page-root .settings-grid-layout {
+    display: grid !important;
+    grid-template-columns: 320px minmax(0, 1fr) !important;
+    gap: 24px !important;
+    align-items: start !important;
+  }
+  .settings-page-root .settings-nav-col {
+    position: sticky !important;
+    top: 16px !important;
+    align-self: start !important;
+    background: #FFFFFF !important;
+    border: 1px solid #E2E8F0 !important;
+    max-height: calc(100vh - 32px);
+    overflow-y: auto;
+  }
+  .settings-page-root .settings-content-col {
+    min-width: 0;
+  }
+  .settings-page-root .settings-card {
+    background: #FFFFFF !important;
+    border: 1px solid #E2E8F0 !important;
+  }
+  @media (max-width: 900px) {
+    .settings-page-root .settings-grid-layout {
+      grid-template-columns: 1fr !important;
+    }
+    .settings-page-root .settings-nav-col {
+      position: static !important;
+      max-height: none;
+    }
+  }
+`;
+
 export default function SettingsPage() {
   const { user, logout, showToast } = useApp();
   const navigate = useNavigate();
@@ -78,7 +116,9 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="dashboard-container">
+    <div className="dashboard-container settings-page-root">
+      <style>{layoutCSS}</style>
+
       <div className="section-header-row">
         <div>
           <h1 className="page-heading">Settings</h1>
@@ -93,7 +133,7 @@ export default function SettingsPage() {
       </div>
 
       <div className="settings-grid-layout">
-        {/* SETTINGS VERTICAL TABS NAV */}
+        {/* SETTINGS VERTICAL TABS NAV (static / sticky) */}
         <aside className="settings-nav-col">
           <button
             className={`settings-nav-btn ${activeTab === "notifications" ? "active" : ""}`}
@@ -136,7 +176,7 @@ export default function SettingsPage() {
           </button>
         </aside>
 
-        {/* SETTINGS CONTENT PANEL */}
+        {/* SETTINGS CONTENT PANEL (scrolls) */}
         <div className="settings-content-col">
           {/* TAB 1: NOTIFICATIONS */}
           {activeTab === "notifications" && (

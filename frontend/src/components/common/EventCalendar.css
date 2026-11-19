@@ -20,12 +20,12 @@
 }
 
 .cal-widget-title {
-  font-family: "Georgia", "Times New Roman", serif;
+  font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   font-size: 20px;
-  font-weight: 700;
+  font-weight: 800;
   color: #0f172a;
   margin: 0;
-  letter-spacing: -0.3px;
+  letter-spacing: -0.4px;
 }
 
 .cal-month-nav {
@@ -35,12 +35,13 @@
 }
 
 .cal-month-heading {
-  font-family: "Georgia", "Times New Roman", serif;
-  font-size: 17px;
+  font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 16px;
   font-weight: 700;
   color: #0f172a;
-  min-width: 120px;
+  min-width: 140px;
   text-align: center;
+  letter-spacing: -0.2px;
 }
 
 .cal-nav-btn {
@@ -105,9 +106,11 @@
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   text-align: center;
-  font-size: 13px;
-  font-weight: 500;
+  font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 12px;
+  font-weight: 700;
   color: #64748b;
+  letter-spacing: 0.04em;
   margin-bottom: 12px;
 }
 
@@ -139,9 +142,10 @@
 }
 
 .cal-day-number-plain {
-  font-family: "Georgia", "Times New Roman", serif;
-  font-size: 15px;
+  font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 14px;
   font-weight: 600;
+  font-feature-settings: "tnum";
 }
 
 /* Highlighted Event Circle matching reference image */
@@ -164,9 +168,10 @@
 }
 
 .cal-day-number {
-  font-family: "Georgia", "Times New Roman", serif;
-  font-size: 15px;
+  font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 14px;
   font-weight: 700;
+  font-feature-settings: "tnum";
 }
 
 /* Checkmark badge on top right corner of circular day (Image 2) */

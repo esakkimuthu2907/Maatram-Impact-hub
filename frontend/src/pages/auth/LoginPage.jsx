@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   HelpCircle,
   ShieldCheck,
+  HeartHandshake,
 } from "lucide-react";
 
 import { authAPI } from "../../api/authAPI";
@@ -25,7 +26,9 @@ export default function LoginPage() {
   const location = useLocation();
   const { login: setAuthUser } = useApp();
 
-  const [role, setRole] = useState("student");
+  const [role, setRole] = useState(
+    location.state?.loginType === "admin" ? "admin" : "student"
+  );
   const [loginMethod, setLoginMethod] = useState("email");
   const [identifier, setIdentifier] = useState(
     location.state?.applicationId || location.state?.studentId || ""
@@ -137,6 +140,13 @@ export default function LoginPage() {
         {/* RIGHT PANEL - LOGIN FORM */}
 
         <section className="login-right">
+          {/* Top button -> public Volunteering Opportunities page */}
+          <Link to="/volunteering" className="login-top-link">
+            <HeartHandshake size={16} aria-hidden="true" />
+            Opportunities
+            <ArrowRight size={15} aria-hidden="true" />
+          </Link>
+
           <div className="login-content">
 
             <div className="login-brand-header">
@@ -161,9 +171,8 @@ export default function LoginPage() {
             >
               <button
                 type="button"
-                className={`role-btn ${
-                  role === "student" ? "active" : ""
-                }`}
+                className={`role-btn ${role === "student" ? "active" : ""
+                  }`}
                 onClick={() => {
                   setRole("student");
                   setLoginMethod("email");
@@ -179,9 +188,8 @@ export default function LoginPage() {
 
               <button
                 type="button"
-                className={`role-btn ${
-                  role === "alumni" ? "active" : ""
-                }`}
+                className={`role-btn ${role === "alumni" ? "active" : ""
+                  }`}
                 onClick={() => {
                   setRole("alumni");
                   setLoginMethod("email");
@@ -197,9 +205,8 @@ export default function LoginPage() {
 
               <button
                 type="button"
-                className={`role-btn ${
-                  role === "admin" ? "active" : ""
-                }`}
+                className={`role-btn ${role === "admin" ? "active" : ""
+                  }`}
                 onClick={() => {
                   setRole("admin");
                   setLoginMethod("email");
@@ -266,8 +273,8 @@ export default function LoginPage() {
                   {loginMethod === "email"
                     ? "Email Address"
                     : role === "admin"
-                    ? "Admin ID"
-                    : "Application ID"}
+                      ? "Admin ID"
+                      : "Application ID"}
                 </label>
 
                 <div className="input-box">
@@ -288,8 +295,8 @@ export default function LoginPage() {
                           ? "admin@gmail.com"
                           : "student@email.com"
                         : role === "admin"
-                        ? "ADMIN001"
-                        : "e.g. MAA001"
+                          ? "ADMIN001"
+                          : "e.g. MAA001"
                     }
                     value={identifier}
                     onChange={(event) => {
@@ -419,46 +426,46 @@ export default function LoginPage() {
               </button>
             </form>
 
-           {/* Quick 1-Click Access for Demo */}
-<div className="login-quick-access">
-  <span className="login-quick-title">
-    ⚡Fast Fill Credentials
-  </span>
+            {/* Quick 1-Click Access for Demo */}
+            <div className="login-quick-access">
+              <span className="login-quick-title">
+                ⚡Fast Fill Credentials
+              </span>
 
-  <div className="login-quick-buttons">
+              <div className="login-quick-buttons">
 
-    {/* Admin Demo */}
-    <button
-      type="button"
-      className="quick-demo-btn admin-demo"
-      onClick={() => {
-        setRole("admin");
-        setLoginMethod("email");
-        setIdentifier("admin@maatram.org");
-        setPassword("admin123");
-      }}
-      title="Fill Admin Credentials"
-    >
-      <ShieldCheck size={14} /> Admin
-    </button>
+                {/* Admin Demo */}
+                <button
+                  type="button"
+                  className="quick-demo-btn admin-demo"
+                  onClick={() => {
+                    setRole("admin");
+                    setLoginMethod("email");
+                    setIdentifier("admin@maatram.org");
+                    setPassword("admin123");
+                  }}
+                  title="Fill Admin Credentials"
+                >
+                  <ShieldCheck size={14} /> Admin
+                </button>
 
-    {/* Esakkimuthu Demo */}
-    <button
-      type="button"
-      className="quick-demo-btn"
-      onClick={() => {
-        setRole("student");
-        setLoginMethod("email");
-        setIdentifier("esakkimuthu2907@gmail.com");
-        setPassword("Esakki@123");
-      }}
-      title="Fill Esakkimuthu S Credentials"
-    >
-      <GraduationCap size={14} /> Student
-    </button>
+                {/* Esakkimuthu Demo */}
+                <button
+                  type="button"
+                  className="quick-demo-btn"
+                  onClick={() => {
+                    setRole("student");
+                    setLoginMethod("email");
+                    setIdentifier("esakkimuthu2907@gmail.com");
+                    setPassword("Esakki@123");
+                  }}
+                  title="Fill Esakkimuthu S Credentials"
+                >
+                  <GraduationCap size={14} /> Student
+                </button>
 
-  </div>
-</div>
+              </div>
+            </div>
 
             {/* REGISTER LINK */}
 

@@ -33,7 +33,9 @@ const initialForm = {
   fullName: "",
   email: "",
   phone: "",
+  dob: "",
   college: "",
+  residence: "Day Scholar", // "Day Scholar" or "Hostel"
   zone: "Zone 1",
   batch: "2022-2026",
   customBatch: "",
@@ -97,8 +99,8 @@ export default function RegistrationPage() {
         type === "checkbox"
           ? checked
           : name === "phone"
-          ? value.replace(/\D/g, "").slice(0, 10)
-          : value,
+            ? value.replace(/\D/g, "").slice(0, 10)
+            : value,
     }));
 
     setErrors((previous) => ({
@@ -120,9 +122,7 @@ export default function RegistrationPage() {
 
     if (!formData.email.trim()) {
       nextErrors.email = "Please enter your college email address.";
-    } else if (
-      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)
-    ) {
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       nextErrors.email = "Please enter a valid email address.";
     }
 
@@ -130,8 +130,18 @@ export default function RegistrationPage() {
       nextErrors.phone = "Enter a valid 10-digit mobile number.";
     }
 
+    if (!formData.dob) {
+      nextErrors.dob = "Please select your date of birth.";
+    } else if (new Date(formData.dob) > new Date()) {
+      nextErrors.dob = "Date of birth cannot be in the future.";
+    }
+
     if (!formData.college.trim()) {
       nextErrors.college = "Please enter your college name.";
+    }
+
+    if (!formData.residence) {
+      nextErrors.residence = "Please select Hostel or Day Scholar.";
     }
 
     if (formData.role === "student") {
@@ -164,9 +174,7 @@ export default function RegistrationPage() {
 
     if (!formData.confirmPassword) {
       nextErrors.confirmPassword = "Please confirm your password.";
-    } else if (
-      formData.studentPassword !== formData.confirmPassword
-    ) {
+    } else if (formData.studentPassword !== formData.confirmPassword) {
       nextErrors.confirmPassword = "Passwords do not match.";
     }
 
@@ -191,15 +199,18 @@ export default function RegistrationPage() {
     setIsSubmitting(true);
 
     try {
-      const finalBatch = formData.batch === "Other" && formData.customBatch.trim()
-        ? formData.customBatch.trim()
-        : formData.batch;
+      const finalBatch =
+        formData.batch === "Other" && formData.customBatch.trim()
+          ? formData.customBatch.trim()
+          : formData.batch;
 
       const result = await authService.register({
         fullName: formData.fullName,
         email: formData.email,
         phone: formData.phone,
+        dob: formData.dob,
         college: formData.college,
+        residence: formData.residence,
         zone: formData.zone,
         batch: finalBatch,
         district: formData.district,
@@ -243,9 +254,7 @@ export default function RegistrationPage() {
     if (!registeredData?.applicationId) return;
 
     try {
-      await navigator.clipboard.writeText(
-        registeredData.applicationId
-      );
+      await navigator.clipboard.writeText(registeredData.applicationId);
 
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
@@ -258,14 +267,12 @@ export default function RegistrationPage() {
     <main className="register-page">
       <div className="register-shell">
 
-        {/* LEFT PANEL */}
+        {/* LEFT PANEL (stays fixed while the form scrolls) */}
 
         <aside
           className="register-sidebar"
           aria-label="Transformation through education"
         >
-          {/* TREE BACKGROUND */}
-
           <div className="register-sidebar-image-wrap">
             <img
               src={transformationTree}
@@ -273,8 +280,6 @@ export default function RegistrationPage() {
               className="register-sidebar-image"
             />
           </div>
-
-          {/* CENTRED MAATRAM LOGO */}
 
           <div
             className="register-sidebar-logo"
@@ -422,9 +427,8 @@ export default function RegistrationPage() {
                 <div className="role-switch" style={{ marginBottom: 20 }}>
                   <button
                     type="button"
-                    className={`role-btn ${
-                      formData.role === "student" ? "active" : ""
-                    }`}
+                    className={`role-btn ${formData.role === "student" ? "active" : ""
+                      }`}
                     onClick={() =>
                       setFormData((p) => ({ ...p, role: "student" }))
                     }
@@ -434,9 +438,8 @@ export default function RegistrationPage() {
 
                   <button
                     type="button"
-                    className={`role-btn ${
-                      formData.role === "alumni" ? "active" : ""
-                    }`}
+                    className={`role-btn ${formData.role === "alumni" ? "active" : ""
+                      }`}
                     onClick={() =>
                       setFormData((p) => ({ ...p, role: "alumni" }))
                     }
@@ -534,6 +537,28 @@ export default function RegistrationPage() {
 
                   </div>
 
+                  {/* DATE OF BIRTH */}
+
+                  <div className="register-field">
+                    <label htmlFor="dob">Date of Birth</label>
+
+                    <input
+                      id="dob"
+                      name="dob"
+                      type="date"
+                      value={formData.dob}
+                      max={new Date().toISOString().split("T")[0]}
+                      onChange={handleChange}
+                      aria-invalid={Boolean(errors.dob)}
+                    />
+
+                    {errors.dob && (
+                      <small className="register-field-error">
+                        {errors.dob}
+                      </small>
+                    )}
+                  </div>
+
                   {/* SECTION 02: ACADEMIC / PROFESSIONAL */}
 
                   <div className="register-section-title register-section-spaced">
@@ -568,7 +593,45 @@ export default function RegistrationPage() {
                     )}
                   </div>
 
-                  {/* ZONE & BATCH (Applicable to both Students and Alumni) */}
+                  {/* HOSTEL / DAY SCHOLAR */}
+
+                  <div className="register-field">
+                    <span className="register-field-label" id="residence-label">
+                      Stay Type
+                    </span>
+
+                    <div
+                      className="residence-options"
+                      role="radiogroup"
+                      aria-labelledby="residence-label"
+                    >
+                      {["Day Scholar", "Hostel"].map((option) => (
+                        <label
+                          key={option}
+                          className={`residence-option ${formData.residence === option ? "selected" : ""
+                            }`}
+                        >
+                          <input
+                            type="radio"
+                            name="residence"
+                            value={option}
+                            checked={formData.residence === option}
+                            onChange={handleChange}
+                          />
+                          <span>{option}</span>
+                        </label>
+                      ))}
+                    </div>
+
+                    {errors.residence && (
+                      <small className="register-field-error">
+                        {errors.residence}
+                      </small>
+                    )}
+                  </div>
+
+                  {/* ZONE & BATCH */}
+
                   <div className="register-field-grid">
                     <div className="register-field">
                       <label htmlFor="zone">Operating Zone</label>
@@ -848,21 +911,18 @@ export default function RegistrationPage() {
                         <div className="strength-indicators">
 
                           <span
-                            className={`bar ${
-                              strength.score >= 1 ? "active-1" : ""
-                            }`}
+                            className={`bar ${strength.score >= 1 ? "active-1" : ""
+                              }`}
                           />
 
                           <span
-                            className={`bar ${
-                              strength.score >= 2 ? "active-2" : ""
-                            }`}
+                            className={`bar ${strength.score >= 2 ? "active-2" : ""
+                              }`}
                           />
 
                           <span
-                            className={`bar ${
-                              strength.score >= 3 ? "active-3" : ""
-                            }`}
+                            className={`bar ${strength.score >= 3 ? "active-3" : ""
+                              }`}
                           />
 
                         </div>
@@ -904,9 +964,7 @@ export default function RegistrationPage() {
                       <button
                         type="button"
                         className="register-password-toggle"
-                        onClick={() =>
-                          setShowConfirmPassword((v) => !v)
-                        }
+                        onClick={() => setShowConfirmPassword((v) => !v)}
                         aria-label={
                           showConfirmPassword
                             ? "Hide password"

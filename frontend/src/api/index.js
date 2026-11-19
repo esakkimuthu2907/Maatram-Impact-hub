@@ -15,10 +15,10 @@ function resolveCandidateUrls() {
     if (host === "localhost" || host === "127.0.0.1") {
       return [
         "/api",
-        "http://127.0.0.1:5002/api",
-        "http://localhost:5002/api",
         "http://127.0.0.1:5001/api",
         "http://localhost:5001/api",
+        "http://127.0.0.1:5002/api",
+        "http://localhost:5002/api",
         "http://127.0.0.1:5000/api",
         "http://localhost:5000/api",
       ];
@@ -26,25 +26,25 @@ function resolveCandidateUrls() {
     if (/^\d+\.\d+\.\d+\.\d+$/.test(host)) {
       return [
         "/api",
-        `http://${host}:5002/api`,
         `http://${host}:5001/api`,
+        `http://${host}:5002/api`,
         `http://${host}:5000/api`,
-        "http://127.0.0.1:5002/api",
+        "http://127.0.0.1:5001/api",
       ];
     }
   }
-  const envUrl = (import.meta.env.VITE_API_URL || "http://127.0.0.1:5002").replace(/\/+$/, "");
+  const envUrl = (import.meta.env.VITE_API_URL || "http://127.0.0.1:5001").replace(/\/+$/, "");
   return [
     "/api",
     `${envUrl}/api`,
-    "http://127.0.0.1:5002/api",
-    "http://localhost:5002/api",
     "http://127.0.0.1:5001/api",
     "http://localhost:5001/api",
+    "http://127.0.0.1:5002/api",
+    "http://localhost:5002/api",
   ];
 }
 
-const BASE_URL = resolveCandidateUrls()[0] || "http://localhost:5002/api";
+const BASE_URL = resolveCandidateUrls()[0] || "http://localhost:5001/api";
 
 // Get authentication token
 function getToken() {
@@ -107,7 +107,13 @@ async function request(method, path, body = null) {
 
   for (const base of candidateBases) {
     try {
-      response = await fetch(`${base}${path}`, options);
+      const res = await fetch(`${base}${path}`, options);
+      // If Vite dev proxy returned 502/504 (proxy error or ECONNRESET), fall back to direct backend URL
+      if ((res.status === 502 || res.status === 504) && base === "/api") {
+        lastNetworkError = new Error(`Proxy status ${res.status}`);
+        continue;
+      }
+      response = res;
       activeApiBase = base; // Cache successful connection
       break;
     } catch (netErr) {
@@ -197,5 +203,6 @@ export { certificatesAPI } from "./certificatesAPI";
 export { hoursAPI } from "./hoursAPI";
 export { postsAPI } from "./postsAPI";
 export { messagesAPI } from "./messagesAPI";
+export { gamesAPI } from "./gamesAPI";
 
 export default api;

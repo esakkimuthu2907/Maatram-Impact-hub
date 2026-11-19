@@ -24,6 +24,7 @@ export default function HorizontalEventCarousel({
   onRegister,
   onViewDetails,
   loading = false,
+  showBadge = false,
 }) {
   const navigate = useNavigate();
   const scrollContainerRef = useRef(null);
@@ -116,9 +117,11 @@ export default function HorizontalEventCarousel({
       {/* Header Row with Navigation Arrows */}
       <div className="carousel-header">
         <div className="carousel-title-group">
-          <span className="carousel-badge">
-            <Sparkles size={13} color="#EAB308" /> Drives & Opportunities
-          </span>
+          {showBadge && (
+            <span className="carousel-badge">
+              <Sparkles size={13} color="#EAB308" /> Drives & Opportunities
+            </span>
+          )}
           <h3 className="carousel-main-title">Upcoming Events</h3>
         </div>
 

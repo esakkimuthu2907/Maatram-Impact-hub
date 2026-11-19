@@ -5,8 +5,14 @@
 ========================================= */
 
 :root {
-  --maatram-red: #d7193f;
-  --maatram-red-dark: #a90f2c;
+  --maatram-red: #ffce1b;
+  /* brand yellow (accent colour) */
+  --maatram-red-dark: #f2bd00;
+  /* slightly darker yellow for hover */
+  --maatram-yellow-text: #a16207;
+  /* readable yellow for small links */
+  --maatram-on-yellow: #172033;
+  /* dark text used on yellow buttons */
   --maatram-ink: #172033;
   --maatram-muted: #687386;
   --maatram-line: #e7eaf0;
@@ -78,7 +84,7 @@
 
 /* Image directly fills the left panel */
 
-.login-left > .login-sidebar-image {
+.login-left>.login-sidebar-image {
   position: absolute !important;
 
   inset: 0 !important;
@@ -233,10 +239,10 @@
 }
 
 .role-switch .role-btn.active {
-  background: linear-gradient(110deg, #e52b50, #c41439);
-  color: #ffffff;
-  border-color: #d7193f;
-  box-shadow: 0 5px 14px rgba(215, 25, 63, 0.15);
+  background: linear-gradient(110deg, #ffce1b, #ffce1b);
+  color: var(--maatram-on-yellow);
+  border-color: #ffce1b;
+  box-shadow: 0 5px 14px rgba(255, 206, 27, 0.3);
 }
 
 .role-switch .role-btn:hover {
@@ -286,12 +292,31 @@
 }
 
 .login-methods input[type="radio"] {
-  width: 17px;
-  height: 17px;
-  margin: 0;
+  appearance: none;
+  -webkit-appearance: none;
 
-  accent-color: var(--maatram-red);
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  flex-shrink: 0;
+
+  border: 2px solid #ffce1b;
+  /* yellow outline */
+  border-radius: 50%;
+  background: #ffffff;
+
   cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.login-methods input[type="radio"]:checked {
+  background: radial-gradient(circle, #ffce1b 45%, #ffffff 50%);
+  box-shadow: 0 0 0 3px rgba(255, 206, 27, 0.3);
+}
+
+.login-methods input[type="radio"]:focus-visible {
+  outline: 3px solid rgba(255, 206, 27, 0.5);
+  outline-offset: 2px;
 }
 
 /* Field labels */
@@ -327,11 +352,11 @@
 }
 
 .input-box:focus-within {
-  border-color: #ffcb05;
-  box-shadow: 0 0 0 4px rgba(215, 25, 63, 0.08);
+  border-color: #ffce1b;
+  box-shadow: 0 0 0 4px rgba(255, 206, 27, 0.22);
 }
 
-.input-box > svg {
+.input-box>svg {
   flex-shrink: 0;
   color: #788397;
 }
@@ -392,11 +417,13 @@
 
 .remember-checkbox {
   display: inline-flex;
-  align-items: flex-start;
-  gap: 15px; /* Increased space */
+  align-items: center;
+  /* keeps the checkbox and text on one line */
+  gap: 10px;
+  /* the space after the checkbox */
 
   color: #596477;
-  font-size: 13px;
+  font-size: 14px;
 
   cursor: pointer;
 }
@@ -407,7 +434,7 @@
   margin: 0;
   flex-shrink: 0;
 
-  accent-color: var(--maatram-red);
+  accent-color: #ffce1b;
   cursor: pointer;
 }
 
@@ -417,14 +444,15 @@
   border: 0;
   background: transparent;
 
-  color: var(--maatram-red);
-  font: 600 13px "Inter", sans-serif;
+  color: #ff1414e8;
+  font: 800 14px "Inter", sans-serif;
+  /* was 600 13px */
 
   cursor: pointer;
 }
 
 .forgot-link:hover {
-  color: var(--maatram-red-dark);
+  color: #ff1414e8;
   text-decoration: underline;
 }
 
@@ -475,17 +503,13 @@
   border: none;
   border-radius: 13px;
 
-  background: linear-gradient(
-    110deg,
-    #e52b50,
-    #c41439
-  );
+  background: #ffce1b;
 
-  color: #ffffff;
+  color: var(--maatram-on-yellow);
 
   font: 700 14px "Inter", sans-serif;
 
-  box-shadow: 0 9px 20px rgba(196, 20, 57, 0.19);
+  box-shadow: 0 9px 20px rgba(255, 206, 27, 0.32);
 
   cursor: pointer;
   transition: all 0.2s ease;
@@ -493,7 +517,7 @@
 
 .login-submit:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 12px 24px rgba(196, 20, 57, 0.25);
+  box-shadow: 0 12px 24px rgba(255, 206, 27, 0.42);
 }
 
 .login-submit:disabled {
@@ -520,17 +544,22 @@
 
   text-align: center;
 
-  color: #687386;
-  font-size: 13px;
+  color: #000000c9;
+  /* black */
+  font-weight: 700;
+  /* bold */
+  font-size: 15px;
 }
 
 .signup-text a {
-  color: var(--maatram-red);
-  font-weight: 700;
+  color: #ff1414e4;
+  font-weight: 800;
+  /* was 700 */
   text-decoration: none;
 }
 
 .signup-text a:hover {
+  color: #ff1414e4;
   text-decoration: underline;
 }
 
@@ -540,7 +569,8 @@
   text-align: center;
 
   color: #a0a7b3;
-  font-size: 11px;
+  font-size: 14px;
+  /* was 11px */
   line-height: 1.6;
 }
 
@@ -629,9 +659,9 @@
   border-radius: 9px;
 
   background: var(--maatram-red);
-  color: #ffffff;
+  color: var(--maatram-on-yellow);
 
-  font: 600 13px "Inter", sans-serif;
+  font: 700 13px "Inter", sans-serif;
 
   cursor: pointer;
 }
@@ -688,7 +718,7 @@
     min-height: 260px !important;
   }
 
-  .login-left > .login-sidebar-image {
+  .login-left>.login-sidebar-image {
     width: 100% !important;
     height: 100% !important;
     object-fit: cover !important;
@@ -761,6 +791,7 @@
   border-top: 1px solid #E2E8F0;
   text-align: center;
 }
+
 .login-quick-title {
   display: block;
   font-size: 11px;
@@ -770,12 +801,14 @@
   letter-spacing: 0.6px;
   margin-bottom: 10px;
 }
+
 .login-quick-buttons {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
   justify-content: center;
 }
+
 .quick-demo-btn {
   display: inline-flex;
   align-items: center;
@@ -791,17 +824,90 @@
   transition: all 0.2s ease;
   font-family: inherit;
 }
+
 .quick-demo-btn:hover {
   background: #EFF6FF;
   border-color: #3B82F6;
   color: #1D4ED8;
   transform: translateY(-1px);
 }
+
 .quick-demo-btn.admin-demo {
   background: #FEF3C7;
   border-color: #FCD34D;
   color: #92400E;
 }
+
 .quick-demo-btn.admin-demo:hover {
   background: #FDE68A;
+}
+
+
+/* =========================================
+   TOP BUTTON — Volunteering Opportunities
+========================================= */
+.login-right {
+  position: relative;
+}
+
+.login-top-link {
+  position: absolute;
+  top: 22px;
+  right: 24px;
+  z-index: 2;
+
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+
+  padding: 10px 16px;
+  border: 1.5px solid #ffce1b;
+  border-radius: 999px;
+
+  background: #ffce1b;
+  /* always yellow */
+  color: #172033;
+
+  font: 700 13px "Inter", sans-serif;
+  text-decoration: none;
+  white-space: nowrap;
+
+  transition: background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.login-top-link:hover,
+.login-top-link:active {
+  background: #fff9e6;
+  /* light yellow on hover / touch */
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px rgba(255, 206, 27, 0.35);
+}
+
+.login-top-link:focus-visible {
+  outline: 3px solid rgba(255, 206, 27, 0.5);
+  outline-offset: 2px;
+}
+
+@media (max-width: 680px) {
+  .login-right {
+    padding-top: 78px;
+  }
+
+  .login-top-link {
+    top: 18px;
+    right: 18px;
+    font-size: 12px;
+    padding: 9px 13px;
+  }
+}
+
+/* keep the top button clear of the logo */
+.login-right .login-content {
+  padding-top: 36px;
+}
+
+@media (max-width: 680px) {
+  .login-right .login-content {
+    padding-top: 0;
+  }
 }

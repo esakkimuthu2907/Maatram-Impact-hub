@@ -2,6 +2,8 @@
 
 /* =========================================
    MAATRAM REGISTRATION STYLING
+   - Left side fixed (sticky), right side scrolls
+   - Yellow "Create account" button
 ========================================= */
 
 :root {
@@ -9,6 +11,9 @@
   --reg-red-hover: #c41439;
   --reg-red-dark: #a90f2c;
   --reg-red-light: #fff1f3;
+  --reg-yellow: #ffce1b;
+  --reg-yellow-dark: #f2bd00;
+  --reg-on-yellow: #172033;
   --reg-ink: #0f172a;
   --reg-ink-light: #334155;
   --reg-muted: #64748b;
@@ -38,7 +43,8 @@
   min-height: 100vh;
   padding: clamp(16px, 3vw, 32px);
   display: flex;
-  align-items: center;
+  align-items: flex-start;
+  /* lets the left side stay in view */
   justify-content: center;
   color: var(--reg-ink);
   font-family: var(--font-body);
@@ -46,16 +52,8 @@
   -webkit-font-smoothing: antialiased;
 
   background:
-    radial-gradient(
-      circle at 10% 10%,
-      rgba(228, 27, 53, 0.05),
-      transparent 30%
-    ),
-    radial-gradient(
-      circle at 90% 90%,
-      rgba(228, 27, 53, 0.04),
-      transparent 30%
-    ),
+    radial-gradient(circle at 10% 10%, rgba(228, 27, 53, 0.05), transparent 30%),
+    radial-gradient(circle at 90% 90%, rgba(228, 27, 53, 0.04), transparent 30%),
     var(--reg-bg);
 }
 
@@ -88,12 +86,13 @@
 
 .register-shell {
   width: min(1500px, 100%);
-  min-height: 700px;
   margin: 0 auto;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  align-items: stretch;
-  overflow: hidden;
+  align-items: start;
+  /* sidebar and form keep their own height */
+  overflow: clip;
+  /* "clip" keeps rounded corners AND allows sticky */
   border: 1px solid rgba(226, 232, 240, 0.9);
   border-radius: 24px;
   background: var(--reg-white);
@@ -103,102 +102,77 @@
 }
 
 /* =========================================
-   LEFT SIDEBAR
+   LEFT SIDEBAR  (FIXED / STICKY)
 ========================================= */
 
 .register-sidebar {
-  position: relative;
-  width: 110%;
-  height: 50%;
-  min-height: 100%;
-  overflow: hidden;
-  background: #ffffff;
+  position: sticky;
+  top: 0;
+  align-self: start;
+
+  width: 100%;
+  height: 100vh;
+  max-height: 100vh;
+
   display: flex;
   align-items: center;
   justify-content: center;
-  align-self: stretch;
-  padding: 32px 24px;
-}
 
-/* TREE BACKGROUND IMAGE */
+  padding: 32px 24px;
+  overflow: hidden;
+  background: #ffffff;
+}
 
 .register-sidebar-image-wrap {
   position: relative;
   width: 100%;
   height: 100%;
-  display: center;
+  display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .register-sidebar-image {
   display: block;
-  width: 200%;
-  height: 200%;
-  max-width: 100%;
-  max-height: 100%;
+  width: 100%;
+  height: 100%;
   object-fit: contain;
   object-position: center center;
 }
 
-.register-sidebar-image:hover {
-  transform: none;
-}
-
-/* =========================================
-   MAATRAM FOUNDATION LOGO
-   CENTER OF TREE BACKGROUND
-========================================= */
-/* =========================================
-   EXTRA LARGE MAATRAM FOUNDATION LOGO
-========================================= */
-
-/* EXTREMELY LARGE MAATRAM LOGO */
-
-.register-sidebar {
-    position: relative;
-    overflow: visible;
-}
+/* MAATRAM LOGO - centred over the tree image
+   (change the width to make the logo bigger or smaller) */
 
 .register-sidebar-logo {
-    position: absolute;
-    top: 10%;
-    left: 50%;
-    transform: translate(-50%, -50%);
+  position: absolute;
+  top: 4.5%;
+  left: 50%;
+  transform: translateX(-50%);
 
-    width: 1500px;
-    max-width: none;
+  width: min(520px, 85%);
 
-    display: flex;
-    justify-content: center;
-    align-items: center;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 
-    z-index: 100;
+  z-index: 10;
 }
 
 .register-sidebar-logo img {
-    width: 100%;
-    height: auto;
-    max-width: none;
-    max-height: none;
-    object-fit: contain;
+  width: 100%;
+  height: auto;
+  max-width: 100%;
+  object-fit: contain;
 }
 
-/* Mobile */
-@media (max-width: 680px) {
-    .register-sidebar-logo {
-        width: 600px;
-    }
-}
 /* =========================================
-   RIGHT FORM PANEL
+   RIGHT FORM PANEL  (SCROLLS)
 ========================================= */
 
 .register-form-panel {
   min-width: 0;
-  min-height: 700px;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   padding: 24px 0;
   background: #ffffff;
@@ -295,7 +269,7 @@
   margin-top: 4px;
 }
 
-.register-section-title > span {
+.register-section-title>span {
   width: 28px;
   height: 28px;
   display: inline-flex;
@@ -339,7 +313,8 @@
   min-width: 0;
 }
 
-.register-field label {
+.register-field label,
+.register-field-label {
   color: #1e293b;
   font-size: 13px;
   font-weight: 600;
@@ -350,7 +325,10 @@
    INPUTS AND SELECTS
 ========================================= */
 
-.register-field input,
+.register-field input[type="text"],
+.register-field input[type="email"],
+.register-field input[type="tel"],
+.register-field input[type="password"],
 .register-field select {
   width: 100%;
   min-width: 0;
@@ -379,13 +357,19 @@
   cursor: pointer;
 }
 
-.register-field input:hover,
+.register-field input[type="text"]:hover,
+.register-field input[type="email"]:hover,
+.register-field input[type="tel"]:hover,
+.register-field input[type="password"]:hover,
 .register-field select:hover {
   border-color: #cbd5e1;
   background: #ffffff;
 }
 
-.register-field input:focus,
+.register-field input[type="text"]:focus,
+.register-field input[type="email"]:focus,
+.register-field input[type="tel"]:focus,
+.register-field input[type="password"]:focus,
 .register-field select:focus {
   border-color: var(--reg-red);
   background: #ffffff;
@@ -399,6 +383,97 @@
 }
 
 /* =========================================
+   DATE OF BIRTH INPUT
+========================================= */
+
+.register-field input[type="date"] {
+  width: 100%;
+  min-width: 0;
+  height: 47px;
+  padding: 0 14px;
+  border: 1px solid var(--reg-border);
+  border-radius: 10px;
+  outline: none;
+  color: #0f172a;
+  background: #fcfdfe;
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.register-field input[type="date"]:hover {
+  border-color: #cbd5e1;
+  background: #ffffff;
+}
+
+.register-field input[type="date"]:focus {
+  border-color: var(--reg-red);
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(228, 27, 53, 0.1);
+}
+
+/* =========================================
+   HOSTEL / DAY SCHOLAR OPTIONS
+========================================= */
+
+.residence-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.residence-option {
+  position: relative;
+  height: 47px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+
+  border: 1.5px solid var(--reg-border);
+  border-radius: 10px;
+  background: #fcfdfe;
+  color: #334155;
+
+  font-size: 14px;
+  font-weight: 600;
+
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+/* hide the real radio, the whole box is the button */
+.residence-option input {
+  position: absolute;
+  opacity: 0;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  cursor: pointer;
+}
+
+.residence-option:hover {
+  border-color: var(--reg-yellow);
+  background: #fffdf3;
+}
+
+.residence-option.selected {
+  border-color: var(--reg-yellow);
+  background: var(--reg-yellow);
+  color: var(--reg-on-yellow);
+  box-shadow: 0 4px 12px rgba(255, 206, 27, 0.35);
+}
+
+.residence-option:focus-within {
+  outline: 3px solid rgba(255, 206, 27, 0.45);
+  outline-offset: 2px;
+}
+
+/* =========================================
    PASSWORD WRAPPER
 ========================================= */
 
@@ -409,7 +484,7 @@
 }
 
 .register-password-wrap input {
-  padding-right: 44px;
+  padding-right: 44px !important;
 }
 
 .register-password-toggle {
@@ -484,7 +559,7 @@
 }
 
 /* =========================================
-   PRIMARY SUBMIT BUTTON
+   PRIMARY SUBMIT BUTTON  (YELLOW)
 ========================================= */
 
 .register-submit {
@@ -496,25 +571,27 @@
   align-items: center;
   justify-content: center;
   gap: 9px;
-  border: 1.5px solid #c41439;
+  border: 1.5px solid var(--reg-yellow);
   border-radius: 12px;
-  color: #ffffff !important;
-  background: linear-gradient(110deg, #e52b50, #c41439);
+  color: var(--reg-on-yellow) !important;
+  /* dark text is readable on yellow */
+  background: var(--reg-yellow);
   font-family: var(--font-heading);
   font-size: 14.5px;
   font-weight: 800;
-  box-shadow: 0 4px 16px rgba(215, 25, 63, 0.2);
+  box-shadow: 0 4px 16px rgba(255, 206, 27, 0.35);
   cursor: pointer;
   transition:
     transform 0.2s ease,
     box-shadow 0.2s ease,
-    filter 0.2s ease;
+    background 0.2s ease;
 }
 
 .register-submit:hover:not(:disabled) {
-  background: #a90f2c;
+  background: var(--reg-yellow-dark);
+  border-color: var(--reg-yellow-dark);
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(215, 25, 63, 0.22);
+  box-shadow: 0 8px 24px rgba(255, 206, 27, 0.45);
 }
 
 .register-submit:active:not(:disabled) {
@@ -547,7 +624,7 @@
 }
 
 /* =========================================
-   TERMS CHECKBOX SPACING
+   TERMS CHECKBOX
 ========================================= */
 
 .register-consent-wrap {
@@ -577,7 +654,7 @@
 }
 
 /* =========================================
-   SIGN-IN LINK SPACING
+   SIGN-IN LINK
 ========================================= */
 
 .register-signin-link {
@@ -743,7 +820,7 @@
 }
 
 /* =========================================
-   RESPONSIVE DESIGN
+   TABLET
 ========================================= */
 
 @media (max-width: 900px) {
@@ -751,13 +828,8 @@
     grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
   }
 
-  .register-sidebar {
-    min-height: 400px;
-  }
-
   .register-sidebar-logo {
-    width: 140px;
-    height: 140px;
+    width: min(340px, 85%);
   }
 
   .register-form-inner {
@@ -767,7 +839,7 @@
 }
 
 /* =========================================
-   MOBILE RESPONSIVE
+   MOBILE  (left image is no longer fixed)
 ========================================= */
 
 @media (max-width: 680px) {
@@ -785,10 +857,12 @@
     border: 0;
     border-radius: 0;
     box-shadow: none;
+    overflow: visible;
   }
 
   .register-sidebar {
     position: relative;
+    top: auto;
     width: 100% !important;
     height: 250px !important;
     min-height: 250px !important;
@@ -814,16 +888,14 @@
   }
 
   .register-sidebar-logo {
-    width: 125px;
-    height: 125px;
-    max-width: 40%;
+    width: 200px;
+    max-width: 60%;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
   }
 
   .register-form-panel {
-    min-height: auto;
     padding: 20px 16px 36px;
   }
 
@@ -840,7 +912,10 @@
     grid-template-columns: 1fr;
   }
 
-  .register-field input,
+  .register-field input[type="text"],
+  .register-field input[type="email"],
+  .register-field input[type="tel"],
+  .register-field input[type="password"],
   .register-field select {
     font-size: 16px;
   }
@@ -867,8 +942,7 @@
   }
 
   .register-sidebar-logo {
-    width: 110px;
-    height: 110px;
+    width: 170px;
   }
 
   .register-form-panel {

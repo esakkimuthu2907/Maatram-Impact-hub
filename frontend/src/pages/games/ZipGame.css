@@ -1,0 +1,418 @@
+/* frontend/src/pages/games/ZipGame.css */
+.zip-game-page {
+  max-width: 620px;
+  margin: 0 auto;
+  padding: 16px 16px 60px;
+  font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, sans-serif;
+  color: #0f172a;
+}
+
+.zip-header-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.zip-back-link {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #475569;
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 13.5px;
+}
+
+.zip-timer-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #f1f5f9;
+  border: 1.5px solid #cbd5e1;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-weight: 800;
+  font-size: 15px;
+  color: #0f172a;
+  font-feature-settings: "tnum";
+}
+
+.zip-puzzle-title-bar {
+  text-align: center;
+  margin-bottom: 18px;
+}
+
+.zip-puzzle-title-bar h2 {
+  font-size: 26px;
+  font-weight: 800;
+  margin: 0 0 4px;
+}
+
+.zip-puzzle-title-bar p {
+  color: #64748b;
+  font-size: 13.5px;
+  margin: 0;
+}
+
+/* 6x6 Grid Container (Exact visual match to Screenshot 2) */
+.zip-board-wrapper {
+  background: #ffffff;
+  border-radius: 24px;
+  padding: 14px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+  border: 2px solid #e2e8f0;
+  margin-bottom: 20px;
+  touch-action: none;
+  user-select: none;
+}
+
+.zip-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  grid-template-rows: repeat(6, 1fr);
+  gap: 0;
+  border: 2px solid #94a3b8;
+  border-radius: 18px;
+  overflow: hidden;
+  background: #ffffff;
+  aspect-ratio: 1 / 1;
+}
+
+.zip-cell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-right: 1.5px solid #cbd5e1;
+  border-bottom: 1.5px solid #cbd5e1;
+  cursor: pointer;
+  background: #ffffff;
+  transition: background-color 0.15s ease;
+}
+
+.zip-cell:nth-child(6n) {
+  border-right: none;
+}
+
+.zip-cell:nth-last-child(-n+6) {
+  border-bottom: none;
+}
+
+.zip-cell.visited {
+  background: #f0f9ff;
+}
+
+.zip-cell.active-head {
+  background: #e0f2fe;
+}
+
+/* Number badge in cells */
+.zip-num-badge {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #000000;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 18px;
+  z-index: 3;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  transition: all 0.2s ease;
+}
+
+.zip-num-badge.active-start {
+  border: 3.5px solid #0284c7;
+  box-shadow: 0 0 0 4px rgba(2, 132, 199, 0.25);
+}
+
+.zip-num-badge.passed {
+  background: #0284c7;
+}
+
+/* Path trail node */
+.zip-path-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #0284c7;
+  z-index: 2;
+  box-shadow: 0 0 6px rgba(2, 132, 199, 0.6);
+  animation: dotPop 0.2s ease-out;
+}
+
+@keyframes dotPop {
+  0% { transform: scale(0); }
+  70% { transform: scale(1.3); }
+  100% { transform: scale(1); }
+}
+
+/* Action Controls (Matches Screenshot 2) */
+.zip-controls-row {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.zip-ctrl-btn {
+  flex: 1;
+  padding: 12px 18px;
+  border-radius: 30px;
+  background: #f1f5f9;
+  border: 1.5px solid #cbd5e1;
+  font-weight: 700;
+  font-size: 14px;
+  color: #475569;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.zip-ctrl-btn:hover:not(:disabled) {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.zip-ctrl-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* "How to play" Accordion (Matches Screenshot 2) */
+.zip-how-to-play-card {
+  background: #ffffff;
+  border-radius: 18px;
+  padding: 18px 22px;
+  border: 1.5px solid #f1f5f9;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+}
+
+.zip-how-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.zip-rules-content {
+  display: flex;
+  justify-content: space-around;
+  margin-top: 20px;
+  gap: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.rule-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  max-width: 150px;
+}
+
+.rule-icon-box {
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+
+.rule-col span {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #334155;
+  line-height: 1.4;
+}
+
+/* ─── Golden Celebration Modal (Matches Screenshot 3) ─── */
+.celebration-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.7);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 20px;
+}
+
+.celebration-modal-card {
+  background: #f59e0b;
+  background: linear-gradient(180deg, #f59e0b 0%, #d97706 100%);
+  border-radius: 32px;
+  width: 100%;
+  max-width: 440px;
+  padding: 36px 28px 32px;
+  text-align: center;
+  color: #ffffff;
+  box-shadow: 0 20px 50px rgba(217, 119, 6, 0.45);
+  position: relative;
+  animation: modalSlideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes modalSlideUp {
+  0% { transform: translateY(40px) scale(0.95); opacity: 0; }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+.celebration-header-icon {
+  width: 56px;
+  height: 56px;
+  background: #ffffff;
+  border-radius: 14px;
+  margin: 0 auto 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  color: #b45309;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+}
+
+.celebration-puzzle-subtitle {
+  font-size: 15px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.9);
+  margin-bottom: 6px;
+}
+
+.celebration-headline {
+  font-size: 32px;
+  font-weight: 900;
+  color: #ffffff;
+  margin: 0 0 24px;
+  letter-spacing: -0.5px;
+}
+
+/* Carousel Cards */
+.celebration-carousel-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 24px;
+}
+
+.carousel-arrow-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.15);
+  border: none;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.carousel-arrow-btn:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.carousel-main-card {
+  background: #ffffff;
+  border-radius: 20px;
+  padding: 24px 20px;
+  width: 230px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12);
+  color: #0f172a;
+}
+
+.carousel-clock-icon {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  border: 3.5px solid #0284c7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 12px;
+  color: #0284c7;
+}
+
+.carousel-time-text {
+  font-size: 34px;
+  font-weight: 900;
+  color: #0f172a;
+  margin: 0 0 4px;
+  font-feature-settings: "tnum";
+}
+
+.carousel-avg-text {
+  font-size: 13px;
+  color: #64748b;
+  font-weight: 600;
+  margin: 0;
+}
+
+/* Action Share Buttons Row (Matches Screenshot 3: Post, Send, Copy) */
+.celebration-share-actions {
+  display: flex;
+  justify-content: center;
+  gap: 28px;
+  margin-bottom: 26px;
+}
+
+.share-action-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.share-circle-btn {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: none;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+  transition: all 0.2s;
+}
+
+.share-circle-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.2);
+}
+
+.share-action-item span {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.celebration-next-btn {
+  width: 100%;
+  background: #0f172a;
+  color: #ffffff;
+  border: none;
+  border-radius: 14px;
+  padding: 14px;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.celebration-next-btn:hover {
+  background: #1e1b4b;
+}

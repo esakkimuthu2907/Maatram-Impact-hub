@@ -1,0 +1,390 @@
+/* Maatram — volunteering opportunities (green + white, yellow accent) */
+.page {
+  --green: #1fb35a;
+  /* your green */
+  --green-text: #0e7a3b;
+  /* darker shade for small text on white */
+  --green-dark: #0b5a2c;
+  --green-mid: #1fb35a;
+  --green-soft: #e8f9ef;
+  --yellow: #facc15;
+  --yellow-dark: #ca8a04;
+  --yellow-soft: #fef9c3;
+  --ink: #12281b;
+  --muted: #4b6355;
+  --line: #d6eadc;
+
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #f7fbf8;
+  color: var(--ink);
+  font-family: "Inter", "Segoe UI", Arial, sans-serif;
+}
+
+.page * {
+  box-sizing: border-box;
+}
+
+.page h1,
+.page h3,
+.page p {
+  margin: 0;
+}
+
+/* ===== top bar ===== */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 6%;
+  background: #fff;
+  border-bottom: 3px solid var(--yellow);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logoImg {
+  height: 52px;
+  width: auto;
+  display: block;
+  object-fit: contain;
+}
+
+.brandText {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+}
+
+.brandText strong {
+  font-size: 19px;
+  color: var(--green-dark);
+}
+
+.brandText small {
+  font-size: 11px;
+  color: var(--muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.topActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.btnSolid,
+.btnGhost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 999px;
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  border: 2px solid transparent;
+  white-space: nowrap;
+  transition: all 0.18s ease;
+}
+
+.btnSolid {
+  padding: 11px 20px;
+  background: var(--green);
+  color: #fff;
+  box-shadow: 0 6px 16px rgba(21, 128, 61, 0.28);
+}
+
+.btnSolid:hover {
+  background: var(--green-dark);
+  transform: translateY(-2px);
+}
+
+.btnGhost {
+  padding: 10px 16px;
+  background: #fff;
+  color: var(--green-text);
+  border-color: var(--green);
+}
+
+.btnGhost:hover {
+  background: var(--green-soft);
+}
+
+/* ===== hero banner ===== */
+.hero {
+  background: linear-gradient(120deg, var(--green-dark), var(--green) 70%);
+  color: #fff;
+  padding: 22px 6% 24px;
+  position: relative;
+  overflow: hidden;
+}
+
+.heroInner {
+  position: relative;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.hero h1 {
+  font-size: clamp(24px, 3vw, 34px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin-bottom: 6px;
+}
+
+.hero p {
+  max-width: 620px;
+  font-size: 15px;
+  line-height: 1.6;
+  color: #e3f6ea;
+}
+
+/* ===== main ===== */
+.main {
+  flex: 1;
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 32px 6% 64px;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 26px;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--green-dark);
+  border: 1.5px solid var(--line);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.chip:hover {
+  border-color: var(--green);
+  background: var(--green-soft);
+}
+
+.chipActive,
+.chipActive:hover {
+  background: var(--green);
+  color: #fff;
+  border-color: var(--green);
+}
+
+.chipCount {
+  min-width: 24px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  text-align: center;
+  background: var(--yellow-soft);
+  color: var(--green-dark);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.chipActive .chipCount {
+  background: var(--yellow);
+}
+
+.count {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+/* ===== cards ===== */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 22px;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  padding: 24px 24px 22px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-top: 5px solid var(--green);
+  border-radius: 18px;
+  box-shadow: 0 4px 14px rgba(20, 83, 45, 0.07);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-top-color 0.2s ease;
+}
+
+.card:hover {
+  transform: translateY(-5px);
+  border-top-color: var(--yellow);
+  box-shadow: 0 16px 32px rgba(20, 83, 45, 0.15);
+}
+
+.cardTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.cardNo {
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: var(--yellow);
+  color: var(--green-dark);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+}
+
+.cardTag {
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: var(--green-soft);
+  color: var(--green-text);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: right;
+}
+
+.card h3 {
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1.3;
+  color: var(--green-dark);
+  margin-bottom: 10px;
+}
+
+.card p {
+  flex: 1;
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--muted);
+}
+
+.cardLink {
+  margin-top: 20px;
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border: none;
+  border-radius: 999px;
+  background: var(--green);
+  color: #fff;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.18);
+  transition: all 0.18s ease;
+}
+
+.cardLink svg {
+  transition: transform 0.2s;
+}
+
+.cardLink:hover {
+  background: var(--yellow);
+  color: var(--green-dark);
+}
+
+.card:hover .cardLink svg {
+  transform: translateX(4px);
+}
+
+/* ===== footer ===== */
+.footer {
+  padding: 18px 6%;
+  text-align: center;
+  background: var(--green-dark);
+  color: #cfe9d9;
+  font-size: 13px;
+}
+
+/* ===== keyboard focus ===== */
+.chip:focus-visible,
+.btnSolid:focus-visible,
+.btnGhost:focus-visible,
+.cardLink:focus-visible {
+  outline: 3px solid var(--yellow-dark);
+  outline-offset: 2px;
+}
+
+/* ===== mobile ===== */
+@media (max-width: 640px) {
+  .topbar {
+    padding: 12px 5%;
+  }
+
+  .brandText small {
+    display: none;
+  }
+
+  .btnGhost {
+    display: none;
+  }
+
+  .btnSolid {
+    padding: 10px 14px;
+    font-size: 13px;
+  }
+
+  .hero {
+    padding: 18px 5% 20px;
+  }
+
+  .logoImg {
+    height: 42px;
+  }
+
+  .main {
+    padding: 24px 5% 48px;
+  }
+
+  .chips {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 6px;
+    width: 100%;
+  }
+
+  .chip {
+    flex-shrink: 0;
+  }
+
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}

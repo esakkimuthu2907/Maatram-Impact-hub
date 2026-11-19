@@ -68,7 +68,7 @@ export default function ContributionsPage() {
         if (res && res.data) {
           setPointsHistory(res.data);
         }
-      } catch (err) {}
+      } catch (err) { }
     };
     fetchPoints();
   }, [fetchCertificates, fetchHourLogs]);
@@ -102,7 +102,28 @@ export default function ContributionsPage() {
   };
 
   return (
-    <div className="dashboard-container" style={{ maxWidth: 1200, margin: "0 auto", padding: "16px 16px 40px" }}>
+    <div
+      className="dashboard-container"
+      style={{
+        maxWidth: 1200,
+        margin: "0 auto",
+        padding: "16px 16px 40px",
+        background: "#FFFFFF",
+        minHeight: "100%",
+      }}
+    >
+      <style>{`
+        .contrib-table thead tr,
+        .contrib-table thead th {
+          background: #000000 !important;
+          color: #FFFFFF !important;
+        }
+        .contrib-table th,
+        .contrib-table td {
+          text-align: center !important;
+        }
+      `}</style>
+
       {/* ─── SHORT BLUE ATTRACTIVE BANNER ─────────────────────────────────── */}
       <div
         style={{
@@ -120,24 +141,6 @@ export default function ContributionsPage() {
         }}
       >
         <div style={{ flex: "1 1 320px", minWidth: 260 }}>
-          <div
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 6,
-              background: "rgba(255, 255, 255, 0.15)",
-              backdropFilter: "blur(8px)",
-              padding: "4px 12px",
-              borderRadius: 20,
-              fontSize: 11.5,
-              fontWeight: 700,
-              letterSpacing: 0.6,
-              textTransform: "uppercase",
-              marginBottom: 8,
-            }}
-          >
-            <ShieldCheck size={14} color="#67E8F9" /> Verified Student Impact
-          </div>
           <h1 style={{ fontSize: "clamp(20px, 2.4vw, 26px)", fontWeight: 800, margin: "0 0 6px", letterSpacing: "-0.02em" }}>
             My Contributions & Achievements
           </h1>
@@ -272,25 +275,6 @@ export default function ContributionsPage() {
         </div>
       </div>
 
-      {/* ─── AUDIT NOTICE BANNER ─────────────────────────────────────────── */}
-      <div
-        style={{
-          background: "#F8FAFC",
-          border: "1px solid #E2E8F0",
-          borderRadius: 14,
-          padding: "12px 18px",
-          display: "flex",
-          alignItems: "center",
-          gap: 12,
-          marginBottom: 20,
-        }}
-      >
-        <ShieldCheck size={20} color="#0284C7" style={{ flexShrink: 0 }} />
-        <p style={{ margin: 0, fontSize: 13, color: "#475569", lineHeight: 1.5 }}>
-          <strong>Maatram Policy:</strong> Volunteering hours are officially confirmed by event coordinators upon QR attendance or manual field audit. Points and certificates are automatically issued upon completion.
-        </p>
-      </div>
-
       {/* ─── MODERN TAB NAVIGATION ───────────────────────────────────────── */}
       <div
         style={{
@@ -298,7 +282,8 @@ export default function ContributionsPage() {
           gap: 8,
           borderBottom: "2px solid #E2E8F0",
           marginBottom: 20,
-          overflowX: "auto",
+          flexWrap: "wrap",
+          overflow: "visible",
         }}
       >
         {[
@@ -320,17 +305,17 @@ export default function ContributionsPage() {
                 padding: "10px 16px",
                 border: "none",
                 background: "transparent",
-                color: isActive ? "#1D4ED8" : "#64748B",
-                fontWeight: isActive ? 700 : 500,
+                color: "#000000",
+                fontWeight: isActive ? 800 : 600,
                 fontSize: 14,
                 cursor: "pointer",
-                borderBottom: isActive ? "3px solid #1D4ED8" : "3px solid transparent",
+                borderBottom: isActive ? "3px solid #000000" : "3px solid transparent",
                 marginBottom: -2,
                 transition: "all 0.15s ease",
                 whiteSpace: "nowrap",
               }}
             >
-              <Icon size={16} color={isActive ? "#1D4ED8" : "#94A3B8"} />
+              <Icon size={16} color="#000000" />
               {tab.label}
             </button>
           );
@@ -340,11 +325,11 @@ export default function ContributionsPage() {
       {/* ─── TAB 1: HOURS LOG ────────────────────────────────────────────── */}
       {activeTab === "hours" && (
         <div style={{ background: "#FFFFFF", borderRadius: 16, border: "1px solid #E2E8F0", overflow: "hidden" }}>
-          <div style={{ padding: "16px 20px", borderBottom: "1px solid #F1F5F9", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ padding: "16px 20px", borderBottom: "1px solid #E2E8F0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#1E293B" }}>
               Volunteering Hours Submissions & Audits
             </h3>
-            <span style={{ fontSize: 12.5, color: "#64748B" }}>{hourLogs.length} Records</span>
+            <span style={{ fontSize: 13.5, color: "#0F172A", fontWeight: 700 }}>{hourLogs.length} Records</span>
           </div>
 
           {hourLogs.length === 0 ? (
@@ -372,9 +357,9 @@ export default function ContributionsPage() {
             </div>
           ) : (
             <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13.5, textAlign: "left" }}>
+              <table className="contrib-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: 13.5, textAlign: "left" }}>
                 <thead>
-                  <tr style={{ background: "#F8FAFC", borderBottom: "1px solid #E2E8F0", color: "#64748B", fontWeight: 600 }}>
+                  <tr style={{ background: "#000000", borderBottom: "1px solid #000000", color: "#FFFFFF", fontWeight: 600 }}>
                     <th style={{ padding: "12px 16px" }}>Event / Activity</th>
                     <th style={{ padding: "12px 16px" }}>Category</th>
                     <th style={{ padding: "12px 16px" }}>Date</th>
@@ -391,14 +376,14 @@ export default function ContributionsPage() {
                     const badgeCol = isVer ? "#16A34A" : isRej ? "#DC2626" : "#D97706";
 
                     return (
-                      <tr key={log.id || log._id} style={{ borderBottom: "1px solid #F1F5F9" }}>
+                      <tr key={log.id || log._id} style={{ borderBottom: "1px solid #E2E8F0" }}>
                         <td style={{ padding: "14px 16px", fontWeight: 600, color: "#1E293B" }}>
                           {log.eventTitle}
                         </td>
-                        <td style={{ padding: "14px 16px", color: "#64748B" }}>{log.eventCategory}</td>
-                        <td style={{ padding: "14px 16px", color: "#64748B" }}>{log.participationDate}</td>
+                        <td style={{ padding: "14px 16px", color: "#0F172A", fontWeight: 500 }}>{log.eventCategory}</td>
+                        <td style={{ padding: "14px 16px", color: "#0F172A", fontWeight: 500 }}>{log.participationDate}</td>
                         <td style={{ padding: "14px 16px", fontWeight: 600 }}>{log.submittedHours} hrs</td>
-                        <td style={{ padding: "14px 16px", fontWeight: 700, color: isVer ? "#16A34A" : "#64748B" }}>
+                        <td style={{ padding: "14px 16px", fontWeight: 700, color: isVer ? "#15803D" : "#0F172A" }}>
                           {log.verifiedHours || 0} hrs
                         </td>
                         <td style={{ padding: "14px 16px" }}>
@@ -454,7 +439,7 @@ export default function ContributionsPage() {
                 <div
                   key={cert.certificateId || cert.id}
                   style={{
-                    background: "#F8FAFC",
+                    background: "#FFFFFF",
                     border: "1.5px solid #E2E8F0",
                     borderRadius: 14,
                     padding: "16px 18px",
@@ -546,11 +531,11 @@ export default function ContributionsPage() {
       {/* ─── TAB 4: POINTS HISTORY ──────────────────────────────────────── */}
       {activeTab === "points" && (
         <div style={{ background: "#FFFFFF", borderRadius: 16, border: "1px solid #E2E8F0", overflow: "hidden" }}>
-          <div style={{ padding: "16px 20px", borderBottom: "1px solid #F1F5F9", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ padding: "16px 20px", borderBottom: "1px solid #E2E8F0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#1E293B" }}>
               Points Ledger & Audit History
             </h3>
-            <span style={{ fontSize: 12.5, color: "#64748B" }}>Total Balance: {totalPoints} pts</span>
+            <span style={{ fontSize: 13.5, color: "#0F172A", fontWeight: 700 }}>Total Balance: {totalPoints} pts</span>
           </div>
 
           {pointsHistory.length === 0 ? (
@@ -563,9 +548,9 @@ export default function ContributionsPage() {
             </div>
           ) : (
             <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13.5, textAlign: "left" }}>
+              <table className="contrib-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: 13.5, textAlign: "left" }}>
                 <thead>
-                  <tr style={{ background: "#F8FAFC", borderBottom: "1px solid #E2E8F0", color: "#64748B", fontWeight: 600 }}>
+                  <tr style={{ background: "#000000", borderBottom: "1px solid #000000", color: "#FFFFFF", fontWeight: 600 }}>
                     <th style={{ padding: "12px 16px" }}>Type</th>
                     <th style={{ padding: "12px 16px" }}>Points</th>
                     <th style={{ padding: "12px 16px" }}>Activity / Reason</th>
@@ -577,7 +562,7 @@ export default function ContributionsPage() {
                   {pointsHistory.map((tx) => {
                     const isCredit = tx.type === "CREDIT";
                     return (
-                      <tr key={tx.id || tx._id} style={{ borderBottom: "1px solid #F1F5F9" }}>
+                      <tr key={tx.id || tx._id} style={{ borderBottom: "1px solid #E2E8F0" }}>
                         <td style={{ padding: "12px 16px" }}>
                           <span
                             style={{
@@ -592,12 +577,12 @@ export default function ContributionsPage() {
                             {tx.type}
                           </span>
                         </td>
-                        <td style={{ padding: "12px 16px", fontWeight: 700, color: isCredit ? "#16A34A" : "#DC2626" }}>
+                        <td style={{ padding: "12px 16px", fontWeight: 700, color: isCredit ? "#15803D" : "#B91C1C", fontSize: 14 }}>
                           {isCredit ? `+${tx.points}` : `-${tx.points}`} pts
                         </td>
-                        <td style={{ padding: "12px 16px", color: "#1E293B", fontWeight: 500 }}>{tx.reason}</td>
-                        <td style={{ padding: "12px 16px", color: "#64748B", fontSize: 12.5 }}>{tx.adminRemarks || "Verified"}</td>
-                        <td style={{ padding: "12px 16px", color: "#94A3B8", fontSize: 12 }}>
+                        <td style={{ padding: "12px 16px", color: "#000000", fontWeight: 600 }}>{tx.reason}</td>
+                        <td style={{ padding: "12px 16px", color: "#0F172A", fontSize: 13.5, fontWeight: 500 }}>{tx.adminRemarks || "Verified"}</td>
+                        <td style={{ padding: "12px 16px", color: "#0F172A", fontSize: 13.5, fontWeight: 600 }}>
                           {new Date(tx.createdAt).toLocaleDateString()}
                         </td>
                       </tr>
@@ -664,7 +649,7 @@ export default function ContributionsPage() {
                   placeholder="e.g. School Career Mentoring, Sangamam Logistics"
                   value={newLog.eventTitle}
                   onChange={(e) => setNewLog({ ...newLog, eventTitle: e.target.value })}
-                  style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: "1px solid #CBD5E1", fontSize: 13.5 }}
+                  style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: "1px solid #CBD5E1", fontSize: 13.5, background: "#FFFFFF" }}
                 />
               </div>
 
@@ -676,7 +661,7 @@ export default function ContributionsPage() {
                   <select
                     value={newLog.category}
                     onChange={(e) => setNewLog({ ...newLog, category: e.target.value })}
-                    style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: "1px solid #CBD5E1", fontSize: 13.5 }}
+                    style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: "1px solid #CBD5E1", fontSize: 13.5, background: "#FFFFFF" }}
                   >
                     <option value="School Visits">School Visits</option>
                     <option value="Sangamam">Sangamam</option>
@@ -699,7 +684,7 @@ export default function ContributionsPage() {
                     required
                     value={newLog.submittedHours}
                     onChange={(e) => setNewLog({ ...newLog, submittedHours: Number(e.target.value) })}
-                    style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: "1px solid #CBD5E1", fontSize: 13.5 }}
+                    style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: "1px solid #CBD5E1", fontSize: 13.5, background: "#FFFFFF" }}
                   />
                 </div>
               </div>
@@ -712,7 +697,7 @@ export default function ContributionsPage() {
                   type="date"
                   value={newLog.date}
                   onChange={(e) => setNewLog({ ...newLog, date: e.target.value })}
-                  style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: "1px solid #CBD5E1", fontSize: 13.5 }}
+                  style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: "1px solid #CBD5E1", fontSize: 13.5, background: "#FFFFFF" }}
                 />
               </div>
 
@@ -725,7 +710,7 @@ export default function ContributionsPage() {
                   placeholder="Briefly describe what tasks you conducted or mention team leader name..."
                   value={newLog.evidenceRemarks}
                   onChange={(e) => setNewLog({ ...newLog, evidenceRemarks: e.target.value })}
-                  style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: "1px solid #CBD5E1", fontSize: 13.5, resize: "vertical" }}
+                  style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: "1px solid #CBD5E1", fontSize: 13.5, resize: "vertical", background: "#FFFFFF" }}
                 />
               </div>
 
@@ -734,9 +719,9 @@ export default function ContributionsPage() {
                   type="button"
                   onClick={() => setShowLogModal(false)}
                   style={{
-                    background: "#F1F5F9",
+                    background: "#FFFFFF",
                     color: "#475569",
-                    border: "none",
+                    border: "1px solid #CBD5E1",
                     borderRadius: 8,
                     padding: "9px 16px",
                     fontSize: 13,
