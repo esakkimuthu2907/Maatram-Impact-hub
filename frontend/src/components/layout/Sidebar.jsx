@@ -72,6 +72,12 @@ export default function Sidebar({ collapsed, onToggleCollapse, isMobile, onClose
       badge: "AI RAG",
     },
     {
+      title: "AI Chatbot Manager",
+      path: "/admin/chatbot",
+      icon: Sparkles,
+      badge: "NEW",
+    },
+    {
       title: "Volunteer Leaderboard",
       path: "/leaderboard",
       icon: Trophy,

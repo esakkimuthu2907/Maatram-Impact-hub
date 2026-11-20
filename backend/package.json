@@ -9,6 +9,7 @@
     "dev": "nodemon --ignore data/ --config nodemon.json server.js"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
@@ -16,7 +17,9 @@
     "jsonwebtoken": "^9.0.2",
     "mongodb": "^7.7.0",
     "mongoose": "^8.3.4",
+    "multer": "^2.5.0",
     "nodemailer": "^10.6.0",
+    "pdf-parse": "^2.4.5",
     "resend": "^6.38.1"
   },
   "devDependencies": {

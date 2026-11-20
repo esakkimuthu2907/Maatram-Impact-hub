@@ -111,6 +111,7 @@ app.use("/api/badges", require("./routes/badges"));
 app.use("/api/certificates", require("./routes/certificates"));
 app.use("/api/hours", require("./routes/hours"));
 app.use("/api/games", require("./routes/games"));
+app.use("/api/chat", require("./routes/chat"));
 
 // Root route
 app.get("/", (req, res) => {
@@ -190,6 +191,15 @@ connectDB()
       console.log("✅ Daily Games, Streaks & Leaderboard System initialized");
     } catch (seedErr) {
       console.warn("⚠️ Games System init notice:", seedErr.message);
+    }
+    // Build RAG knowledge base index on startup (if not already built)
+    try {
+      const ragService = require("./services/ragService");
+      ragService.buildIndex(false).then(r => {
+        console.log(`✅ RAG Knowledge Base: ${r.chunks} chunks ready (${r.source})`);
+      }).catch(e => console.warn("⚠️ RAG index build notice:", e.message));
+    } catch (ragErr) {
+      console.warn("⚠️ RAG service notice:", ragErr.message);
     }
   })
   .catch((error) => {

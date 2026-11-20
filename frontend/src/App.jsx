@@ -49,6 +49,8 @@ import AdminUsersPage from "./pages/admin/AdminUsersPage";
 import AdminStudentProfilePage from "./pages/admin/AdminStudentProfilePage";
 import AdminAlumniPage from "./pages/admin/AdminAlumniPage";
 import AdminReportsPage from "./pages/admin/AdminReportsPage";
+import AdminChatbotPage from "./pages/admin/AdminChatbotPage";
+import MaatramChatbot from "./components/common/MaatramChatbot";
 
 
 // Alumni Pages
@@ -493,12 +495,23 @@ export default function App() {
               }
             />
             <Route path="/admin/learning" element={<Navigate to="/admin/games" replace />} />
+            <Route
+              path="/admin/chatbot"
+              element={
+                <ProtectedRoute adminOnly={true}>
+                  <AppLayout>
+                    <AdminChatbotPage />
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
 
             {/* Catch-all Fallback */}
             <Route path="*" element={<RootRedirect />} />
           </Routes>
+          <MaatramChatbot />
         </BrowserRouter>
       </AppProvider>
     </ErrorBoundary>
   );
-}
+}
