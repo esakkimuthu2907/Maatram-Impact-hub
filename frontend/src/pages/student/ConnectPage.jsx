@@ -1,42 +1,30 @@
 // frontend/src/pages/student/ConnectPage.jsx
 // Maatram Connect — Full featured social networking for students & alumni
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { Link } from "react-router-dom";
 import {
   Users,
   UserPlus,
-  UserCheck,
   Clock,
   Search,
   X,
   MessageSquare,
   GraduationCap,
-  Award,
-  CheckCircle2,
-  Sparkles,
   ShieldCheck,
   Send,
   Check,
   Phone,
-  RefreshCw,
   Video,
   Smile,
-  Paperclip,
   Calendar,
   Rocket,
-  TrendingUp,
   Heart,
   Image,
-  FileText,
-  MoreHorizontal,
+  Trash2,
   Bell,
   UserMinus,
-  ArrowLeft,
   Lock,
   Globe,
   Star,
-  Flame,
-  BookOpen,
 } from "lucide-react";
 import { useApp } from "../../context/AppContext";
 import { connectionsAPI } from "../../api/connectionsAPI";
@@ -45,51 +33,53 @@ import { postsAPI } from "../../api/postsAPI";
 import { messagesAPI } from "../../api/messagesAPI";
 import "./ConnectPage.css";
 
-/* ─── Real Registered Community ─── */
-const REFERENCE_STUDENTS = [];
+const EMPTY_CONNECTIONS = { accepted: [], pendingIncoming: [], pendingOutgoing: [] };
 
-/* ─── Sample Posts data ──────────────────────────────────────────────────── */
-const SAMPLE_POSTS = [
-  {
-    id: "post_1",
-    authorId: "ref_esakkirajan",
-    author: "Esakkirajan G",
-    avatar: "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=200&q=80",
-    role: "student",
-    text: "Proud to coordinate our upcoming School Outreach Drive this Saturday! Excited to mentor 100+ high school students on career opportunities. Connect with me to volunteer together! 🤝",
-    image: "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=600&q=80",
-    likes: 28,
-    comments: 9,
-    time: "2h ago",
-    liked: false,
-  },
-  {
-    id: "post_2",
-    authorId: "ref_esakkimuthu",
-    author: "Esakkimuthu S",
-    avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80",
-    role: "student",
-    text: "Just verified and completed the Digital Literacy & Cyber Safety camp! Empowering students with modern tech tools gives immense satisfaction. 🙌 #MaatramImpact",
-    image: null,
-    likes: 45,
-    comments: 14,
-    time: "5h ago",
-    liked: false,
-  },
-  {
-    id: "post_3",
-    authorId: "ref_ajai",
-    author: "Ajai",
-    avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80",
-    role: "student",
-    text: "Sangamam Youth Impact Conclave was incredible! Looking forward to building strong tech solutions for rural government schools. Connect with me! 💚",
-    image: "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=600&q=80",
-    likes: 21,
-    comments: 5,
-    time: "1d ago",
-    liked: false,
-  },
+// Backend may return _id instead of id — make sure every post has a usable id.
+const normalizePost = (p) => ({ ...p, id: p.id || p._id });
+
+// Hide the three legacy demo posts that were previously seeded into MongoDB.
+// Match their distinctive text rather than author names, so genuine posts by
+// users with the same names will continue to appear in the feed.
+const LEGACY_DEMO_POST_TEXT = [
+  "Proud to mentor 12 student volunteers at this weekend's drive.",
+  "Proud to coordinate our upcoming School Outreach Drive this Saturday!",
+  "Just completed the Digital Literacy Camp at Tambaram!",
 ];
+
+const isLegacyDemoPost = (post) => {
+  const text = String(post?.text || "").trim().toLowerCase();
+  return LEGACY_DEMO_POST_TEXT.some((sample) =>
+    text.startsWith(sample.toLowerCase())
+  );
+};
+
+const normalizePosts = (arr) =>
+  arr.filter((post) => !isLegacyDemoPost(post)).map(normalizePost);
+
+const errMsg = (err) => err?.response?.data?.message || err?.message || "Unknown error";
+
+// Resize + compress a photo in the browser so uploads are small and fast
+// (note: lucide's `Image` icon shadows the global, so use window.Image)
+const compressImage = (file, maxSize = 1080, quality = 0.72) =>
+  new Promise((resolve, reject) => {
+    const img = new window.Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(url);
+      resolve(canvas.toDataURL("image/jpeg", quality));
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Invalid image"));
+    };
+    img.src = url;
+  });
 
 /* ═══════════════════════════════════════════════════════════════════════════
    MAIN COMPONENT
@@ -101,7 +91,7 @@ export default function ConnectPage() {
   const [search, setSearch] = useState("");
   const [selectedDept, setSelectedDept] = useState("All");
   const [selectedYear, setSelectedYear] = useState("All");
-  const [selectedSkill, setSelectedSkill] = useState("");
+  const [selectedSkill] = useState("");
   const [sortBy, setSortBy] = useState("Recently Active");
 
   /* ─── Section / Tab State ──────────────────────────────────────────────── */
@@ -111,11 +101,7 @@ export default function ConnectPage() {
 
   /* ─── Data State ───────────────────────────────────────────────────────── */
   const [registeredUsers, setRegisteredUsers] = useState([]);
-  const [backendConnections, setBackendConnections] = useState({
-    accepted: [],
-    pendingIncoming: [],
-    pendingOutgoing: [],
-  });
+  const [backendConnections, setBackendConnections] = useState(EMPTY_CONNECTIONS);
   const [loading, setLoading] = useState(true);
 
   /* ─── Modals ──────────────────────────────────────────────────────────── */
@@ -129,29 +115,33 @@ export default function ConnectPage() {
   const [chatMessages, setChatMessages] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem("maatram_connect_chat_v3")) || {};
-    } catch { return {}; }
+    } catch {
+      return {};
+    }
   });
   const [readConvoIds, setReadConvoIds] = useState(new Set());
 
   /* ─── Posts State ──────────────────────────────────────────────────────── */
-  const [posts, setPosts] = useState(SAMPLE_POSTS);
+  const [posts, setPosts] = useState([]);
   const [newPostText, setNewPostText] = useState("");
   const [newPostImg, setNewPostImg] = useState("");
   const photoInputRef = useRef(null);
 
-  const handlePhotoUpload = (e) => {
+  const handlePhotoUpload = async (e) => {
     const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-selecting the same file
     if (!file) return;
-    if (file.size > 8 * 1024 * 1024) {
-      showToast("Photo size must be less than 8MB", "error");
+    if (file.size > 20 * 1024 * 1024) {
+      showToast("Photo size must be less than 20MB", "error");
       return;
     }
-    const reader = new FileReader();
-    reader.onload = () => {
-      setNewPostImg(reader.result);
+    try {
+      const compressed = await compressImage(file);
+      setNewPostImg(compressed);
       showToast("📷 Photo attached! Click 'Share Post' to broadcast.");
-    };
-    reader.readAsDataURL(file);
+    } catch {
+      showToast("Could not read that photo. Try another one.", "error");
+    }
   };
 
   /* ─── Load Data ────────────────────────────────────────────────────────── */
@@ -170,22 +160,13 @@ export default function ConnectPage() {
       }
 
       if (connRes.status === "fulfilled" && connRes.value?.data) {
-        const d = connRes.value.data;
-        if (d && typeof d === "object" && !Array.isArray(d)) {
-          setBackendConnections({
-            accepted: Array.isArray(d.accepted) ? d.accepted : [],
-            pendingIncoming: Array.isArray(d.pendingIncoming) ? d.pendingIncoming : [],
-            pendingOutgoing: Array.isArray(d.pendingOutgoing) ? d.pendingOutgoing : [],
-          });
-        } else {
-          setBackendConnections({ accepted: [], pendingIncoming: [], pendingOutgoing: [] });
-        }
+        safeSetBackendConnections(connRes.value.data);
       } else {
-        setBackendConnections({ accepted: [], pendingIncoming: [], pendingOutgoing: [] });
+        setBackendConnections(EMPTY_CONNECTIONS);
       }
 
       if (postsRes.status === "fulfilled" && postsRes.value?.data && Array.isArray(postsRes.value.data)) {
-        setPosts(postsRes.value.data);
+        setPosts(normalizePosts(postsRes.value.data));
       }
 
       // Filter to all registered students and alumni who are active
@@ -205,7 +186,10 @@ export default function ConnectPage() {
     }
   };
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => {
+    loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Fetch real conversation from backend when activeChatUser opens and poll every 3s
   useEffect(() => {
@@ -239,11 +223,14 @@ export default function ConnectPage() {
   // Refresh posts when switching to posts tab
   useEffect(() => {
     if (activeSection === "posts") {
-      postsAPI.getPosts().then((res) => {
-        if (res?.data && Array.isArray(res.data)) {
-          setPosts(res.data);
-        }
-      }).catch(() => { });
+      postsAPI
+        .getPosts()
+        .then((res) => {
+          if (res?.data && Array.isArray(res.data)) {
+            setPosts(normalizePosts(res.data));
+          }
+        })
+        .catch(() => { });
     }
   }, [activeSection]);
 
@@ -256,7 +243,7 @@ export default function ConnectPage() {
   const currentUserId = user?.applicationId || user?.id || user?._id || "";
 
   /* ─── Safe Connection Setter ─────────────────────────────────────────── */
-  const safeSetBackendConnections = (d) => {
+  function safeSetBackendConnections(d) {
     if (d && typeof d === "object" && !Array.isArray(d)) {
       setBackendConnections({
         accepted: Array.isArray(d.accepted) ? d.accepted : [],
@@ -264,9 +251,9 @@ export default function ConnectPage() {
         pendingOutgoing: Array.isArray(d.pendingOutgoing) ? d.pendingOutgoing : [],
       });
     } else {
-      setBackendConnections({ accepted: [], pendingIncoming: [], pendingOutgoing: [] });
+      setBackendConnections(EMPTY_CONNECTIONS);
     }
-  };
+  }
 
   /* ─── Connection Helpers ────────────────────────────────────────────────── */
   const getUserConnectionInfo = (targetUser) => {
@@ -277,10 +264,10 @@ export default function ConnectPage() {
     const pendingIncoming = Array.isArray(backendConnections?.pendingIncoming) ? backendConnections.pendingIncoming : [];
     const pendingOutgoing = Array.isArray(backendConnections?.pendingOutgoing) ? backendConnections.pendingOutgoing : [];
 
-    const isAccepted = accepted.some(
+    const acceptedMatch = accepted.find(
       (c) => c.user?.id === tid || c.user?._id === tid || c.user?.applicationId === taid || c.connectionId === `conn_${tid}`
     );
-    if (isAccepted) return { status: "connected" };
+    if (acceptedMatch) return { status: "connected", connectionId: acceptedMatch.connectionId };
 
     const incomingMatch = pendingIncoming.find(
       (c) => c.user?.id === tid || c.user?._id === tid || c.user?.applicationId === taid
@@ -308,17 +295,22 @@ export default function ConnectPage() {
       setBackendConnections((prev) => ({
         accepted: Array.isArray(prev?.accepted) ? prev.accepted : [],
         pendingIncoming: Array.isArray(prev?.pendingIncoming) ? prev.pendingIncoming : [],
-        pendingOutgoing: [...(Array.isArray(prev?.pendingOutgoing) ? prev.pendingOutgoing : []), {
-          connectionId: `req_${tid}`,
-          message: "Connection request sent",
-          createdAt: new Date().toISOString(),
-          user: targetUser,
-        }],
+        pendingOutgoing: [
+          ...(Array.isArray(prev?.pendingOutgoing) ? prev.pendingOutgoing : []),
+          {
+            connectionId: `req_${tid}`,
+            message: "Connection request sent",
+            createdAt: new Date().toISOString(),
+            user: targetUser,
+          },
+        ],
       }));
     }
     showToast(`📨 Connection request sent to ${targetUser.fullName}! Waiting for acceptance.`);
   };
 
+  // Only the RECEIVER of a request can accept it (from Requests tab / suggested card).
+  // No local fallback: if the server call fails, nobody is marked as connected.
   const handleAcceptRequest = async (connectionId, targetUser) => {
     try {
       await connectionsAPI.acceptRequest(connectionId);
@@ -326,40 +318,10 @@ export default function ConnectPage() {
       if (res?.data) {
         safeSetBackendConnections(res.data);
       }
+      showToast(`🎉 You and ${targetUser.fullName} are now connected! Direct messaging unlocked.`);
     } catch {
-      setBackendConnections((prev) => ({
-        pendingOutgoing: Array.isArray(prev?.pendingOutgoing) ? prev.pendingOutgoing : [],
-        pendingIncoming: (Array.isArray(prev?.pendingIncoming) ? prev.pendingIncoming : []).filter((p) => p.connectionId !== connectionId),
-        accepted: [...(Array.isArray(prev?.accepted) ? prev.accepted : []), {
-          connectionId: connectionId || `conn_${targetUser.id}`,
-          connectedAt: new Date().toISOString(),
-          user: targetUser,
-        }],
-      }));
+      showToast("Could not accept the request. Please try again.", "error");
     }
-    showToast(`🎉 You and ${targetUser.fullName} are now connected! Direct messaging unlocked.`);
-  };
-
-  // Recipient accepts user's request (e.g. Esakkirajan accepts)
-  const handleRecipientAccepts = async (connectionId, targetUser) => {
-    try {
-      await connectionsAPI.acceptRequest(connectionId);
-      const res = await connectionsAPI.getMyConnections();
-      if (res?.data) {
-        safeSetBackendConnections(res.data);
-      }
-    } catch {
-      setBackendConnections((prev) => ({
-        pendingIncoming: Array.isArray(prev?.pendingIncoming) ? prev.pendingIncoming : [],
-        pendingOutgoing: (Array.isArray(prev?.pendingOutgoing) ? prev.pendingOutgoing : []).filter((p) => p.connectionId !== connectionId),
-        accepted: [...(Array.isArray(prev?.accepted) ? prev.accepted : []), {
-          connectionId: connectionId || `conn_${targetUser.id}`,
-          connectedAt: new Date().toISOString(),
-          user: targetUser,
-        }],
-      }));
-    }
-    showToast(`🎉 ${targetUser.fullName} accepted your request! You are now connected friends. Direct messaging unlocked!`);
   };
 
   const handleDeclineRequest = async (connectionId, targetUser) => {
@@ -379,7 +341,7 @@ export default function ConnectPage() {
     showToast(`Request from ${targetUser.fullName} declined.`);
   };
 
-  const handleCancelRequest = async (connectionId, targetUser) => {
+  const handleCancelRequest = async (connectionId) => {
     try {
       await connectionsAPI.removeConnection(connectionId);
       const res = await connectionsAPI.getMyConnections();
@@ -438,7 +400,9 @@ export default function ConnectPage() {
     };
     const updated = { ...chatMessages, [chatKey]: [...(chatMessages[chatKey] || []), myMsg] };
     setChatMessages(updated);
-    try { localStorage.setItem("maatram_connect_chat_v3", JSON.stringify(updated)); } catch { }
+    try {
+      localStorage.setItem("maatram_connect_chat_v3", JSON.stringify(updated));
+    } catch { }
 
     try {
       await messagesAPI.sendMessage({ recipientId: partnerId, text: textToSend });
@@ -456,78 +420,132 @@ export default function ConnectPage() {
     try {
       await postsAPI.likePost(postId);
     } catch { }
-    setPosts((prev) => prev.map((p) =>
-      p.id === postId ? { ...p, liked: !p.liked, likes: p.liked ? p.likes - 1 : p.likes + 1 } : p
-    ));
+    setPosts((prev) =>
+      prev.map((p) =>
+        p.id === postId ? { ...p, liked: !p.liked, likes: p.liked ? p.likes - 1 : p.likes + 1 } : p
+      )
+    );
   };
 
-  const handleCreatePost = async () => {
-    if (!newPostText.trim()) return;
+  // True only for posts written by the logged-in user
+  const isMyPost = (post) => {
+    const myIds = [user?._id, user?.id, user?.applicationId].filter(Boolean).map(String);
+    const authorIds = [
+      post.authorId,
+      post.userId,
+      post.author?._id,
+      post.author?.id,
+      post.user?._id,
+      post.user?.id,
+    ]
+      .filter(Boolean)
+      .map(String);
+    return authorIds.some((id) => myIds.includes(id));
+  };
+
+  // Instant delete: the post disappears immediately, the server call runs in the
+  // background, and the post is restored only if the server really refuses.
+  const handleDeletePost = async (post) => {
+    if (!window.confirm("Delete this post permanently? This cannot be undone.")) return;
+
+    const postId = post.id || post._id;
+    const snapshot = posts;
+    setPosts((prev) => prev.filter((p) => p.id !== postId));
+
+    // Still-uploading / never-saved posts only exist locally
+    if (String(postId).startsWith("tmp_")) {
+      showToast("🗑️ Post deleted.");
+      return;
+    }
+
     try {
-      const res = await postsAPI.createPost({
-        text: newPostText.trim(),
-        image: newPostImg.trim() || null,
-      });
-      if (res?.data) {
-        setPosts((prev) => [res.data, ...prev]);
+      await postsAPI.deletePost(postId);
+      showToast("🗑️ Post deleted permanently.");
+    } catch (err) {
+      if (err?.response?.status === 404) {
+        // Already gone on the server — nothing more to do
+        showToast("🗑️ Post deleted.");
+        return;
       }
-      setNewPostText("");
-      setNewPostImg("");
-      showToast("🚀 Post shared with your connections!");
-    } catch {
-      const newPost = {
-        id: `post_${Date.now()}`,
-        authorId: currentUserId,
-        author: user?.fullName || "You",
-        avatar: user?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(user?.fullName || "me")}`,
-        role: user?.role || "student",
-        text: newPostText.trim(),
-        image: newPostImg.trim() || null,
-        likes: 0,
-        comments: 0,
-        time: "Just now",
-        liked: false,
-      };
-      setPosts((prev) => [newPost, ...prev]);
-      setNewPostText("");
-      setNewPostImg("");
-      showToast("🚀 Post shared with your connections!");
+      setPosts(snapshot);
+      showToast(`Delete failed: ${errMsg(err)}`, "error");
+    }
+  };
+
+  // Instant post: shows in the feed right away, uploads in the background
+  const handleCreatePost = async () => {
+    const text = newPostText.trim();
+    const image = newPostImg || null;
+    if (!text && !image) return;
+
+    const tempId = `tmp_${Date.now()}`;
+    const optimistic = {
+      id: tempId,
+      authorId: currentUserId,
+      author: user?.fullName || "You",
+      avatar: user?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(user?.fullName || "me")}`,
+      role: user?.role || "student",
+      text,
+      image,
+      likes: 0,
+      comments: 0,
+      time: "Just now",
+      liked: false,
+    };
+    setPosts((prev) => [optimistic, ...prev]);
+    setNewPostText("");
+    setNewPostImg("");
+    showToast("🚀 Post shared with your connections!");
+
+    try {
+      const res = await postsAPI.createPost({ text, image });
+      if (res?.data) {
+        setPosts((prev) => prev.map((p) => (p.id === tempId ? normalizePost(res.data) : p)));
+      }
+    } catch (err) {
+      // Upload failed: remove the temporary post and give the text back
+      setPosts((prev) => prev.filter((p) => p.id !== tempId));
+      setNewPostText(text);
+      setNewPostImg(image || "");
+      showToast(`Post failed to upload: ${errMsg(err)}`, "error");
     }
   };
 
   /* ─── Filtered users ────────────────────────────────────────────────────── */
   const filteredUsers = useMemo(() => {
-    return registeredUsers.filter((u) => {
-      // Exclude self
-      if ((u.applicationId || u.id || u._id) === currentUserId || u.email === user?.email) return false;
-      // Only student & alumni
-      if (!["student", "alumni"].includes(u.role)) return false;
-      // Type tab
-      if (userTypeTab === "Students" && u.role !== "student") return false;
-      if (userTypeTab === "Alumni" && u.role !== "alumni") return false;
-      // Department filter
-      if (selectedDept !== "All" && u.department && !u.department.toLowerCase().includes(selectedDept.toLowerCase())) return false;
-      // Year filter
-      if (selectedYear !== "All" && u.academicYear && !u.academicYear.toLowerCase().includes(selectedYear.toLowerCase())) return false;
-      // Skill filter
-      if (selectedSkill) {
-        const userSkills = Array.isArray(u.skills) ? u.skills.map((s) => s.toLowerCase()) : [];
-        if (!userSkills.some((s) => s.includes(selectedSkill.toLowerCase()))) return false;
-      }
-      // Search
-      if (search.trim()) {
-        const q = search.toLowerCase();
-        const name = (u.fullName || "").toLowerCase();
-        const college = (u.college || "").toLowerCase();
-        const dept = (u.department || "").toLowerCase();
-        if (!name.includes(q) && !college.includes(q) && !dept.includes(q)) return false;
-      }
-      return true;
-    }).sort((a, b) => {
-      if (sortBy === "A-Z") return (a.fullName || "").localeCompare(b.fullName || "");
-      if (sortBy === "Most Connected") return (b.points || 0) - (a.points || 0);
-      return (b.isOnline ? 1 : 0) - (a.isOnline ? 1 : 0);
-    });
+    return registeredUsers
+      .filter((u) => {
+        // Exclude self
+        if ((u.applicationId || u.id || u._id) === currentUserId || u.email === user?.email) return false;
+        // Only student & alumni
+        if (!["student", "alumni"].includes(u.role)) return false;
+        // Type tab
+        if (userTypeTab === "Students" && u.role !== "student") return false;
+        if (userTypeTab === "Alumni" && u.role !== "alumni") return false;
+        // Department filter
+        if (selectedDept !== "All" && u.department && !u.department.toLowerCase().includes(selectedDept.toLowerCase())) return false;
+        // Year filter
+        if (selectedYear !== "All" && u.academicYear && !u.academicYear.toLowerCase().includes(selectedYear.toLowerCase())) return false;
+        // Skill filter
+        if (selectedSkill) {
+          const userSkills = Array.isArray(u.skills) ? u.skills.map((s) => s.toLowerCase()) : [];
+          if (!userSkills.some((s) => s.includes(selectedSkill.toLowerCase()))) return false;
+        }
+        // Search
+        if (search.trim()) {
+          const q = search.toLowerCase();
+          const name = (u.fullName || "").toLowerCase();
+          const college = (u.college || "").toLowerCase();
+          const dept = (u.department || "").toLowerCase();
+          if (!name.includes(q) && !college.includes(q) && !dept.includes(q)) return false;
+        }
+        return true;
+      })
+      .sort((a, b) => {
+        if (sortBy === "A-Z") return (a.fullName || "").localeCompare(b.fullName || "");
+        if (sortBy === "Most Connected") return (b.points || 0) - (a.points || 0);
+        return (b.isOnline ? 1 : 0) - (a.isOnline ? 1 : 0);
+      });
   }, [registeredUsers, currentUserId, user, userTypeTab, selectedDept, selectedYear, selectedSkill, search, sortBy]);
 
   const connectedUsers = Array.isArray(backendConnections?.accepted) ? backendConnections.accepted : [];
@@ -564,10 +582,12 @@ export default function ConnectPage() {
       if (unreadA !== unreadB) return unreadB - unreadA;
       return 0;
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [connectedUsers, chatMessages, activeChatUser, readConvoIds]);
 
   const unreadMsgCount = useMemo(() => {
     return connectedUsers.filter((c) => hasUnreadMessage(c.user)).length;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [connectedUsers, chatMessages, activeChatUser, readConvoIds]);
 
   const DEPTS = ["All", "CSE", "ECE", "EEE", "Civil", "Mechanical", "Mechatronics"];
@@ -576,7 +596,7 @@ export default function ConnectPage() {
 
   /* ─── Section config ────────────────────────────────────────────────────── */
   const SECTIONS = [
-    { key: "suggested", label: "Suggested", icon: Sparkles, badge: filteredUsers.length },
+    { key: "suggested", label: "Suggested", icon: null, badge: filteredUsers.length },
     { key: "messages", label: "Messages", icon: MessageSquare, badge: unreadMsgCount > 0 ? unreadMsgCount : connectedUsers.length },
     { key: "requests", label: "Sent", icon: Clock, badge: sentRequests.length },
     { key: "received", label: "Requests", icon: Bell, badge: receivedRequests.length },
@@ -588,20 +608,30 @@ export default function ConnectPage() {
   ══════════════════════════════════════════════════════════════════════════ */
   return (
     <div className="mc2-page">
-
       {/* ── HERO BANNER ─────────────────────────────────────────────────── */}
       <div className="mc2-hero">
         <div className="mc2-hero-content">
-          <div className="mc2-hero-icon"><Users size={28} /></div>
+          <div className="mc2-hero-icon">
+            <Users size={28} />
+          </div>
           <div>
             <h1>Maatram Connect</h1>
             <p>Meet · Collaborate · Grow Together — Students &amp; Alumni Only</p>
           </div>
         </div>
         <div className="mc2-hero-stats">
-          <div className="mc2-hstat"><strong>{registeredUsers.length}+</strong><span>Members</span></div>
-          <div className="mc2-hstat"><strong>{connectedUsers.length}</strong><span>Connections</span></div>
-          <div className="mc2-hstat"><strong>{receivedRequests.length}</strong><span>Pending</span></div>
+          <div className="mc2-hstat">
+            <strong>{registeredUsers.length}+</strong>
+            <span>Members</span>
+          </div>
+          <div className="mc2-hstat">
+            <strong>{connectedUsers.length}</strong>
+            <span>Connections</span>
+          </div>
+          <div className="mc2-hstat">
+            <strong>{receivedRequests.length}</strong>
+            <span>Pending</span>
+          </div>
         </div>
       </div>
 
@@ -616,22 +646,32 @@ export default function ConnectPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
-          {search && <button onClick={() => setSearch("")}><X size={14} /></button>}
+          {search && (
+            <button onClick={() => setSearch("")}>
+              <X size={14} />
+            </button>
+          )}
         </div>
 
         {/* Department */}
         <select value={selectedDept} onChange={(e) => setSelectedDept(e.target.value)} className="mc2-select">
-          {DEPTS.map((d) => <option key={d}>{d}</option>)}
+          {DEPTS.map((d) => (
+            <option key={d}>{d}</option>
+          ))}
         </select>
 
         {/* Year */}
         <select value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)} className="mc2-select">
-          {YEARS.map((y) => <option key={y}>{y}</option>)}
+          {YEARS.map((y) => (
+            <option key={y}>{y}</option>
+          ))}
         </select>
 
         {/* Sort */}
         <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="mc2-select">
-          {SORTS.map((s) => <option key={s}>{s}</option>)}
+          {SORTS.map((s) => (
+            <option key={s}>{s}</option>
+          ))}
         </select>
 
         {/* Clear */}
@@ -639,7 +679,11 @@ export default function ConnectPage() {
           <button
             type="button"
             className="mc2-clear-btn"
-            onClick={() => { setSelectedDept("All"); setSelectedYear("All"); setSearch(""); }}
+            onClick={() => {
+              setSelectedDept("All");
+              setSelectedYear("All");
+              setSearch("");
+            }}
           >
             <X size={12} /> Clear
           </button>
@@ -655,7 +699,7 @@ export default function ConnectPage() {
             className={`mc2-section-btn ${activeSection === key ? "active" : ""}`}
             onClick={() => setActiveSection(key)}
           >
-            <Icon size={15} />
+            {Icon && <Icon size={15} />}
             <span>{label}</span>
             {badge > 0 && <span className="mc2-nav-badge">{badge}</span>}
           </button>
@@ -678,13 +722,15 @@ export default function ConnectPage() {
       </div>
 
       {/* ══════════════════════════════════════════════════════════════════
-          SECTION: SUGGESTED PROFILES (3-col grid)
+          SECTION: SUGGESTED PROFILES
       ══════════════════════════════════════════════════════════════════ */}
       {activeSection === "suggested" && (
         <div className="mc2-section">
           {loading ? (
             <div className="mc2-loading">
-              {[1, 2, 3, 4, 5, 6].map((i) => <div key={i} className="mc2-skeleton-card" />)}
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <div key={i} className="mc2-skeleton-card" />
+              ))}
             </div>
           ) : filteredUsers.length === 0 ? (
             <div className="mc2-empty-state">
@@ -719,7 +765,9 @@ export default function ConnectPage() {
 
                     {/* Info */}
                     <div className="mc2-card-body">
-                      <h3 className="mc2-card-name" onClick={() => setViewProfile(u)}>{u.fullName}</h3>
+                      <h3 className="mc2-card-name" onClick={() => setViewProfile(u)}>
+                        {u.fullName}
+                      </h3>
                       <div className="mc2-card-degree">{u.degree || `B.E. ${u.department}`}</div>
                       <div className="mc2-card-college">{u.college}</div>
 
@@ -727,20 +775,25 @@ export default function ConnectPage() {
                       {Array.isArray(u.skills) && u.skills.length > 0 && (
                         <div className="mc2-card-skills">
                           {u.skills.slice(0, 3).map((sk) => (
-                            <span key={sk} className="mc2-card-skill-tag">{sk}</span>
+                            <span key={sk} className="mc2-card-skill-tag">
+                              {sk}
+                            </span>
                           ))}
                         </div>
                       )}
 
                       {/* Stats */}
                       <div className="mc2-card-stats">
-                        <span><Star size={11} /> {u.points || 0} pts</span>
-                        <span><Clock size={11} /> {u.totalHours || 0}h</span>
+                        <span>
+                          <Star size={11} /> {u.points || 0} pts
+                        </span>
+                        <span>
+                          <Clock size={11} /> {u.totalHours || 0}h
+                        </span>
                       </div>
 
                       {/* Actions */}
                       <div className="mc2-card-actions">
-                        {/* Connect button */}
                         {info.status === "connected" ? (
                           <div style={{ display: "flex", gap: 5, flex: 1 }}>
                             <button className="mc2-btn mc2-btn-connected" disabled style={{ flex: 1 }}>
@@ -759,23 +812,17 @@ export default function ConnectPage() {
                         ) : info.status === "pending_sent" ? (
                           <button
                             className="mc2-btn mc2-btn-pending"
-                            onClick={() => handleCancelRequest(info.connectionId, u)}
+                            onClick={() => handleCancelRequest(info.connectionId)}
                             title="Cancel request"
                           >
                             <Clock size={13} /> Pending
                           </button>
                         ) : info.status === "pending_received" ? (
-                          <button
-                            className="mc2-btn mc2-btn-accept-sm"
-                            onClick={() => handleAcceptRequest(info.connectionId, u)}
-                          >
+                          <button className="mc2-btn mc2-btn-accept-sm" onClick={() => handleAcceptRequest(info.connectionId, u)}>
                             <Check size={13} /> Accept
                           </button>
                         ) : (
-                          <button
-                            className="mc2-btn mc2-btn-connect"
-                            onClick={() => handleSendRequest(u)}
-                          >
+                          <button className="mc2-btn mc2-btn-connect" onClick={() => handleSendRequest(u)}>
                             <UserPlus size={13} /> Connect
                           </button>
                         )}
@@ -814,7 +861,7 @@ export default function ConnectPage() {
             </div>
           ) : (
             <div className="mc2-msg-layout">
-              {/* Left: conversation list (Connections who messaged appear FIRST with round blue dot) */}
+              {/* Left: conversation list */}
               <div className="mc2-conv-list">
                 <div className="mc2-conv-list-header">
                   <MessageSquare size={15} /> Conversations ({connectedUsers.length})
@@ -904,24 +951,31 @@ export default function ConnectPage() {
                         className="mc2-chat-icon-btn"
                         title={`Remove ${activeChatUser.fullName} from connections`}
                         onClick={() => {
-                          const conn = connectedUsers.find((c) => c.user?.id === activeChatUser.id || c.user?.applicationId === activeChatUser.applicationId);
+                          const conn = connectedUsers.find(
+                            (c) => c.user?.id === activeChatUser.id || c.user?.applicationId === activeChatUser.applicationId
+                          );
                           handleRemoveConnection(conn?.connectionId, activeChatUser);
                         }}
                         style={{ color: "#EF4444" }}
                       >
                         <UserMinus size={15} />
                       </button>
-                      <button className="mc2-chat-icon-btn" title="Voice call" onClick={() => showToast(`Calling ${activeChatUser.fullName}...`)}><Phone size={15} /></button>
-                      <button className="mc2-chat-icon-btn" title="Video call" onClick={() => showToast(`Video call with ${activeChatUser.fullName}...`)}><Video size={15} /></button>
-                      <button className="mc2-chat-icon-btn" onClick={() => setActiveChatUser(null)}><X size={16} /></button>
+                      <button className="mc2-chat-icon-btn" title="Voice call" onClick={() => showToast(`Calling ${activeChatUser.fullName}...`)}>
+                        <Phone size={15} />
+                      </button>
+                      <button className="mc2-chat-icon-btn" title="Video call" onClick={() => showToast(`Video call with ${activeChatUser.fullName}...`)}>
+                        <Video size={15} />
+                      </button>
+                      <button className="mc2-chat-icon-btn" onClick={() => setActiveChatUser(null)}>
+                        <X size={16} />
+                      </button>
                     </div>
                   </div>
 
                   <div className="mc2-chat-pane-body">
-                    <div className="mc2-chat-system-note">
-                      🔒 You and {activeChatUser.fullName} are connected friends on Maatram
-                    </div>
-                    {(!chatMessages[activeChatUser.id || activeChatUser.applicationId] || chatMessages[activeChatUser.id || activeChatUser.applicationId].length === 0) ? (
+                    <div className="mc2-chat-system-note">🔒 You and {activeChatUser.fullName} are connected friends on Maatram</div>
+                    {!chatMessages[activeChatUser.id || activeChatUser.applicationId] ||
+                      chatMessages[activeChatUser.id || activeChatUser.applicationId].length === 0 ? (
                       <div style={{ textAlign: "center", color: "#64748B", padding: "48px 16px", fontSize: "0.9rem" }}>
                         <div style={{ fontSize: "1.8rem", marginBottom: 8 }}>💬</div>
                         <strong>No messages yet</strong>
@@ -943,16 +997,13 @@ export default function ConnectPage() {
                             : "Now");
                         return (
                           <div key={msg._id || msg.id} className={`mc2-msg-row ${isMe ? "outgoing" : "incoming"}`}>
-                            {!isMe && (
-                              <img
-                                src={activeChatUser.avatar}
-                                alt={activeChatUser.fullName}
-                                className="mc2-msg-av"
-                              />
-                            )}
+                            {!isMe && <img src={activeChatUser.avatar} alt={activeChatUser.fullName} className="mc2-msg-av" />}
                             <div className="mc2-msg-content">
                               <div className="mc2-msg-bubble">{msg.text}</div>
-                              <span className="mc2-msg-time">{timeStr}{isMe && <Check size={11} color="#2563EB" />}</span>
+                              <span className="mc2-msg-time">
+                                {timeStr}
+                                {isMe && <Check size={11} color="#2563EB" />}
+                              </span>
                             </div>
                           </div>
                         );
@@ -989,7 +1040,7 @@ export default function ConnectPage() {
       )}
 
       {/* ══════════════════════════════════════════════════════════════════
-          SECTION: SENT REQUESTS
+          SECTION: SENT REQUESTS  (sender can only withdraw)
       ══════════════════════════════════════════════════════════════════ */}
       {activeSection === "requests" && (
         <div className="mc2-section">
@@ -1017,27 +1068,16 @@ export default function ConnectPage() {
                     />
                     <div className="mc2-req-info">
                       <div className="mc2-req-name">{u.fullName}</div>
-                      <div className="mc2-req-sub">{u.degree || u.department} · {u.college || "Tamil Nadu"}</div>
+                      <div className="mc2-req-sub">
+                        {u.degree || u.department} · {u.college || "Tamil Nadu"}
+                      </div>
                       <div className="mc2-req-sent-time">
                         <Clock size={11} /> Sent {req.createdAt ? new Date(req.createdAt).toLocaleDateString() : "recently"}
                       </div>
                     </div>
                     <div className="mc2-req-actions">
                       <span className="mc2-req-status-pill pending">Pending Approval</span>
-                      <button
-                        type="button"
-                        className="mc2-btn mc2-btn-accept-sm"
-                        style={{ padding: "6px 12px", fontSize: 12, background: "#16A34A" }}
-                        onClick={() => handleRecipientAccepts(req.connectionId, u)}
-                        title={`Accept request as ${u.fullName}`}
-                      >
-                        <Check size={12} /> Accept as {u?.fullName ? u.fullName.split(" ")[0] : "Friend"}
-                      </button>
-                      <button
-                        type="button"
-                        className="mc2-btn mc2-btn-outline-sm"
-                        onClick={() => handleCancelRequest(req.connectionId, u)}
-                      >
+                      <button type="button" className="mc2-btn mc2-btn-outline-sm" onClick={() => handleCancelRequest(req.connectionId)}>
                         <X size={12} /> Withdraw
                       </button>
                     </div>
@@ -1050,16 +1090,14 @@ export default function ConnectPage() {
       )}
 
       {/* ══════════════════════════════════════════════════════════════════
-          SECTION: RECEIVED REQUESTS
+          SECTION: RECEIVED REQUESTS  (only the receiver can accept)
       ══════════════════════════════════════════════════════════════════ */}
       {activeSection === "received" && (
         <div className="mc2-section">
           <div className="mc2-section-title">
             <Bell size={18} /> Connection Requests Received ({receivedRequests.length})
             {receivedRequests.length > 0 && (
-              <span style={{ marginLeft: 8, fontSize: 12, color: "#16A34A", fontWeight: 600 }}>
-                Accept to unlock direct messaging
-              </span>
+              <span style={{ marginLeft: 8, fontSize: 12, color: "#16A34A", fontWeight: 600 }}>Accept to unlock direct messaging</span>
             )}
           </div>
           {receivedRequests.length === 0 ? (
@@ -1083,24 +1121,16 @@ export default function ConnectPage() {
                     />
                     <div className="mc2-req-info">
                       <div className="mc2-req-name">{u.fullName}</div>
-                      <div className="mc2-req-sub">{u.degree || u.department} · {u.college || "Tamil Nadu"}</div>
-                      {req.message && (
-                        <div className="mc2-req-msg">"{req.message}"</div>
-                      )}
+                      <div className="mc2-req-sub">
+                        {u.degree || u.department} · {u.college || "Tamil Nadu"}
+                      </div>
+                      {req.message && <div className="mc2-req-msg">"{req.message}"</div>}
                     </div>
                     <div className="mc2-req-actions">
-                      <button
-                        type="button"
-                        className="mc2-btn mc2-btn-accept-sm"
-                        onClick={() => handleAcceptRequest(req.connectionId, u)}
-                      >
+                      <button type="button" className="mc2-btn mc2-btn-accept-sm" onClick={() => handleAcceptRequest(req.connectionId, u)}>
                         <Check size={13} /> Accept
                       </button>
-                      <button
-                        type="button"
-                        className="mc2-btn mc2-btn-outline-sm"
-                        onClick={() => handleDeclineRequest(req.connectionId, u)}
-                      >
+                      <button type="button" className="mc2-btn mc2-btn-outline-sm" onClick={() => handleDeclineRequest(req.connectionId, u)}>
                         <X size={12} /> Decline
                       </button>
                     </div>
@@ -1113,7 +1143,7 @@ export default function ConnectPage() {
       )}
 
       {/* ══════════════════════════════════════════════════════════════════
-          SECTION: POSTS (social feed for connected people)
+          SECTION: POSTS
       ══════════════════════════════════════════════════════════════════ */}
       {activeSection === "posts" && (
         <div className="mc2-section mc2-posts-section">
@@ -1163,13 +1193,7 @@ export default function ConnectPage() {
               )}
 
               {/* Hidden file input for photo upload */}
-              <input
-                type="file"
-                ref={photoInputRef}
-                accept="image/*"
-                style={{ display: "none" }}
-                onChange={handlePhotoUpload}
-              />
+              <input type="file" ref={photoInputRef} accept="image/*" style={{ display: "none" }} onChange={handlePhotoUpload} />
 
               <div className="mc2-composer-actions">
                 <div className="mc2-composer-tools">
@@ -1200,47 +1224,64 @@ export default function ConnectPage() {
 
           {/* Feed */}
           <div className="mc2-posts-feed">
-            {posts.map((post) => (
-              <div key={post.id} className="mc2-post-card">
-                <div className="mc2-post-header">
-                  <img src={post.avatar} alt={post.author} className="mc2-post-av" />
-                  <div className="mc2-post-author-info">
-                    <div className="mc2-post-author-name">
-                      {post.author}
-                      <span className={`mc2-post-role-pill ${post.role}`}>
-                        {post.role === "alumni" ? "Alumni" : "Student"}
-                      </span>
-                    </div>
-                    <div className="mc2-post-time">{post.time}</div>
-                  </div>
-                  <button className="mc2-post-more-btn"><MoreHorizontal size={16} /></button>
-                </div>
-
-                <div className="mc2-post-text">{post.text}</div>
-
-                {post.image && (
-                  <div className="mc2-post-img-wrap">
-                    <img src={post.image} alt="Post" className="mc2-post-img" />
-                  </div>
-                )}
-
-                <div className="mc2-post-footer">
-                  <button
-                    type="button"
-                    className={`mc2-post-action-btn ${post.liked ? "liked" : ""}`}
-                    onClick={() => handleLikePost(post.id)}
-                  >
-                    <Heart size={15} fill={post.liked ? "#EF4444" : "none"} /> {post.likes} Likes
-                  </button>
-                  <button type="button" className="mc2-post-action-btn">
-                    <MessageSquare size={15} /> {post.comments} Comments
-                  </button>
-                  <button type="button" className="mc2-post-action-btn">
-                    <Rocket size={15} /> Share
-                  </button>
-                </div>
+            {posts.length === 0 ? (
+              <div className="mc2-empty-state">
+                <Globe size={40} />
+                <h3>No posts yet!</h3>
+                <p>Be the first to share your volunteering experience, achievements, and Maatram activities.</p>
               </div>
-            ))}
+            ) : (
+              posts.map((post) => (
+                <div key={post.id} className="mc2-post-card">
+                  <div className="mc2-post-header">
+                    <img src={post.avatar} alt={post.author} className="mc2-post-av" />
+                    <div className="mc2-post-author-info">
+                      <div className="mc2-post-author-name">
+                        {post.author}
+                        <span className={`mc2-post-role-pill ${post.role}`}>{post.role === "alumni" ? "Alumni" : "Student"}</span>
+                      </div>
+                      <div className="mc2-post-time">{post.time}</div>
+                    </div>
+
+                    {/* Delete — visible only on your own posts */}
+                    {isMyPost(post) && (
+                      <button
+                        type="button"
+                        className="mc2-post-more-btn mc2-post-delete-btn"
+                        onClick={() => handleDeletePost(post)}
+                        title="Delete post"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="mc2-post-text">{post.text}</div>
+
+                  {post.image && (
+                    <div className="mc2-post-img-wrap">
+                      <img src={post.image} alt="Post" className="mc2-post-img" />
+                    </div>
+                  )}
+
+                  <div className="mc2-post-footer">
+                    <button
+                      type="button"
+                      className={`mc2-post-action-btn ${post.liked ? "liked" : ""}`}
+                      onClick={() => handleLikePost(post.id)}
+                    >
+                      <Heart size={15} fill={post.liked ? "#EF4444" : "none"} /> {post.likes} Likes
+                    </button>
+                    <button type="button" className="mc2-post-action-btn">
+                      <MessageSquare size={15} /> {post.comments} Comments
+                    </button>
+                    <button type="button" className="mc2-post-action-btn">
+                      <Rocket size={15} /> Share
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
       )}
@@ -1259,11 +1300,14 @@ export default function ConnectPage() {
                   <div className="mc2-chat-pane-sub">Connected friend</div>
                 </div>
               </div>
-              <button className="mc2-chat-icon-btn" onClick={() => setActiveChatUser(null)}><X size={16} /></button>
+              <button className="mc2-chat-icon-btn" onClick={() => setActiveChatUser(null)}>
+                <X size={16} />
+              </button>
             </div>
             <div className="mc2-chat-pane-body" style={{ maxHeight: 320 }}>
               <div className="mc2-chat-system-note">🔒 You are connected friends on Maatram</div>
-              {(!chatMessages[activeChatUser.id || activeChatUser.applicationId] || chatMessages[activeChatUser.id || activeChatUser.applicationId].length === 0) ? (
+              {!chatMessages[activeChatUser.id || activeChatUser.applicationId] ||
+                chatMessages[activeChatUser.id || activeChatUser.applicationId].length === 0 ? (
                 <div style={{ textAlign: "center", color: "#64748B", padding: "32px 16px", fontSize: "0.85rem" }}>
                   <div style={{ fontSize: "1.5rem", marginBottom: 6 }}>💬</div>
                   <strong>No messages yet</strong>
@@ -1304,7 +1348,9 @@ export default function ConnectPage() {
                 value={messageInput}
                 onChange={(e) => setMessageInput(e.target.value)}
               />
-              <button type="submit" className="mc2-chat-send-btn"><Send size={14} /></button>
+              <button type="submit" className="mc2-chat-send-btn">
+                <Send size={14} />
+              </button>
             </form>
           </div>
         </div>
@@ -1317,7 +1363,9 @@ export default function ConnectPage() {
         <div className="mc2-chat-modal-overlay" onClick={() => setViewProfile(null)}>
           <div className="mc2-profile-modal" onClick={(e) => e.stopPropagation()}>
             <div className="mc2-profile-banner">
-              <button className="mc2-profile-close" onClick={() => setViewProfile(null)}><X size={16} /></button>
+              <button className="mc2-profile-close" onClick={() => setViewProfile(null)}>
+                <X size={16} />
+              </button>
             </div>
             <div className="mc2-profile-body">
               <div className="mc2-profile-top">
@@ -1331,20 +1379,35 @@ export default function ConnectPage() {
                 </span>
               </div>
               <h2 className="mc2-profile-name">{viewProfile.fullName}</h2>
-              <p className="mc2-profile-degree">{viewProfile.degree || viewProfile.department} · {viewProfile.college}</p>
+              <p className="mc2-profile-degree">
+                {viewProfile.degree || viewProfile.department} · {viewProfile.college}
+              </p>
               <p className="mc2-profile-bio">{viewProfile.bio || "Passionate Maatram volunteer committed to community impact."}</p>
 
               {/* Stats */}
               <div className="mc2-profile-stats">
-                <div className="mc2-pstat"><strong>{viewProfile.points || 0}</strong><span>Points</span></div>
-                <div className="mc2-pstat"><strong>{viewProfile.totalHours || 0}h</strong><span>Service</span></div>
-                <div className="mc2-pstat"><strong>4.8★</strong><span>Rating</span></div>
+                <div className="mc2-pstat">
+                  <strong>{viewProfile.points || 0}</strong>
+                  <span>Points</span>
+                </div>
+                <div className="mc2-pstat">
+                  <strong>{viewProfile.totalHours || 0}h</strong>
+                  <span>Service</span>
+                </div>
+                <div className="mc2-pstat">
+                  <strong>4.8★</strong>
+                  <span>Rating</span>
+                </div>
               </div>
 
               {/* Skills */}
               {Array.isArray(viewProfile.skills) && viewProfile.skills.length > 0 && (
                 <div className="mc2-profile-skills">
-                  {viewProfile.skills.map((sk) => <span key={sk} className="mc2-card-skill-tag">{sk}</span>)}
+                  {viewProfile.skills.map((sk) => (
+                    <span key={sk} className="mc2-card-skill-tag">
+                      {sk}
+                    </span>
+                  ))}
                 </div>
               )}
 
@@ -1352,26 +1415,56 @@ export default function ConnectPage() {
               <div className="mc2-profile-actions">
                 {(() => {
                   const info = getUserConnectionInfo(viewProfile);
-                  if (info.status === "connected") return (
-                    <>
-                      <button className="mc2-btn mc2-btn-connect" onClick={() => { setViewProfile(null); handleOpenChat(viewProfile); }}>
-                        <MessageSquare size={14} /> Message
+                  if (info.status === "connected")
+                    return (
+                      <>
+                        <button
+                          className="mc2-btn mc2-btn-connect"
+                          onClick={() => {
+                            setViewProfile(null);
+                            handleOpenChat(viewProfile);
+                          }}
+                        >
+                          <MessageSquare size={14} /> Message
+                        </button>
+                        <button className="mc2-btn mc2-btn-connected" disabled>
+                          <Check size={13} /> Connected
+                        </button>
+                      </>
+                    );
+                  if (info.status === "pending_sent")
+                    return (
+                      <button className="mc2-btn mc2-btn-pending" onClick={() => handleCancelRequest(info.connectionId)}>
+                        <Clock size={13} /> Pending — Cancel
                       </button>
-                      <button className="mc2-btn mc2-btn-connected" disabled><Check size={13} /> Connected</button>
-                    </>
-                  );
-                  if (info.status === "pending_sent") return (
-                    <button className="mc2-btn mc2-btn-pending" onClick={() => handleCancelRequest(info.connectionId, viewProfile)}>
-                      <Clock size={13} /> Pending — Cancel
-                    </button>
-                  );
+                    );
+                  if (info.status === "pending_received")
+                    return (
+                      <button
+                        className="mc2-btn mc2-btn-accept-sm"
+                        onClick={() => {
+                          handleAcceptRequest(info.connectionId, viewProfile);
+                          setViewProfile(null);
+                        }}
+                      >
+                        <Check size={13} /> Accept Request
+                      </button>
+                    );
                   return (
-                    <button className="mc2-btn mc2-btn-connect" onClick={() => { handleSendRequest(viewProfile); setViewProfile(null); }}>
+                    <button
+                      className="mc2-btn mc2-btn-connect"
+                      onClick={() => {
+                        handleSendRequest(viewProfile);
+                        setViewProfile(null);
+                      }}
+                    >
                       <UserPlus size={14} /> Send Connection Request
                     </button>
                   );
                 })()}
-                <button className="mc2-btn mc2-btn-outline-sm" onClick={() => setViewProfile(null)}>Close</button>
+                <button className="mc2-btn mc2-btn-outline-sm" onClick={() => setViewProfile(null)}>
+                  Close
+                </button>
               </div>
             </div>
           </div>
@@ -1385,7 +1478,9 @@ export default function ConnectPage() {
         <div className="mc2-chat-modal-overlay" onClick={() => setConnectPromptUser(null)}>
           <div className="mc2-profile-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 420 }}>
             <div className="mc2-profile-banner" style={{ height: 70 }}>
-              <button className="mc2-profile-close" onClick={() => setConnectPromptUser(null)}><X size={16} /></button>
+              <button className="mc2-profile-close" onClick={() => setConnectPromptUser(null)}>
+                <X size={16} />
+              </button>
             </div>
             <div className="mc2-profile-body" style={{ textAlign: "center", paddingTop: 10 }}>
               <div style={{ display: "flex", justifyContent: "center", marginTop: -40, marginBottom: 12, position: "relative", zIndex: 2 }}>
@@ -1415,28 +1510,30 @@ export default function ConnectPage() {
                   const info = getUserConnectionInfo(connectPromptUser);
                   if (info.status === "pending_sent") {
                     return (
-                      <>
-                        <button
-                          type="button"
-                          className="mc2-btn mc2-btn-accept-sm"
-                          onClick={() => {
-                            handleRecipientAccepts(info.connectionId, connectPromptUser);
-                            setConnectPromptUser(null);
-                          }}
-                        >
-                          <Check size={13} /> Accept as {connectPromptUser?.fullName ? connectPromptUser.fullName.split(" ")[0] : "Friend"}
-                        </button>
-                        <button
-                          type="button"
-                          className="mc2-btn mc2-btn-pending"
-                          onClick={() => {
-                            handleCancelRequest(info.connectionId, connectPromptUser);
-                            setConnectPromptUser(null);
-                          }}
-                        >
-                          Cancel Request
-                        </button>
-                      </>
+                      <button
+                        type="button"
+                        className="mc2-btn mc2-btn-pending"
+                        onClick={() => {
+                          handleCancelRequest(info.connectionId);
+                          setConnectPromptUser(null);
+                        }}
+                      >
+                        Cancel Request
+                      </button>
+                    );
+                  }
+                  if (info.status === "pending_received") {
+                    return (
+                      <button
+                        type="button"
+                        className="mc2-btn mc2-btn-accept-sm"
+                        onClick={() => {
+                          handleAcceptRequest(info.connectionId, connectPromptUser);
+                          setConnectPromptUser(null);
+                        }}
+                      >
+                        <Check size={13} /> Accept Request
+                      </button>
                     );
                   }
                   return (
@@ -1453,11 +1550,7 @@ export default function ConnectPage() {
                     </button>
                   );
                 })()}
-                <button
-                  type="button"
-                  className="mc2-btn mc2-btn-outline-sm"
-                  onClick={() => setConnectPromptUser(null)}
-                >
+                <button type="button" className="mc2-btn mc2-btn-outline-sm" onClick={() => setConnectPromptUser(null)}>
                   Close
                 </button>
               </div>

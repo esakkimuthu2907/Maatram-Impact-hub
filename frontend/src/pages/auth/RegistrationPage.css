@@ -950,3 +950,8 @@
     padding-right: 14px;
   }
 }
+
+/* Gender: Male / Female / Other in one straight line */
+.residence-options.gender-options {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}

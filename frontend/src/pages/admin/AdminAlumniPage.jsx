@@ -3,30 +3,16 @@ import React, { useState, useEffect } from "react";
 import {
   GraduationCap,
   Briefcase,
-  Building2,
   Calendar,
-  Search,
-  Filter,
   CheckCircle2,
-  PlusCircle,
   Edit2,
   Trash2,
-  UserCheck,
-  Clock,
   Check,
-  Sparkles,
-  ShieldCheck,
   X,
-  Send,
-  ExternalLink,
-  Award,
-  Layers,
-  ChevronRight,
   Eye,
   Plus,
   Users,
   Trophy,
-  ChevronDown,
   Ban,
   RotateCcw,
   Mail,
@@ -37,7 +23,6 @@ import { adminAPI } from "../../api/adminAPI";
 import authService from "../../services/authService";
 import "./AdminAlumniPage.css";
 
-
 export default function AdminAlumniPage() {
   const { opportunities = [], updateOpportunity, showToast } = useApp();
 
@@ -46,28 +31,10 @@ export default function AdminAlumniPage() {
   const [search, setSearch] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("All");
   const [sortBy, setSortBy] = useState("newest"); // newest | oldest | name
-  const [showFilter, setShowFilter] = useState(false);
   const [deptFilter, setDeptFilter] = useState("All");
 
-  // Tab & Review State
-  const [pageTab, setPageTab] = useState("roster"); // "roster" | "assigned" | "review"
-  const [assignmentRequests, setAssignmentRequests] = useState([]);
-  const [loadingAssignments, setLoadingAssignments] = useState(false);
-  const [assignmentFilter, setAssignmentFilter] = useState("All");
-
-  const loadAssignments = async () => {
-    try {
-      setLoadingAssignments(true);
-      const res = await adminAPI.getAlumniAssignments();
-      if (res && res.data) {
-        setAssignmentRequests(res.data);
-      }
-    } catch (err) {
-      console.warn("Could not load alumni assignment requests:", err);
-    } finally {
-      setLoadingAssignments(false);
-    }
-  };
+  // Tab state: "roster" | "assigned"
+  const [pageTab, setPageTab] = useState("roster");
 
   const loadAlumni = async (silent = false) => {
     try {
@@ -113,37 +80,12 @@ export default function AdminAlumniPage() {
 
   useEffect(() => {
     loadAlumni();
-    loadAssignments();
     // Keep counts & rows live: quiet refresh every 30s
     const t = setInterval(() => {
       loadAlumni(true);
-      loadAssignments();
     }, 30000);
     return () => clearInterval(t);
   }, []);
-
-  const handleApproveAssignment = async (req) => {
-    try {
-      await adminAPI.approveAlumniAssignment(req.id || req._id);
-      showToast(`✅ Approved! ${req.alumniName} has been assigned to "${req.eventTitle}" and notified by email.`);
-      loadAssignments();
-      loadAlumni();
-    } catch (err) {
-      showToast(err.message || "Failed to approve assignment", "error");
-    }
-  };
-
-  const handleRejectAssignment = async (req) => {
-    const reason = window.prompt("Reason for rejecting assignment request:", "Schedule conflict or role filled.");
-    if (reason === null) return;
-    try {
-      await adminAPI.rejectAlumniAssignment(req.id || req._id, reason);
-      showToast(`Assignment request for ${req.alumniName} marked as Rejected.`);
-      loadAssignments();
-    } catch (err) {
-      showToast(err.message || "Failed to reject assignment", "error");
-    }
-  };
 
   // View details modal + status toggle (deactivate / reactivate)
   const [viewAlum, setViewAlum] = useState(null);
@@ -191,7 +133,7 @@ export default function AdminAlumniPage() {
     return matchStatus && matchSearch;
   });
 
-  // Department filter + sorting (Filter / "Sort by" controls)
+  // Department filter + sorting
   const departments = ["All", ...Array.from(new Set((alumniList || []).map((a) => a.department).filter(Boolean)))];
   const visibleAlumni = filteredAlumni
     .filter((a) => deptFilter === "All" || a.department === deptFilter)
@@ -215,7 +157,11 @@ export default function AdminAlumniPage() {
 
   const handleOpenAssignModal = (alumnus) => {
     setAssignModal(alumnus);
-    setTargetEvent(alumnus.assignedEvent && alumnus.assignedEvent !== "Unassigned" ? alumnus.assignedEvent : (opportunities[0]?.title || "School Visit – Government Higher Secondary School"));
+    setTargetEvent(
+      alumnus.assignedEvent && alumnus.assignedEvent !== "Unassigned"
+        ? alumnus.assignedEvent
+        : opportunities[0]?.title || "School Visit – Government Higher Secondary School"
+    );
     setTargetRole(alumnus.assignedRole || "Event Lead & Supervisor");
     setTargetDesc(alumnus.workDescription || "");
   };
@@ -311,7 +257,6 @@ export default function AdminAlumniPage() {
         password: "Password@123",
       });
 
-      const newId = res.applicationId || res.studentId || res.user?.id;
       // If admin created directly, auto-approve
       if (res.user?.id) {
         try {
@@ -337,17 +282,6 @@ export default function AdminAlumniPage() {
     }
   };
 
-  const pendingReviewCount = assignmentRequests.filter((r) => r.status === "Pending").length;
-
-  const StatusPill = ({ status }) =>
-    status === "pending_approval" ? (
-      <span className="alm-status pending"><i /> Pending Approval</span>
-    ) : status === "inactive" ? (
-      <span className="alm-status inactive"><i /> Inactive</span>
-    ) : (
-      <span className="alm-status active"><i /> Active</span>
-    );
-
   const Avatar = ({ alum, size = 44 }) => (
     <span className="alm-avatar-wrap" style={{ width: size, height: size }}>
       <img src={alum.avatar} alt={alum.fullName} onError={handleAvatarError} />
@@ -365,11 +299,11 @@ export default function AdminAlumniPage() {
           </h1>
         </div>
         <button type="button" className="alm-hero-btn" onClick={() => setShowAddModal(true)}>
-          <Plus size={22} strokeWidth={2.6} /> Register New Alumni
+          <Plus size={18} strokeWidth={2.6} /> Register New Alumni
         </button>
       </div>
 
-      {/* ── VIEW SWITCH: ROSTER / ASSIGNMENT REQUESTS ───────────── */}
+      {/* ── VIEW SWITCH: ROSTER / ASSIGNED WORKS ───────────────── */}
       <div className="alm-view-switch">
         <button type="button" className={pageTab === "roster" ? "on" : ""} onClick={() => setPageTab("roster")}>
           <GraduationCap size={15} /> Alumni Roster ({alumniList.length})
@@ -377,97 +311,15 @@ export default function AdminAlumniPage() {
         <button type="button" className={pageTab === "assigned" ? "on" : ""} onClick={() => setPageTab("assigned")}>
           <Trophy size={15} /> Assigned Works ({assignedAlumniList.length})
         </button>
-        <button type="button" className={pageTab === "review" ? "on" : ""} onClick={() => setPageTab("review")}>
-          <UserCheck size={15} /> Assignment Requests
-          {pendingReviewCount > 0 && <b className="alm-badge">{pendingReviewCount}</b>}
-        </button>
       </div>
 
-      {pageTab === "review" ? (
-        /* ── ASSIGNMENT REQUESTS (review) ───────────────────────── */
+      {pageTab === "assigned" ? (
+        /* ── ASSIGNED ALUMNI WORKS & EVENT LEADERSHIP ───────────── */
         <div className="alm-card">
           <div className="alm-card-head">
             <div className="alm-title-box">
-              <span className="alm-title-pill"><UserCheck size={22} /> Event Alumni Assignment Requests</span>
-            </div>
-            <div className="alm-head-tools">
-              {["All", "Pending", "Approved", "Rejected"].map((st) => (
-                <button
-                  key={st}
-                  type="button"
-                  className={`alm-chip ${assignmentFilter === st ? "on" : ""}`}
-                  onClick={() => setAssignmentFilter(st)}
-                >
-                  {st} ({assignmentRequests.filter((r) => st === "All" || r.status === st).length})
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="alm-table-wrap">
-            <table className="alm-table compact">
-              <thead>
-                <tr>
-                  <th>Target Event Drive</th>
-                  <th>Alumni Leader</th>
-                  <th>Delegated Role</th>
-                  <th>Instructions &amp; Notes</th>
-                  <th>Status</th>
-                  <th className="right">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {assignmentRequests
-                  .filter((r) => assignmentFilter === "All" || r.status === assignmentFilter)
-                  .map((req) => (
-                    <tr key={req.id || req._id}>
-                      <td>
-                        <div className="alm-strong">{req.eventTitle}</div>
-                        <div className="alm-sub">📅 {req.eventDate || "Upcoming"} &bull; 📍 {req.eventLocation || "Chennai"}</div>
-                      </td>
-                      <td>
-                        <div className="alm-strong">{req.alumniName}</div>
-                        <div className="alm-sub">{req.alumniApplicationId || "ALU"} &bull; {req.alumniEmail}</div>
-                      </td>
-                      <td><span className="alm-role-tag">{req.role}</span></td>
-                      <td className="alm-notes">{req.notes || "Event leadership, logistics coordination, and student volunteer supervision."}</td>
-                      <td>
-                        <span className={`alm-status ${req.status === "Approved" ? "active" : req.status === "Pending" ? "pending" : "inactive"}`}>
-                          <i /> {req.status}
-                        </span>
-                      </td>
-                      <td className="right">
-                        {req.status === "Pending" ? (
-                          <div className="alm-actions">
-                            <button type="button" className="alm-btn-green" onClick={() => handleApproveAssignment(req)}>
-                              <Check size={14} /> Approve
-                            </button>
-                            <button type="button" className="alm-btn-red" onClick={() => handleRejectAssignment(req)}>
-                              <X size={14} /> Reject
-                            </button>
-                          </div>
-                        ) : req.status === "Approved" ? (
-                          <span className="alm-ok-text">&check; Roster updated &amp; email sent</span>
-                        ) : (
-                          <span className="alm-bad-text">Rejected</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                {assignmentRequests.length === 0 && (
-                  <tr><td colSpan={6} className="alm-empty">No alumni assignment requests yet.</td></tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      ) : pageTab === "assigned" ? (
-        /* ── ASSIGNED ALUMNI WORKS & EVENT LEADERSHIP (own section) ── */
-        <div className="alm-card">
-          <div className="alm-card-head slim">
-            <div className="alm-title-box">
               <span className="alm-title-pill">
-                <Trophy size={22} /> Assigned Alumni Works &amp; Event Leadership ({assignedAlumniList.length})
+                <Trophy size={18} /> Assigned Alumni Works &amp; Event Leadership ({assignedAlumniList.length})
               </span>
             </div>
           </div>
@@ -475,9 +327,13 @@ export default function AdminAlumniPage() {
           <div className="alm-table-wrap">
             <table className="alm-table compact fixed">
               <colgroup>
-                <col style={{ width: "4%" }} /><col style={{ width: "20%" }} /><col style={{ width: "19%" }} />
-                <col style={{ width: "21%" }} /><col style={{ width: "12%" }} /><col style={{ width: "10%" }} />
-                <col style={{ width: "14%" }} />
+                <col style={{ width: "4%" }} />
+                <col style={{ width: "18%" }} />
+                <col style={{ width: "18%" }} />
+                <col style={{ width: "20%" }} />
+                <col style={{ width: "12%" }} />
+                <col style={{ width: "10%" }} />
+                <col style={{ width: "18%" }} />
               </colgroup>
               <thead>
                 <tr>
@@ -513,7 +369,7 @@ export default function AdminAlumniPage() {
                       </td>
                       <td>
                         <span className="alm-date">
-                          <Calendar size={16} /> {alum.assignedDate || "Active"}
+                          <Calendar size={14} /> {alum.assignedDate || "Active"}
                         </span>
                       </td>
                       <td><span className="alm-status active"><i /> Active Lead</span></td>
@@ -523,10 +379,10 @@ export default function AdminAlumniPage() {
                             Reassign
                           </button>
                           <button type="button" className="alm-ico view" title="View details" onClick={() => setViewAlum(alum)}>
-                            <Eye size={18} />
+                            <Eye size={16} />
                           </button>
                           <button type="button" className="alm-ico del" title="Remove event assignment" onClick={() => handleRemoveAssignment(alum)}>
-                            <Trash2 size={17} />
+                            <Trash2 size={15} />
                           </button>
                         </div>
                       </td>
@@ -539,15 +395,17 @@ export default function AdminAlumniPage() {
         </div>
       ) : (
         <>
-          {/* ── ALUMNI DIRECTORY (table like Student Directory) ───── */}
+          {/* ── ALUMNI DIRECTORY ─────────────────────────────────── */}
           <div className="alm-dir">
             <div className="alm-dir-head">
-              <div className="alm-title-box"><span className="alm-title-pill"><GraduationCap size={22} /> Alumni Directory</span></div>
+              <div className="alm-title-box">
+                <span className="alm-title-pill"><GraduationCap size={18} /> Alumni Directory</span>
+              </div>
               <div className="alm-dir-badges">
                 {[
-                  { key: "All", label: "ALL", cls: "blue", n: alumniList.length },
+                  { key: "All", label: "ALL", cls: "yellow", n: alumniList.length },
                   { key: "active", label: "ACTIVE", cls: "green", n: alumniList.filter((a) => a.status === "active").length },
-                  { key: "pending_approval", label: "PENDING", cls: "yellow", n: alumniList.filter((a) => a.status === "pending_approval").length },
+                  { key: "pending_approval", label: "PENDING", cls: "amber", n: alumniList.filter((a) => a.status === "pending_approval").length },
                   { key: "inactive", label: "INACTIVE", cls: "gray", n: alumniList.filter((a) => a.status === "inactive").length },
                 ].map((t) => (
                   <button
@@ -601,9 +459,15 @@ export default function AdminAlumniPage() {
             <div className="alm-table-wrap">
               <table className="alm-table compact fixed">
                 <colgroup>
-                  <col style={{ width: "8%" }} /><col style={{ width: "13%" }} /><col style={{ width: "18%" }} />
-                  <col style={{ width: "9%" }} /><col style={{ width: "10%" }} /><col style={{ width: "16%" }} />
-                  <col style={{ width: "9%" }} /><col style={{ width: "9%" }} /><col style={{ width: "8%" }} />
+                  <col style={{ width: "8%" }} />
+                  <col style={{ width: "12%" }} />
+                  <col style={{ width: "15%" }} />
+                  <col style={{ width: "8%" }} />
+                  <col style={{ width: "9%" }} />
+                  <col style={{ width: "14%" }} />
+                  <col style={{ width: "9%" }} />
+                  <col style={{ width: "9%" }} />
+                  <col style={{ width: "16%" }} />
                 </colgroup>
                 <thead>
                   <tr>
@@ -650,13 +514,13 @@ export default function AdminAlumniPage() {
                           <div className="alm-sub">{alum.role}</div>
                         </td>
                         <td>
-                          <span className={`alm-mini ${alum.status === "active" ? "green" : alum.status === "pending_approval" ? "yellow" : "gray"}`}>
+                          <span className={`alm-mini ${alum.status === "active" ? "green" : alum.status === "pending_approval" ? "amber" : "gray"}`}>
                             {alum.status === "pending_approval" ? "PENDING" : alum.status === "inactive" ? "INACTIVE" : "ACTIVE"}
                           </span>
                         </td>
                         <td>
                           {alum.assignedEvent && alum.assignedEvent !== "Unassigned" ? (
-                            <span className="alm-mini blue">ASSIGNED</span>
+                            <span className="alm-mini yellow">ASSIGNED</span>
                           ) : (
                             <span className="alm-dash">—</span>
                           )}
@@ -707,12 +571,12 @@ export default function AdminAlumniPage() {
         <div className="modal-backdrop" onClick={() => setViewAlum(null)}>
           <div className="alm-view-modal" onClick={(e) => e.stopPropagation()}>
             <div className="alm-view-head">
-              <Avatar alum={viewAlum} size={52} />
+              <Avatar alum={viewAlum} size={48} />
               <div>
                 <h3>{viewAlum.fullName}</h3>
                 <p>{viewAlum.role} &bull; {viewAlum.company}</p>
               </div>
-              <span className={`alm-mini ${viewAlum.status === "active" ? "green" : viewAlum.status === "pending_approval" ? "yellow" : "gray"}`}>
+              <span className={`alm-mini ${viewAlum.status === "active" ? "green" : viewAlum.status === "pending_approval" ? "amber" : "gray"}`}>
                 {viewAlum.status === "pending_approval" ? "PENDING" : viewAlum.status === "inactive" ? "INACTIVE" : "ACTIVE"}
               </span>
               <button type="button" className="alm-sq del" onClick={() => setViewAlum(null)} title="Close"><X size={14} /></button>
@@ -737,7 +601,7 @@ export default function AdminAlumniPage() {
               <button type="button" className="alm-btn-soft" onClick={() => setViewAlum(null)}>Close</button>
               <button
                 type="button"
-                className="alm-btn-blue"
+                className="alm-btn-yellow"
                 onClick={() => { const a = viewAlum; setViewAlum(null); handleOpenAssignModal(a); }}
               >
                 <Briefcase size={14} /> Assign Work
@@ -759,7 +623,7 @@ export default function AdminAlumniPage() {
                   style={{ width: 44, height: 44, borderRadius: "50%", objectFit: "cover" }}
                 />
                 <div>
-                  <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800 }}>
+                  <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800 }}>
                     Assign Volunteering Work to {assignModal.fullName}
                   </h3>
                   <span style={{ fontSize: 12.5, color: "#64748B" }}>
@@ -828,17 +692,13 @@ export default function AdminAlumniPage() {
               </div>
 
               <div style={{ display: "flex", justifyContent: "flex-end", gap: 12 }}>
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={() => setAssignModal(null)}
-                >
+                <button type="button" className="btn btn-secondary" onClick={() => setAssignModal(null)}>
                   Cancel
                 </button>
                 <button
                   type="submit"
                   className="btn btn-primary"
-                  style={{ background: "#2563EB", color: "#FFF", display: "flex", alignItems: "center", gap: 8 }}
+                  style={{ background: "#FACC15", color: "#0F172A", fontWeight: 700, display: "flex", alignItems: "center", gap: 8 }}
                 >
                   <CheckCircle2 size={16} /> Confirm Assignment
                 </button>
@@ -853,7 +713,7 @@ export default function AdminAlumniPage() {
         <div className="modal-backdrop" onClick={() => setShowAddModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 580 }}>
             <div className="modal-header">
-              <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800 }}>
+              <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800 }}>
                 Register New Maatram Alumnus
               </h3>
               <button type="button" className="close-btn" onClick={() => setShowAddModal(false)}>
@@ -934,17 +794,13 @@ export default function AdminAlumniPage() {
               </div>
 
               <div style={{ display: "flex", justifyContent: "flex-end", gap: 12 }}>
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={() => setShowAddModal(false)}
-                >
+                <button type="button" className="btn btn-secondary" onClick={() => setShowAddModal(false)}>
                   Cancel
                 </button>
                 <button
                   type="submit"
                   className="btn btn-primary"
-                  style={{ background: "#2563EB", color: "#FFF" }}
+                  style={{ background: "#FACC15", color: "#0F172A", fontWeight: 700 }}
                 >
                   Save &amp; Register Alumnus
                 </button>

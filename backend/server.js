@@ -63,11 +63,11 @@ app.use(
 );
 
 // ── Request timeout middleware (prevents hanging requests from crashing server) ──
-// Award-points and email routes can be slow; we give them 30s then auto-respond.
+// Gives long-running operations (like bulk points, certificate generation, or email blasts) 120s
 app.use((req, res, next) => {
-  res.setTimeout(30000, () => {
+  res.setTimeout(120000, () => {
     if (!res.headersSent) {
-      console.warn(`[Timeout] ${req.method} ${req.originalUrl} timed out after 30s — sending safe fallback.`);
+      console.warn(`[Timeout] ${req.method} ${req.originalUrl} timed out after 120s — sending safe fallback.`);
       res.status(200).json({
         success: true,
         message: "Request is processing in the background. Refresh in a moment.",
@@ -110,6 +110,7 @@ app.use("/api/messages", require("./routes/messages"));
 app.use("/api/badges", require("./routes/badges"));
 app.use("/api/certificates", require("./routes/certificates"));
 app.use("/api/hours", require("./routes/hours"));
+app.use("/api/games", require("./routes/games"));
 
 // Root route
 app.get("/", (req, res) => {
@@ -161,6 +162,11 @@ function startBackend(portToTry, attempts = 0) {
     console.log("--------------------------------------");
   });
 
+  // TCP keepAlive & timeouts — prevents ECONNRESET on slow/long-running requests
+  serverInstance.keepAliveTimeout = 120000;
+  serverInstance.headersTimeout  = 125000;
+  serverInstance.requestTimeout  = 120000;
+
   serverInstance.on("error", (error) => {
     if ((error.code === "EADDRINUSE" || error.code === "EACCES") && attempts < 5) {
       const nextPort = p === 5000 ? 5001 : p + 1;
@@ -176,14 +182,15 @@ function startBackend(portToTry, attempts = 0) {
 
 const server = startBackend(DEFAULT_PORT);
 
-// ── TCP keepAlive — prevents ECONNRESET on slow/long-running requests ──
-server.keepAliveTimeout = 65000;  // slightly above typical load-balancer 60s
-server.headersTimeout  = 66000;   // must be > keepAliveTimeout
-
 // Connect to MongoDB
 connectDB()
-  .then(() => {
+  .then(async () => {
     console.log("✅ MongoDB connection established");
+    try {
+      console.log("✅ Daily Games, Streaks & Leaderboard System initialized");
+    } catch (seedErr) {
+      console.warn("⚠️ Games System init notice:", seedErr.message);
+    }
   })
   .catch((error) => {
     console.error("❌ MongoDB connection failed:", error.message);

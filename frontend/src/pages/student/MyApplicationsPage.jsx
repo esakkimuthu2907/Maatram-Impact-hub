@@ -9,9 +9,7 @@ import {
   XCircle,
   Clock3,
   Search,
-  ArrowRight,
-  Sparkles,
-  MapPin,
+  X,
   ShieldCheck,
   ChevronRight,
   Share2,
@@ -25,12 +23,15 @@ import "./StudentDashboard.css";
 // Status colour palette used by the filter pills and the cards
 const STATUS_THEME = {
   All: { main: "#FFD629", text: "#151515", soft: "#FFFFFF", border: "#E2E8F0", idle: "#64748B" }, // brand yellow
-  Approved: { main: "#2563EB", text: "#FFFFFF", soft: "#EFF6FF", border: "#BFDBFE", idle: "#1D4ED8" }, // blue
-  Completed: { main: "#16A34A", text: "#FFFFFF", soft: "#F0FDF4", border: "#BBF7D0", idle: "#15803D" }, // green
   Pending: { main: "#F97316", text: "#FFFFFF", soft: "#FFF7ED", border: "#FED7AA", idle: "#C2410C" }, // orange
+  Approved: { main: "#0EA5E9", grad: "linear-gradient(135deg, #38BDF8 0%, #0EA5E9 45%, #2563EB 100%)", text: "#FFFFFF", soft: "#EFF6FF", border: "#BFDBFE", idle: "#1D4ED8" }, // blue
+  Completed: { main: "#16A34A", text: "#FFFFFF", soft: "#F0FDF4", border: "#BBF7D0", idle: "#15803D" }, // green
   Rejected: { main: "#DC2626", text: "#FFFFFF", soft: "#FEF2F2", border: "#FECACA", idle: "#B91C1C" }, // red
   Cancelled: { main: "#64748B", text: "#FFFFFF", soft: "#F8FAFC", border: "#E2E8F0", idle: "#64748B" }, // grey
 };
+
+// Order of the filter pills
+const FILTERS = ["All", "Pending", "Approved", "Completed", "Rejected"];
 
 export default function MyApplicationsPage() {
   const {
@@ -43,6 +44,7 @@ export default function MyApplicationsPage() {
   } = useApp();
   const [filter, setFilter] = useState("All");
   const [search, setSearch] = useState("");
+  const [searchFocused, setSearchFocused] = useState(false);
 
   const filteredApps = applications.filter((app) => {
     const isAppCompleted =
@@ -88,17 +90,30 @@ export default function MyApplicationsPage() {
   };
 
   return (
-    <div className="dashboard-container" style={{ maxWidth: 1180, margin: "0 auto", padding: "28px 24px", background: "#FFFFFF" }}>
+    <div className="dashboard-container" style={{ width: "100%", maxWidth: "none", margin: 0, boxSizing: "border-box", padding: "12px 36px 40px", background: "#FFFFFF" }}>
+      {/* Keep the glow on the outer search box only (no glow around the input itself) */}
+      <style>{`
+        .my-apps-search-input,
+        .my-apps-search-input:hover,
+        .my-apps-search-input:focus,
+        .my-apps-search-input:focus-visible {
+          border: none !important;
+          outline: none !important;
+          box-shadow: none !important;
+          background: transparent !important;
+          border-radius: 0 !important;
+        }
+      `}</style>
       {/* SECTION HEADER */}
-      <div className="section-header-row" style={{ marginBottom: 28 }}>
+      <div className="section-header-row" style={{ marginBottom: 12, padding: 0, gap: 12 }}>
         <div>
           <h1
             className="page-heading"
             style={{
-              fontSize: "clamp(24px, 3vw, 32px)",
+              fontSize: "clamp(22px, 2.4vw, 28px)",
               fontWeight: 800,
               color: "#151515",
-              margin: "0 0 8px",
+              margin: "0 0 4px",
               letterSpacing: "-0.01em",
             }}
           >
@@ -108,8 +123,8 @@ export default function MyApplicationsPage() {
             className="page-subheading"
             style={{
               color: "#717784",
-              fontSize: 15,
-              lineHeight: 1.6,
+              fontSize: 14,
+              lineHeight: 1.4,
               margin: 0,
               maxWidth: 620,
             }}
@@ -146,46 +161,82 @@ export default function MyApplicationsPage() {
           justifyContent: "space-between",
           gap: 16,
           background: "#FFFFFF",
-          padding: "16px 20px",
+          padding: "10px 16px",
           borderRadius: 16,
           boxShadow: "0 2px 10px rgba(0,0,0,0.03)",
           border: "1px solid #EAECEF",
-          marginBottom: 24,
+          marginBottom: 16,
         }}
       >
+        {/* Search box: soft yellow glow, stronger glow while typing */}
         <div
           className="opp-search-box"
           style={{
             display: "flex",
             alignItems: "center",
             gap: 10,
-            background: "#F8FAFC",
-            border: "1px solid #E2E8F0",
-            borderRadius: 10,
-            padding: "8px 14px",
+            background: "#FFFFFF",
+            border: `1.5px solid ${searchFocused ? "#FFD629" : "#E2E8F0"}`,
+            borderRadius: 999,
+            padding: "10px 18px",
             flex: "1 1 300px",
             maxWidth: 420,
+            // glow only while the box is clicked / focused
+            boxShadow: searchFocused
+              ? "0 0 0 5px rgba(255,214,41,0.38), 0 4px 16px rgba(255,214,41,0.35)"
+              : "none",
+            transition: "all 0.2s ease",
           }}
         >
-          <Search size={16} color="#94A3B8" />
+          <Search size={18} color="#94A3B8" strokeWidth={2.2} style={{ flexShrink: 0 }} />
           <input
             type="text"
+            className="my-apps-search-input"
             placeholder="Search by event title or Reference ID..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
+            onFocus={() => setSearchFocused(true)}
+            onBlur={() => setSearchFocused(false)}
             style={{
               border: "none",
               background: "transparent",
               outline: "none",
+              boxShadow: "none",
+              borderRadius: 0,
               fontSize: 13.5,
+              fontWeight: 500,
               color: "#1E293B",
               width: "100%",
+              padding: 0,
+              margin: 0,
             }}
           />
+          {search && (
+            <button
+              onClick={() => setSearch("")}
+              aria-label="Clear search"
+              style={{
+                border: "none",
+                background: "#FEF3C7",
+                borderRadius: "50%",
+                width: 20,
+                height: 20,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+                color: "#92400E",
+                padding: 0,
+                flexShrink: 0,
+              }}
+            >
+              <X size={12} />
+            </button>
+          )}
         </div>
 
         <div className="format-pills-row" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          {["All", "Approved", "Completed", "Pending", "Rejected", "Cancelled"].map((st) => {
+          {FILTERS.map((st) => {
             const t = STATUS_THEME[st];
             const active = filter === st;
             return (
@@ -200,7 +251,7 @@ export default function MyApplicationsPage() {
                   fontWeight: 700,
                   // White by default; colour appears only when the pill is clicked (active)
                   border: `1.5px solid ${active ? t.main : "#E2E8F0"}`,
-                  background: active ? t.main : "#FFFFFF",
+                  background: active ? t.grad || t.main : "#FFFFFF",
                   color: active ? t.text : "#64748B",
                   boxShadow: active ? `0 4px 12px ${t.main}55` : "none",
                   cursor: "pointer",
@@ -331,7 +382,7 @@ export default function MyApplicationsPage() {
                 style={{
                   background: "#FFFFFF",
                   borderRadius: 18,
-                  padding: 22,
+                  padding: 18,
                   boxShadow: isCompleted
                     ? "0 4px 20px rgba(34,197,94,0.12)"
                     : "0 3px 12px rgba(0,0,0,0.04)",
@@ -366,7 +417,7 @@ export default function MyApplicationsPage() {
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "space-between",
-                      marginBottom: 16,
+                      marginBottom: 10,
                     }}
                   >
                     <div>
@@ -400,7 +451,6 @@ export default function MyApplicationsPage() {
                         color: badgeColor,
                       }}
                     >
-                      {isCompleted && <CheckCircle2 size={13} color="#15803D" />}
                       {isApproved && <CheckCircle2 size={13} color="#1D4ED8" />}
                       {isPending && <Clock3 size={13} color="#C2410C" />}
                       {isRejected && <XCircle size={13} color="#B91C1C" />}
@@ -419,8 +469,8 @@ export default function MyApplicationsPage() {
                         background: "linear-gradient(135deg, #FFF7ED, #FFFBEB)",
                         border: "1px solid #FDE68A",
                         borderRadius: 10,
-                        padding: "8px 12px",
-                        marginBottom: 12,
+                        padding: "6px 12px",
+                        marginBottom: 10,
                       }}
                     >
                       <Star size={14} color="#D97706" fill="#D97706" />
@@ -431,7 +481,7 @@ export default function MyApplicationsPage() {
                   )}
 
                   {/* MIDDLE: Event Title & Category */}
-                  <div style={{ marginBottom: 16 }}>
+                  <div style={{ marginBottom: 12 }}>
                     {app.category && (
                       <span
                         style={{
@@ -442,7 +492,7 @@ export default function MyApplicationsPage() {
                           borderRadius: 6,
                           background: "#F1F5F9",
                           color: "#475569",
-                          marginBottom: 8,
+                          marginBottom: 6,
                         }}
                       >
                         {app.category}
@@ -453,8 +503,8 @@ export default function MyApplicationsPage() {
                         fontSize: 16,
                         fontWeight: 700,
                         color: "#151515",
-                        margin: "0 0 10px",
-                        lineHeight: 1.4,
+                        margin: "0 0 8px",
+                        lineHeight: 1.35,
                       }}
                     >
                       {app.opportunityTitle}
@@ -464,7 +514,7 @@ export default function MyApplicationsPage() {
                       style={{
                         display: "flex",
                         flexDirection: "column",
-                        gap: 6,
+                        gap: 4,
                         fontSize: 12.5,
                         color: "#64748B",
                       }}
@@ -492,8 +542,8 @@ export default function MyApplicationsPage() {
                     {app.notes && (
                       <div
                         style={{
-                          marginTop: 12,
-                          padding: "10px 12px",
+                          marginTop: 10,
+                          padding: "8px 12px",
                           borderRadius: 8,
                           background: "#F8FAFC",
                           borderLeft: "3px solid #FFD629",
@@ -511,11 +561,11 @@ export default function MyApplicationsPage() {
                 {/* BOTTOM ACTIONS */}
                 <div
                   style={{
-                    paddingTop: 14,
+                    paddingTop: 10,
                     borderTop: "1px solid #F1F5F9",
                     display: "flex",
                     flexDirection: "column",
-                    gap: 10,
+                    gap: 8,
                   }}
                 >
                   <div
@@ -570,7 +620,7 @@ export default function MyApplicationsPage() {
                           alignItems: "center",
                           justifyContent: "center",
                           gap: 6,
-                          padding: "10px 12px",
+                          padding: "8px 12px",
                           borderRadius: 10,
                           fontSize: 13,
                           fontWeight: 700,
@@ -599,7 +649,7 @@ export default function MyApplicationsPage() {
                           alignItems: "center",
                           justifyContent: "center",
                           gap: 6,
-                          padding: "10px 12px",
+                          padding: "8px 12px",
                           borderRadius: 10,
                           fontSize: 13,
                           fontWeight: 700,

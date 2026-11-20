@@ -643,29 +643,6 @@ const awardEventPointsBulk = async (req, res) => {
               certificateId: finalCertId,
             });
           }
-          // Also update in db.json applications
-          try {
-            const db = Storage.readDB ? Storage.readDB() : null;
-            if (db && Array.isArray(db.applications)) {
-              let changed = false;
-              db.applications.forEach((a) => {
-                const matchById = (a.id || a._id || "").toString() === (app._id || app.id || "").toString();
-                const matchByTitle = eventTitle && (a.opportunityTitle || "").toLowerCase() === eventTitle.toLowerCase();
-                const matchByEmail = u && (a.applicantDetails?.email || "").toLowerCase() === (u.email || "").toLowerCase();
-                if ((matchById || (matchByTitle && matchByEmail))) {
-                  a.status = "Completed";
-                  a.attendanceStatus = "Present";
-                  a.pointsAwarded = Number(points);
-                  a.certificateId = finalCertId;
-                  a.completedAt = new Date().toISOString();
-                  changed = true;
-                }
-              });
-              if (changed) {
-                Storage.writeDB ? Storage.writeDB(db) : null;
-              }
-            }
-          } catch (_) {}
         } catch (_) {}
 
         // E. In-App Notification

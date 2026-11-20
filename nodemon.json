@@ -1,0 +1,19 @@
+{
+  "watch": [
+    "backend/server.js",
+    "backend/controllers",
+    "backend/routes",
+    "backend/middleware",
+    "backend/models",
+    "backend/config",
+    "backend/services"
+  ],
+  "ignore": [
+    "backend/data/*",
+    "backend/data/db.json",
+    "*.log",
+    "node_modules",
+    "frontend"
+  ],
+  "ext": "js,mjs,cjs"
+}

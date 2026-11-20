@@ -1,6 +1,6 @@
 // frontend/src/pages/AdminDashboard.jsx
 import React, { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import {
   Users,
   Calendar,
@@ -8,38 +8,24 @@ import {
   Award,
   CheckCircle2,
   Clock3,
-  XCircle,
   FileCheck,
   TrendingUp,
   Send,
   PlusCircle,
-  ShieldCheck,
-  Building,
   GraduationCap,
-  Sparkles,
-  ArrowRight,
-  Filter,
-  RefreshCw,
-  Bell,
   Layers,
-  Settings,
-  Download,
   MapPin,
   Edit3,
   Trash2,
   Eye,
   Star,
-  Heart,
   FileText,
-  UserX,
 } from "lucide-react";
 
 import { useApp } from "../../context/AppContext";
 import { adminAPI } from "../../api/adminAPI";
-import BarChart from "../../components/charts/BarChart";
 import DonutChart from "../../components/charts/DonutChart";
-import TrendAreaChart from "../../components/charts/TrendAreaChart";
-import '../student/StudentDashboard.css';
+import "../student/StudentDashboard.css";
 import "./AdminEventsPage.css";
 
 export default function AdminDashboard() {
@@ -111,10 +97,13 @@ export default function AdminDashboard() {
   const totalRegisteredStudents = statsData?.kpis?.totalRegisteredStudents ?? studentUsers.length;
   const totalActiveVolunteers = statsData?.kpis?.totalActiveVolunteers ?? activeStudentUsers.length;
   const totalRegisteredAlumni = statsData?.kpis?.totalRegisteredAlumni ?? alumniUsers.length;
-  const totalApplications = statsData?.kpis?.pendingApplications !== undefined
-    ? ((statsData.kpis.pendingApplications || 0) + (statsData.kpis.approvedVolunteers || 0))
-    : applications.length;
-  const openEventsCount = allOpps.filter((e) => e.status !== "Completed" && e.eventStatus !== "Completed" && !e.pointsDistributed).length;
+  const totalApplications =
+    statsData?.kpis?.pendingApplications !== undefined
+      ? (statsData.kpis.pendingApplications || 0) + (statsData.kpis.approvedVolunteers || 0)
+      : applications.length;
+  const openEventsCount = allOpps.filter(
+    (e) => e.status !== "Completed" && e.eventStatus !== "Completed" && !e.pointsDistributed
+  ).length;
 
   const kpis = {
     totalRegisteredStudents,
@@ -122,10 +111,15 @@ export default function AdminDashboard() {
     totalRegisteredAlumni,
     totalEvents: openEventsCount,
     totalInterests: totalApplications,
-    pendingApplications: statsData?.kpis?.pendingApplications ?? applications.filter((a) => a.status === "Pending").length,
-    approvedVolunteers: statsData?.kpis?.approvedVolunteers ?? applications.filter((a) => a.status === "Approved").length,
-    completedEvents: allOpps.filter((e) => e.status === "Completed" || e.eventStatus === "Completed" || Boolean(e.pointsDistributed)).length,
-    totalVolunteerContributions: statsData?.kpis?.totalVolunteerContributions ?? statsData?.kpis?.totalVerifiedHours ?? 0,
+    pendingApplications:
+      statsData?.kpis?.pendingApplications ?? applications.filter((a) => a.status === "Pending").length,
+    approvedVolunteers:
+      statsData?.kpis?.approvedVolunteers ?? applications.filter((a) => a.status === "Approved").length,
+    completedEvents: allOpps.filter(
+      (e) => e.status === "Completed" || e.eventStatus === "Completed" || Boolean(e.pointsDistributed)
+    ).length,
+    totalVolunteerContributions:
+      statsData?.kpis?.totalVolunteerContributions ?? statsData?.kpis?.totalVerifiedHours ?? 0,
     totalPointsDistributed: statsData?.kpis?.totalPointsDistributed ?? 0,
   };
 
@@ -168,18 +162,21 @@ export default function AdminDashboard() {
     }
   };
 
+  const labelStyle = { display: "block", fontSize: 13, fontWeight: 700, color: "#334155", marginBottom: 6 };
+  const inputStyle = { width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #CBD5E1" };
+
   return (
-    <div className="dashboard-container">
-      {/* ══════════════════════════════════════════════════════════════════
-          1. TOP BANNER (MATCHING IMAGE 3 EXACTLY)
-      ══════════════════════════════════════════════════════════════════ */}
+    // White page background (was grey)
+    <div className="dashboard-container" style={{ background: "#FFFFFF", minHeight: "100vh" }}>
+      {/* 1. TOP BANNER */}
       <div className="adm-banner-hero">
         <div className="adm-banner-left">
           <h1 className="adm-banner-title">
             Welcome, <span>{user?.fullName || "Admin"}</span>!
           </h1>
           <p className="adm-banner-sub">
-            You have {openEventsCount} open events, {kpis.totalActiveVolunteers} active volunteers, and {kpis.totalRegisteredAlumni} registered alumni leads.
+            You have {openEventsCount} open events, {kpis.totalActiveVolunteers} active volunteers, and{" "}
+            {kpis.totalRegisteredAlumni} registered alumni leads.
           </p>
         </div>
 
@@ -202,11 +199,8 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* ══════════════════════════════════════════════════════════════════
-          2. 5 SUMMARY CARDS ROW (ACCURATE REAL-TIME ADMIN DATA)
-      ══════════════════════════════════════════════════════════════════ */}
+      {/* 2. SUMMARY CARDS ROW */}
       <div className="adm-summary-cards-row">
-        {/* Card 1: Total Students */}
         <div className="adm-summary-card">
           <div className="adm-summary-circle-icon">
             <GraduationCap size={24} />
@@ -217,7 +211,6 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* Card 2: Active Volunteers */}
         <div className="adm-summary-card">
           <div className="adm-summary-circle-icon">
             <Users size={24} />
@@ -228,7 +221,6 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* Card 3: Registered Alumni */}
         <div className="adm-summary-card">
           <div className="adm-summary-circle-icon" style={{ background: "#F3E8FF", color: "#7E22CE" }}>
             <Award size={24} />
@@ -239,7 +231,6 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* Card 4: Event Interests */}
         <div className="adm-summary-card">
           <div className="adm-summary-circle-icon">
             <FileText size={24} />
@@ -250,15 +241,12 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* Action Button: + Post Event */}
         <Link to="/admin/events" className="adm-post-event-btn">
           <PlusCircle size={18} /> Post Event
         </Link>
       </div>
 
-      {/* ══════════════════════════════════════════════════════════════════
-          3. UPCOMING EVENTS CARDS GRID (MATCHING IMAGE 3)
-      ══════════════════════════════════════════════════════════════════ */}
+      {/* 3. UPCOMING EVENTS */}
       <div className="adm-upcoming-box">
         <div className="adm-upcoming-header">
           <h2 className="adm-upcoming-title">
@@ -273,92 +261,105 @@ export default function AdminDashboard() {
           {displayEvents.length === 0 ? (
             <div style={{ gridColumn: "1 / -1", padding: "40px 20px", textAlign: "center", color: "#64748B" }}>
               <Calendar size={36} color="#CA8A04" style={{ marginBottom: 10 }} />
-              <h4 style={{ margin: "0 0 6px", color: "#1E293B", fontSize: 16, fontWeight: 700 }}>No upcoming events posted</h4>
-              <p style={{ margin: "0 0 16px", fontSize: 13.5 }}>Click "+ Post Event" above to create an event drive for students.</p>
+              <h4 style={{ margin: "0 0 6px", color: "#1E293B", fontSize: 16, fontWeight: 700 }}>
+                No upcoming events posted
+              </h4>
+              <p style={{ margin: "0 0 16px", fontSize: 13.5 }}>
+                Click "+ Post Event" above to create an event drive for students.
+              </p>
               <Link to="/admin/events" className="adm-post-event-btn" style={{ display: "inline-flex" }}>
                 <PlusCircle size={16} /> Create First Event
               </Link>
             </div>
           ) : (
             displayEvents.map((opp, idx) => {
-            const oppId = opp.id || opp._id || `opp_${idx}`;
-            const isCompleted = opp.status === "Completed" || opp.eventStatus === "Completed" || Boolean(opp.pointsDistributed);
-            const isShortlisted = opp.status === "Shortlisted";
-            const statusClass = isCompleted ? "completed" : isShortlisted ? "shortlisted" : "open";
-            const statusText = isCompleted ? "Completed" : isShortlisted ? "Shortlisted" : "Open";
+              const oppId = opp.id || opp._id || `opp_${idx}`;
+              const isCompleted =
+                opp.status === "Completed" || opp.eventStatus === "Completed" || Boolean(opp.pointsDistributed);
+              const isShortlisted = opp.status === "Shortlisted";
+              const statusClass = isCompleted ? "completed" : isShortlisted ? "shortlisted" : "open";
+              const statusText = isCompleted ? "Completed" : isShortlisted ? "Shortlisted" : "Open";
 
-            return (
-              <div key={oppId} className="adm-event-card">
-                <div className="adm-event-card-media">
-                  <img
-                    src={opp.image || "https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?auto=format&fit=crop&w=400&q=80"}
-                    alt={opp.title}
-                    className="adm-event-card-img"
-                  />
-                  <span className={`adm-event-status-badge ${statusClass}`}>
-                    {statusText}
-                  </span>
+              return (
+                <div key={oppId} className="adm-event-card">
+                  <div className="adm-event-card-media">
+                    <img
+                      src={
+                        opp.image ||
+                        "https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?auto=format&fit=crop&w=400&q=80"
+                      }
+                      alt={opp.title}
+                      className="adm-event-card-img"
+                    />
+                    <span className={`adm-event-status-badge ${statusClass}`}>{statusText}</span>
+                  </div>
+
+                  <div className="adm-event-card-body">
+                    <h3 className="adm-event-title" title={opp.title}>
+                      {opp.title}
+                    </h3>
+                    <p className="adm-event-desc">
+                      {opp.description ||
+                        "Join us to clean the Marina shoreline and coordinate on-ground volunteer impact drives."}
+                    </p>
+
+                    <div className="adm-event-meta-list">
+                      <div className="adm-event-meta-item">
+                        <Calendar size={13} />
+                        <span>{opp.date || "15 Aug 2025"}</span>
+                      </div>
+                      <div className="adm-event-meta-item">
+                        <Clock size={13} />
+                        <span>{opp.time || "09:00 AM"}</span>
+                      </div>
+                      <div className="adm-event-meta-item">
+                        <MapPin size={13} />
+                        <span>{opp.location || "Marina Beach, Chennai"}</span>
+                      </div>
+                    </div>
+
+                    <div className="adm-event-counts-row">
+                      <span>
+                        <Users size={13} color="#64748B" />
+                        {opp.applicationsCount || 12 + idx * 4} Interested
+                      </span>
+                      <span>
+                        <CheckCircle2 size={13} color="#16A34A" />
+                        {opp.volunteersNeeded
+                          ? `${Math.min(
+                            opp.volunteersNeeded - (opp.slotsAvailable || 0),
+                            opp.volunteersNeeded
+                          )}/${opp.volunteersNeeded}`
+                          : `${idx * 5}/30`}{" "}
+                        Selected
+                      </span>
+                    </div>
+
+                    <div className="adm-event-actions-row">
+                      <Link to="/admin/events" className="adm-card-btn-manage">
+                        <Eye size={14} /> {isCompleted ? "View" : "Manage"}
+                      </Link>
+                      <Link to="/admin/events" className="adm-card-btn-edit" title="Edit Event">
+                        <Edit3 size={14} /> Edit
+                      </Link>
+                      <button
+                        type="button"
+                        className="adm-card-btn-delete"
+                        title="Delete Event"
+                        onClick={() => handleDeleteEvent(oppId, opp.title)}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
                 </div>
-
-                <div className="adm-event-card-body">
-                  <h3 className="adm-event-title" title={opp.title}>
-                    {opp.title}
-                  </h3>
-                  <p className="adm-event-desc">
-                    {opp.description || "Join us to clean the Marina shoreline and coordinate on-ground volunteer impact drives."}
-                  </p>
-
-                  <div className="adm-event-meta-list">
-                    <div className="adm-event-meta-item">
-                      <Calendar size={13} />
-                      <span>{opp.date || "15 Aug 2025"}</span>
-                    </div>
-                    <div className="adm-event-meta-item">
-                      <Clock size={13} />
-                      <span>{opp.time || "09:00 AM"}</span>
-                    </div>
-                    <div className="adm-event-meta-item">
-                      <MapPin size={13} />
-                      <span>{opp.location || "Marina Beach, Chennai"}</span>
-                    </div>
-                  </div>
-
-                  <div className="adm-event-counts-row">
-                    <span>
-                      <Users size={13} color="#64748B" />
-                      {opp.applicationsCount || 12 + idx * 4} Interested
-                    </span>
-                    <span>
-                      <CheckCircle2 size={13} color="#16A34A" />
-                      {opp.volunteersNeeded ? `${Math.min(opp.volunteersNeeded - (opp.slotsAvailable || 0), opp.volunteersNeeded)}/${opp.volunteersNeeded}` : `${idx * 5}/30`} Selected
-                    </span>
-                  </div>
-
-                  <div className="adm-event-actions-row">
-                    <Link to="/admin/events" className="adm-card-btn-manage">
-                      <Eye size={14} /> {isCompleted ? "View" : "Manage"}
-                    </Link>
-                    <Link to="/admin/events" className="adm-card-btn-edit" title="Edit Event">
-                      <Edit3 size={14} /> Edit
-                    </Link>
-                    <button
-                      type="button"
-                      className="adm-card-btn-delete"
-                      title="Delete Event"
-                      onClick={() => handleDeleteEvent(oppId, opp.title)}
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            );
-          })
-        )}
+              );
+            })
+          )}
         </div>
       </div>
 
-      {/* 8 INTERACTIVE KPI METRIC CARDS */}
+      {/* 8 KPI METRIC CARDS */}
       <div
         style={{
           display: "grid",
@@ -367,7 +368,6 @@ export default function AdminDashboard() {
           marginBottom: 24,
         }}
       >
-        {/* 1. Total Registered Students */}
         <div className="stat-card" style={{ borderLeft: "4px solid #0066CC" }}>
           <div className="stat-icon-wrap blue">
             <GraduationCap size={22} />
@@ -384,7 +384,6 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* 2. Total Active Volunteers */}
         <div className="stat-card" style={{ borderLeft: "4px solid #10B981" }}>
           <div className="stat-icon-wrap green">
             <Users size={22} />
@@ -399,7 +398,6 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* 3. Total Events */}
         <div className="stat-card" style={{ borderLeft: "4px solid #F59E0B" }}>
           <div className="stat-icon-wrap yellow">
             <Calendar size={22} />
@@ -416,7 +414,6 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* 4. Pending Applications */}
         <div className="stat-card" style={{ borderLeft: "4px solid #F97316" }}>
           <div className="stat-icon-wrap" style={{ background: "#FFEDD5", color: "#EA580C" }}>
             <Clock3 size={22} />
@@ -427,13 +424,15 @@ export default function AdminDashboard() {
               <span className="stat-value">{kpis.pendingApplications}</span>
               <span className="stat-subtext">awaiting review</span>
             </div>
-            <Link to="/admin/events?tab=applications" style={{ fontSize: 12, color: "#EA580C", fontWeight: 600, textDecoration: "none" }}>
+            <Link
+              to="/admin/events?tab=applications"
+              style={{ fontSize: 12, color: "#EA580C", fontWeight: 600, textDecoration: "none" }}
+            >
               Review applications →
             </Link>
           </div>
         </div>
 
-        {/* 5. Approved Volunteers */}
         <div className="stat-card" style={{ borderLeft: "4px solid #059669" }}>
           <div className="stat-icon-wrap green">
             <CheckCircle2 size={22} />
@@ -448,7 +447,6 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* 6. Completed Events */}
         <div className="stat-card" style={{ borderLeft: "4px solid #8B5CF6" }}>
           <div className="stat-icon-wrap" style={{ background: "#EDE9FE", color: "#7C3AED" }}>
             <FileCheck size={22} />
@@ -463,7 +461,6 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* 7. Total Volunteer Contributions */}
         <div className="stat-card" style={{ borderLeft: "4px solid #0284C7" }}>
           <div className="stat-icon-wrap blue">
             <Clock size={22} />
@@ -478,7 +475,6 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* 8. Total Points Distributed */}
         <div className="stat-card" style={{ borderLeft: "4px solid #EAB308" }}>
           <div className="stat-icon-wrap yellow">
             <Award size={22} />
@@ -525,7 +521,11 @@ export default function AdminDashboard() {
           <Link to="/reports" className="dash-btn dash-btn-outline" style={{ fontSize: 13, padding: "6px 14px" }}>
             <TrendingUp size={14} /> PDF & Excel Reports
           </Link>
-          <Link to="/admin/events?tab=applications" className="dash-btn dash-btn-outline" style={{ fontSize: 13, padding: "6px 14px" }}>
+          <Link
+            to="/admin/events?tab=applications"
+            className="dash-btn dash-btn-outline"
+            style={{ fontSize: 13, padding: "6px 14px" }}
+          >
             <FileCheck size={14} /> Applications Queue
           </Link>
         </div>
@@ -540,14 +540,22 @@ export default function AdminDashboard() {
           marginBottom: 24,
         }}
       >
-        {/* Chart 1: Applications Status Distribution */}
         <div className="dash-card">
           <div className="card-header-row">
             <div>
               <h2 className="card-title">Volunteer Applications Breakdown</h2>
               <p className="card-subtext">Current status of all submitted volunteering drive applications</p>
             </div>
-            <span style={{ fontSize: 12, fontWeight: 700, color: "#0066CC", background: "#EFF6FF", padding: "4px 10px", borderRadius: 12 }}>
+            <span
+              style={{
+                fontSize: 12,
+                fontWeight: 700,
+                color: "#0066CC",
+                background: "#EFF6FF",
+                padding: "4px 10px",
+                borderRadius: 12,
+              }}
+            >
               Active Cycle
             </span>
           </div>
@@ -577,41 +585,32 @@ export default function AdminDashboard() {
                   Notify students instantly inside their dashboard and push alerts.
                 </p>
               </div>
-              <button
-                className="close-modal-btn"
-                onClick={() => setShowBroadcastModal(false)}
-              >
+              <button className="close-modal-btn" onClick={() => setShowBroadcastModal(false)}>
                 ✕
               </button>
             </div>
 
             <form onSubmit={handleSendBroadcast} style={{ padding: "20px 24px" }}>
-              {/* Target Audience */}
               <div style={{ marginBottom: 16 }}>
-                <label style={{ display: "block", fontSize: 13, fontWeight: 700, color: "#334155", marginBottom: 6 }}>
-                  Target Audience *
-                </label>
+                <label style={labelStyle}>Target Audience *</label>
                 <select
                   value={broadcastForm.targetType}
                   onChange={(e) => setBroadcastForm({ ...broadcastForm, targetType: e.target.value })}
-                  style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #CBD5E1" }}
+                  style={inputStyle}
                 >
                   <option value="ALL">All Registered Students</option>
                   <option value="EVENT_APPROVED">Approved Volunteers of a Specific Event</option>
                 </select>
               </div>
 
-              {/* Event selection if EVENT_APPROVED */}
               {broadcastForm.targetType === "EVENT_APPROVED" && (
                 <div style={{ marginBottom: 16 }}>
-                  <label style={{ display: "block", fontSize: 13, fontWeight: 700, color: "#334155", marginBottom: 6 }}>
-                    Select Event *
-                  </label>
+                  <label style={labelStyle}>Select Event *</label>
                   <select
                     value={broadcastForm.targetEventId}
                     onChange={(e) => setBroadcastForm({ ...broadcastForm, targetEventId: e.target.value })}
                     required
-                    style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #CBD5E1" }}
+                    style={inputStyle}
                   >
                     <option value="">-- Choose Event --</option>
                     {events.map((evt) => (
@@ -623,64 +622,46 @@ export default function AdminDashboard() {
                 </div>
               )}
 
-              {/* Title */}
               <div style={{ marginBottom: 16 }}>
-                <label style={{ display: "block", fontSize: 13, fontWeight: 700, color: "#334155", marginBottom: 6 }}>
-                  Notification Headline *
-                </label>
+                <label style={labelStyle}>Notification Headline *</label>
                 <input
                   type="text"
                   placeholder="e.g. Venue Change Notice / Important Briefing"
                   value={broadcastForm.title}
                   onChange={(e) => setBroadcastForm({ ...broadcastForm, title: e.target.value })}
                   required
-                  style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #CBD5E1" }}
+                  style={inputStyle}
                 />
               </div>
 
-              {/* Message */}
               <div style={{ marginBottom: 16 }}>
-                <label style={{ display: "block", fontSize: 13, fontWeight: 700, color: "#334155", marginBottom: 6 }}>
-                  Notification Message *
-                </label>
+                <label style={labelStyle}>Notification Message *</label>
                 <textarea
                   rows={4}
                   placeholder="Enter detailed notification message for volunteers..."
                   value={broadcastForm.message}
                   onChange={(e) => setBroadcastForm({ ...broadcastForm, message: e.target.value })}
                   required
-                  style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #CBD5E1" }}
+                  style={inputStyle}
                 />
               </div>
 
-              {/* Target Link */}
               <div style={{ marginBottom: 20 }}>
-                <label style={{ display: "block", fontSize: 13, fontWeight: 700, color: "#334155", marginBottom: 6 }}>
-                  Destination Link
-                </label>
+                <label style={labelStyle}>Destination Link</label>
                 <input
                   type="text"
                   placeholder="/opportunities or /dashboard"
                   value={broadcastForm.link}
                   onChange={(e) => setBroadcastForm({ ...broadcastForm, link: e.target.value })}
-                  style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #CBD5E1" }}
+                  style={inputStyle}
                 />
               </div>
 
-              {/* Buttons */}
               <div style={{ display: "flex", justifyContent: "flex-end", gap: 12 }}>
-                <button
-                  type="button"
-                  className="dash-btn dash-btn-outline"
-                  onClick={() => setShowBroadcastModal(false)}
-                >
+                <button type="button" className="dash-btn dash-btn-outline" onClick={() => setShowBroadcastModal(false)}>
                   Cancel
                 </button>
-                <button
-                  type="submit"
-                  className="dash-btn dash-btn-primary"
-                  disabled={submittingBroadcast}
-                >
+                <button type="submit" className="dash-btn dash-btn-primary" disabled={submittingBroadcast}>
                   <Send size={15} /> {submittingBroadcast ? "Sending..." : "Send Announcement"}
                 </button>
               </div>

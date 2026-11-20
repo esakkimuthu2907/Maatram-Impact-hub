@@ -6,7 +6,7 @@
   "type": "commonjs",
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js"
+    "dev": "nodemon --ignore data/ --config nodemon.json server.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

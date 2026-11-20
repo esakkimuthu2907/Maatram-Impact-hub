@@ -1,58 +1,20 @@
+
 // backend/controllers/postController.js
+
 const Post = require("../models/Post");
 const User = require("../models/User");
 const Storage = require("../services/storage");
 
-// Initial sample posts to seed if empty
-const INITIAL_POSTS = [
-  {
-    authorName: "Priya Krishnan",
-    authorRole: "student",
-    avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80",
-    text: "Just completed the Digital Literacy Camp at Tambaram! 🎉 Helped 60+ students learn basic computer skills. So grateful to be part of this Maatram journey!",
-    image: "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=600&q=80",
-  },
-  {
-    authorName: "Anand Kumar",
-    authorRole: "student",
-    avatar: "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=200&q=80",
-    text: "Proud to coordinate our upcoming School Outreach Drive this Saturday! Excited to mentor 100+ high school students on career opportunities. Connect with me to volunteer together! 🤝",
-    image: null,
-  },
-  {
-    authorName: "Karthik Rajan",
-    authorRole: "alumni",
-    avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80",
-    text: "Proud to mentor 12 student volunteers at this weekend's drive. The energy and dedication of young volunteers gives me so much hope! 🙌 #MaatramImpact",
-    image: null,
-  },
-];
-
 // GET /api/posts
+// Fetch only real posts from the database
 const getPosts = async (req, res) => {
   try {
-    let posts = await Post.find().sort({ createdAt: -1 }).lean();
+    const posts = await Post.find()
+      .sort({ createdAt: -1 })
+      .lean();
 
-    // Seed if empty
-    if (posts.length === 0) {
-      let dummyUser = await User.findOne({ role: "student" });
-      if (!dummyUser) {
-        dummyUser = await User.findOne();
-      }
-      if (dummyUser) {
-        for (const item of INITIAL_POSTS) {
-          await Post.create({
-            ...item,
-            authorId: dummyUser._id,
-            likes: [],
-            comments: [],
-          });
-        }
-        posts = await Post.find().sort({ createdAt: -1 }).lean();
-      }
-    }
-
-    const currentUserId = req.user?._id?.toString() || req.user?.id?.toString();
+    const currentUserId =
+      req.user?._id?.toString() || req.user?.id?.toString();
 
     const mapped = posts.map((p) => ({
       id: p._id.toString(),
@@ -65,28 +27,48 @@ const getPosts = async (req, res) => {
       likes: p.likes?.length || 0,
       comments: p.comments?.length || 0,
       commentsList: p.comments || [],
-      time: p.createdAt ? new Date(p.createdAt).toLocaleDateString() : "Recently",
-      liked: p.likes?.some((lid) => lid?.toString() === currentUserId) || false,
+      time: p.createdAt
+        ? new Date(p.createdAt).toLocaleDateString()
+        : "Recently",
+      liked:
+        p.likes?.some(
+          (lid) => lid?.toString() === currentUserId
+        ) || false,
     }));
 
-    res.json({ success: true, data: mapped });
+    res.json({
+      success: true,
+      data: mapped,
+    });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    res.status(500).json({
+      success: false,
+      message: err.message,
+    });
   }
 };
 
 // POST /api/posts
+// Create a new post
 const createPost = async (req, res) => {
   try {
     const { text, image } = req.body;
+
     if (!text || !text.trim()) {
-      return res.status(400).json({ success: false, message: "Post text is required." });
+      return res.status(400).json({
+        success: false,
+        message: "Post text is required.",
+      });
     }
 
     const user = req.user;
+
     const authorId = user?._id || user?.id;
-    const authorName = user?.fullName || user?.name || "Student Volunteer";
+    const authorName =
+      user?.fullName || user?.name || "Student Volunteer";
+
     const authorRole = user?.role || "student";
+
     const avatar =
       user?.avatar ||
       `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(authorName)}`;
@@ -102,15 +84,24 @@ const createPost = async (req, res) => {
       comments: [],
     });
 
-    // Notify all accepted connections about the new post
+    // Notify accepted connections
     let notifiedCount = 0;
+
     try {
-      const connectionsData = await Storage.getConnections(authorId.toString());
+      const connectionsData = await Storage.getConnections(
+        authorId.toString()
+      );
+
       const accepted = connectionsData?.accepted || [];
-      const postSnippet = text.trim().slice(0, 70) + (text.trim().length > 70 ? "..." : "");
+
+      const postSnippet =
+        text.trim().slice(0, 70) +
+        (text.trim().length > 70 ? "..." : "");
 
       for (const conn of accepted) {
-        const friendId = conn.user?._id || conn.user?.id;
+        const friendId =
+          conn.user?._id || conn.user?.id;
+
         if (friendId) {
           await Storage.createNotification({
             userId: friendId.toString(),
@@ -119,11 +110,15 @@ const createPost = async (req, res) => {
             message: `${authorName}: "${postSnippet}"`,
             link: "/connect",
           });
+
           notifiedCount++;
         }
       }
     } catch (notifErr) {
-      console.warn("Post connection notifications warning:", notifErr.message);
+      console.warn(
+        "Post connection notifications warning:",
+        notifErr.message
+      );
     }
 
     res.status(201).json({
@@ -145,21 +140,34 @@ const createPost = async (req, res) => {
       message: `Post published and sent to ${notifiedCount} connection(s)!`,
     });
   } catch (err) {
-    res.status(400).json({ success: false, message: err.message });
+    res.status(400).json({
+      success: false,
+      message: err.message,
+    });
   }
 };
 
 // POST /api/posts/:id/like
+// Like or unlike a post
 const toggleLikePost = async (req, res) => {
   try {
     const userId = req.user?._id || req.user?.id;
+
     const post = await Post.findById(req.params.id);
+
     if (!post) {
-      return res.status(404).json({ success: false, message: "Post not found." });
+      return res.status(404).json({
+        success: false,
+        message: "Post not found.",
+      });
     }
 
-    const index = post.likes.findIndex((id) => id.toString() === userId.toString());
+    const index = post.likes.findIndex(
+      (id) => id.toString() === userId.toString()
+    );
+
     let liked = false;
+
     if (index > -1) {
       post.likes.splice(index, 1);
       liked = false;
@@ -169,28 +177,45 @@ const toggleLikePost = async (req, res) => {
     }
 
     await post.save();
+
     res.json({
       success: true,
-      data: { likes: post.likes.length, liked },
+      data: {
+        likes: post.likes.length,
+        liked,
+      },
       message: liked ? "Post liked!" : "Post unliked.",
     });
   } catch (err) {
-    res.status(400).json({ success: false, message: err.message });
+    res.status(400).json({
+      success: false,
+      message: err.message,
+    });
   }
 };
 
 // POST /api/posts/:id/comment
+// Add a comment
 const addComment = async (req, res) => {
   try {
     const { text } = req.body;
+
     if (!text || !text.trim()) {
-      return res.status(400).json({ success: false, message: "Comment text is required." });
+      return res.status(400).json({
+        success: false,
+        message: "Comment text is required.",
+      });
     }
 
     const user = req.user;
+
     const post = await Post.findById(req.params.id);
+
     if (!post) {
-      return res.status(404).json({ success: false, message: "Post not found." });
+      return res.status(404).json({
+        success: false,
+        message: "Post not found.",
+      });
     }
 
     const comment = {
@@ -202,6 +227,7 @@ const addComment = async (req, res) => {
     };
 
     post.comments.push(comment);
+
     await post.save();
 
     res.status(201).json({
@@ -210,7 +236,10 @@ const addComment = async (req, res) => {
       message: "Comment added!",
     });
   } catch (err) {
-    res.status(400).json({ success: false, message: err.message });
+    res.status(400).json({
+      success: false,
+      message: err.message,
+    });
   }
 };
 

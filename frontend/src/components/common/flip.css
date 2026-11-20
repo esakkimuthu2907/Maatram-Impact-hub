@@ -1,0 +1,88 @@
+/* Perspective wrapper so the rotation looks 3D.
+   overflow-x: clip (not hidden) keeps the sticky sidebar working. */
+.flip-scene {
+  perspective: 2000px;
+  perspective-origin: 50% 50%;
+  overflow-x: clip;
+  width: 100%;
+}
+
+/* No persistent will-change / transform-style, so position: fixed
+   children (the Forgot Password modal) stay relative to the screen. */
+.flip-in-forward,
+.flip-in-back,
+.flip-out-forward,
+.flip-out-back {
+  backface-visibility: hidden;
+}
+
+/* ---------- ARRIVING ---------- */
+.flip-in-forward {
+  transform-origin: left center;
+  animation: flipInForward 0.7s cubic-bezier(0.22, 0.8, 0.3, 1) backwards;
+}
+
+.flip-in-back {
+  transform-origin: right center;
+  animation: flipInBack 0.7s cubic-bezier(0.22, 0.8, 0.3, 1) backwards;
+}
+
+@keyframes flipInForward {
+  from {
+    opacity: 0;
+    transform: rotateY(-80deg) scale(0.96);
+  }
+
+  to {
+    opacity: 1;
+    transform: rotateY(0) scale(1);
+  }
+}
+
+@keyframes flipInBack {
+  from {
+    opacity: 0;
+    transform: rotateY(80deg) scale(0.96);
+  }
+
+  to {
+    opacity: 1;
+    transform: rotateY(0) scale(1);
+  }
+}
+
+/* ---------- LEAVING ---------- */
+.flip-out-forward {
+  transform-origin: right center;
+  animation: flipOutForward 0.45s ease-in forwards;
+}
+
+.flip-out-back {
+  transform-origin: left center;
+  animation: flipOutBack 0.45s ease-in forwards;
+}
+
+@keyframes flipOutForward {
+  to {
+    opacity: 0;
+    transform: rotateY(80deg) scale(0.96);
+  }
+}
+
+@keyframes flipOutBack {
+  to {
+    opacity: 0;
+    transform: rotateY(-80deg) scale(0.96);
+  }
+}
+
+/* Respect users who prefer less motion */
+@media (prefers-reduced-motion: reduce) {
+
+  .flip-in-forward,
+  .flip-in-back,
+  .flip-out-forward,
+  .flip-out-back {
+    animation-duration: 0.01ms !important;
+  }
+}
