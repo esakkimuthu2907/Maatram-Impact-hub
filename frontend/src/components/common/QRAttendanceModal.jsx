@@ -1,5 +1,5 @@
 // frontend/src/components/common/QRAttendanceModal.jsx
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   QrCode,
   CheckCircle2,
@@ -15,94 +15,15 @@ import {
   Sparkles,
   Camera,
   KeyRound,
-  ArrowRight,
+  Mail,
+  Send,
+  Ban,
+  RotateCcw,
 } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
+import { Html5Qrcode } from "html5-qrcode";
 import { eventsAPI } from "../../api/eventsAPI";
 import "./QRAttendanceModal.css";
-
-// Pure SVG QR Code Matrix Generator (deterministic 21x21 standard matrix based on hash)
-function QRCodeSVG({ value, size = 200 }) {
-  // Generate deterministic grid pattern based on string hash
-  const gridSize = 25;
-  const hash = Array.from(value || "MAATRAM").reduce(
-    (acc, char, i) => acc + char.charCodeAt(0) * (i + 1),
-    0
-  );
-
-  const cells = [];
-  for (let r = 0; r < gridSize; r++) {
-    for (let c = 0; c < gridSize; c++) {
-      // Standard QR position markers (Top-Left, Top-Right, Bottom-Left)
-      const isTopLeft = r < 7 && c < 7;
-      const isTopRight = r < 7 && c >= gridSize - 7;
-      const isBottomLeft = r >= gridSize - 7 && c < 7;
-
-      let filled = false;
-
-      if (isTopLeft || isTopRight || isBottomLeft) {
-        // Corner squares logic
-        const localR = isBottomLeft ? r - (gridSize - 7) : r;
-        const localC = isTopRight ? c - (gridSize - 7) : c;
-        if (localR === 0 || localR === 6 || localC === 0 || localC === 6) {
-          filled = true;
-        } else if (localR >= 2 && localR <= 4 && localC >= 2 && localC <= 4) {
-          filled = true;
-        }
-      } else if (r === 6 || c === 6) {
-        // Timing patterns
-        filled = (r + c) % 2 === 0;
-      } else {
-        // Data pattern pseudo-randomized by hash and coordinate
-        const seed = (r * 31 + c * 17 + hash) % 100;
-        filled = seed > 45;
-      }
-
-      if (filled) {
-        cells.push({ r, c });
-      }
-    }
-  }
-
-  const cellSize = size / gridSize;
-
-  return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="qr-svg-canvas">
-      <rect width={size} height={size} fill="#FFFFFF" rx="8" />
-      {cells.map((cell, idx) => (
-        <rect
-          key={idx}
-          x={cell.c * cellSize}
-          y={cell.r * cellSize}
-          width={cellSize + 0.1}
-          height={cellSize + 0.1}
-          fill="#0F172A"
-        />
-      ))}
-      {/* Center Branding Accent */}
-      <rect
-        x={size / 2 - 14}
-        y={size / 2 - 14}
-        width={28}
-        height={28}
-        fill="#FFD629"
-        rx="4"
-        stroke="#004D99"
-        strokeWidth="2"
-      />
-      <text
-        x={size / 2}
-        y={size / 2 + 5}
-        textAnchor="middle"
-        fontSize="12"
-        fontWeight="900"
-        fill="#002B59"
-        fontFamily="sans-serif"
-      >
-        M
-      </text>
-    </svg>
-  );
-}
 
 export default function QRAttendanceModal({
   isOpen,
@@ -114,19 +35,26 @@ export default function QRAttendanceModal({
   showToast,
 }) {
   const [activeTab, setActiveTab] = useState(isAdmin ? "qr_display" : "scan");
-  const [qrToken, setQrToken] = useState(event?.qrCodeToken || `MF-QR-${event?.id || "TOKEN"}`);
+  const [qrToken, setQrToken] = useState(event?.qrCodeToken || `MFQR-${event?.id || "TOKEN"}`);
+  const [attendanceOpen, setAttendanceOpen] = useState(event?.attendanceOpen !== false);
   const [manualToken, setManualToken] = useState("");
   const [scanning, setScanning] = useState(false);
+  const [cameraActive, setCameraActive] = useState(false);
+  const [cameraError, setCameraError] = useState("");
   const [checkInSuccess, setCheckInSuccess] = useState(false);
   const [checkInMessage, setCheckInMessage] = useState("");
   const [attendanceRoster, setAttendanceRoster] = useState([]);
   const [loadingRoster, setLoadingRoster] = useState(false);
   const [verifying, setVerifying] = useState(false);
+  const [confirmingSelection, setConfirmingSelection] = useState(false);
+  const [retryingEmails, setRetryingEmails] = useState(false);
   const [copiedToken, setCopiedToken] = useState(false);
+  const [emailStats, setEmailStats] = useState(null);
 
   const eventId = event?.id || event?._id;
+  const scannerRef = useRef(null);
 
-  // Load roster when admin tab opens
+  // Load roster when modal opens
   const loadRoster = async () => {
     if (!eventId) return;
     try {
@@ -145,62 +73,208 @@ export default function QRAttendanceModal({
   useEffect(() => {
     if (isOpen && eventId) {
       if (event?.qrCodeToken) setQrToken(event.qrCodeToken);
+      setAttendanceOpen(event?.attendanceOpen !== false);
       loadRoster();
     }
   }, [isOpen, eventId]);
 
+  // Clean up camera scanner on unmount or modal close
+  useEffect(() => {
+    return () => {
+      stopCameraScanner();
+    };
+  }, []);
+
+  const stopCameraScanner = async () => {
+    if (scannerRef.current) {
+      try {
+        if (scannerRef.current.isScanning) {
+          await scannerRef.current.stop();
+        }
+        await scannerRef.current.clear();
+      } catch (err) {
+        console.warn("Error stopping scanner:", err.message);
+      }
+      scannerRef.current = null;
+      setCameraActive(false);
+    }
+  };
+
+  const startCameraScanner = async () => {
+    setCameraError("");
+    try {
+      setCameraActive(true);
+      // Wait for DOM element to render
+      setTimeout(async () => {
+        const scannerElement = document.getElementById("qr-reader-viewport");
+        if (!scannerElement) return;
+
+        const html5QrCode = new Html5Qrcode("qr-reader-viewport");
+        scannerRef.current = html5QrCode;
+
+        const config = {
+          fps: 10,
+          qrbox: { width: 250, height: 250 },
+          aspectRatio: 1.0,
+        };
+
+        try {
+          await html5QrCode.start(
+            { facingMode: "environment" },
+            config,
+            async (decodedText) => {
+              console.log("[Scanner] QR decoded successfully:", decodedText);
+              await stopCameraScanner();
+              handleCheckIn(decodedText);
+            },
+            () => {
+              // Ignore frame errors while hunting for QR
+            }
+          );
+        } catch (startErr) {
+          console.warn("Could not start environment camera, trying user camera:", startErr.message);
+          try {
+            await html5QrCode.start(
+              { facingMode: "user" },
+              config,
+              async (decodedText) => {
+                await stopCameraScanner();
+                handleCheckIn(decodedText);
+              },
+              () => { }
+            );
+          } catch (userCamErr) {
+            setCameraError(
+              "Camera access denied or unavailable. Please use manual code check-in below."
+            );
+            setCameraActive(false);
+          }
+        }
+      }, 100);
+    } catch (err) {
+      setCameraError(err.message || "Failed to initialize camera scanner.");
+      setCameraActive(false);
+    }
+  };
+
   if (!isOpen || !event) return null;
 
-  // Admin: Generate new QR Code
+  // Admin: Generate fresh QR Code with cryptographically secure random token & SHA-256 hash
   const handleRegenerateQR = async () => {
     try {
-      const res = await eventsAPI.generateQRToken(eventId);
+      const res = await eventsAPI.generateQRToken(eventId, 24);
       if (res && res.data) {
         setQrToken(res.data.qrCodeToken);
-        showToast?.("Generated fresh event QR code!");
+        setAttendanceOpen(true);
+        showToast?.("Generated fresh event QR code (SHA-256 protected, 24h validity)!");
       }
     } catch (err) {
       showToast?.(err.message || "Failed to generate QR token", "error");
     }
   };
 
+  // Admin: Invalidate QR Code
+  const handleInvalidateQR = async () => {
+    if (!window.confirm("Invalidate this QR code? Volunteers will no longer be able to check in.")) return;
+    try {
+      await eventsAPI.invalidateQRToken(eventId);
+      setAttendanceOpen(false);
+      showToast?.("QR code invalidated and attendance closed for check-ins.");
+    } catch (err) {
+      showToast?.(err.message || "Failed to invalidate QR code", "error");
+    }
+  };
+
+  // Admin: Confirm Volunteer Selection (Module 1 - Email 1)
+  const handleConfirmSelection = async () => {
+    try {
+      setConfirmingSelection(true);
+      const res = await eventsAPI.confirmSelection(eventId);
+      setEmailStats({
+        sent: res.sentCount || 0,
+        failed: res.failedCount || 0,
+        skipped: res.skippedCount || 0,
+      });
+      showToast?.(
+        res.message ||
+        `Selection emails dispatched! Sent: ${res.sentCount || 0}, Skipped: ${res.skippedCount || 0}`
+      );
+    } catch (err) {
+      showToast?.(err.message || "Failed to confirm volunteer selection.", "error");
+    } finally {
+      setConfirmingSelection(false);
+    }
+  };
+
+  // Admin: Close Attendance & Verify Hours (Module 1 - Email 2 & Module 3)
+  const handleCloseAttendanceAndVerify = async () => {
+    if (
+      !window.confirm(
+        "Close attendance and verify volunteer completion? This will credit 10 points per verified hour, update student profiles, update leaderboard rankings, and send thank-you completion emails."
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setVerifying(true);
+      const res = await eventsAPI.closeAttendance(eventId, {
+        defaultHours: event.durationHours || 4,
+      });
+
+      setAttendanceOpen(false);
+      setEmailStats({
+        sent: res.sentCount || 0,
+        failed: res.failedCount || 0,
+        skipped: res.skippedCount || 0,
+      });
+
+      showToast?.(
+        `Attendance closed! Verified ${res.verifiedCount || 0} volunteers. Points & thank-you emails dispatched!`
+      );
+      onAttendanceVerified?.();
+      await loadRoster();
+    } catch (err) {
+      showToast?.(err.message || "Could not close attendance and verify.", "error");
+    } finally {
+      setVerifying(false);
+    }
+  };
+
+  // Admin: Retry failed emails
+  const handleRetryFailedEmails = async () => {
+    try {
+      setRetryingEmails(true);
+      const res = await eventsAPI.retryFailedEmails(eventId);
+      showToast?.("Retried failed email dispatches.");
+    } catch (err) {
+      showToast?.(err.message || "Could not retry emails.", "error");
+    } finally {
+      setRetryingEmails(false);
+    }
+  };
+
   // Student: Check-in with QR code or manual token
   const handleCheckIn = async (tokenToUse) => {
+    const finalToken = (tokenToUse || manualToken || "").trim();
+    if (!finalToken) {
+      showToast?.("Please scan a valid QR code or enter your check-in code.", "error");
+      return;
+    }
+
     try {
       setScanning(true);
-      const res = await eventsAPI.checkInViaQR(eventId, tokenToUse || manualToken || qrToken);
+      const res = await eventsAPI.checkInViaQR(eventId, finalToken);
       setCheckInSuccess(true);
-      setCheckInMessage(res.message || "Attendance recorded successfully! Awaiting admin hours verification.");
+      setCheckInMessage(
+        res.message || "Attendance recorded successfully! Awaiting admin hours verification."
+      );
       showToast?.("QR Attendance Recorded! ✅");
       loadRoster();
     } catch (err) {
       showToast?.(err.message || "Check-in failed. Please verify approval.", "error");
     } finally {
       setScanning(false);
-    }
-  };
-
-  // Admin: Verify Participation & Award Hours for all checked-in volunteers
-  const handleVerifyParticipation = async () => {
-    try {
-      setVerifying(true);
-      // Collect all checked-in or registered volunteers
-      const records = (event.registeredVolunteers || attendanceRoster || []).map((v) => ({
-        applicationId: v.applicationId || v._id || v.id,
-        userId: v.userId?._id || v.userId || v.id,
-        status: "Present",
-      }));
-
-      const { adminAPI } = await import("../../api/adminAPI");
-      const res = await adminAPI.trackAttendance(eventId, records);
-      showToast?.("Attendance verified & verified hours credited to all volunteers! 🎉");
-      onAttendanceVerified?.();
-      loadRoster();
-      onClose();
-    } catch (err) {
-      showToast?.(err.message || "Could not verify attendance", "error");
-    } finally {
-      setVerifying(false);
     }
   };
 
@@ -224,7 +298,9 @@ export default function QRAttendanceModal({
           </div>
           <div className="qr-header-title">
             <h3>Event QR Attendance & Verification</h3>
-            <p>{event.title}</p>
+            <p>
+              {event.title} &bull; {event.date}
+            </p>
           </div>
           <button className="qr-close-btn" onClick={onClose} aria-label="Close modal">
             <X size={20} />
@@ -255,20 +331,88 @@ export default function QRAttendanceModal({
             <div className="qr-instructions-banner">
               <Sparkles size={16} color="#D97706" />
               <span>
-                <strong>Workflow:</strong> Display this QR Code at the event venue. Approved volunteers scan this code to record attendance. Admin then verifies participation to credit verified hours!
+                <strong>Dynamic QR Workflow:</strong> Display this QR Code at the event venue. Only
+                approved volunteers can scan this code. Tokens are cryptographically secure and
+                SHA-256 hashed.
               </span>
             </div>
+
+            {/* Email Stats Notification Pill */}
+            {emailStats && (
+              <div
+                style={{
+                  background: "#EFF6FF",
+                  border: "1px solid #BFDBFE",
+                  borderRadius: "8px",
+                  padding: "10px 14px",
+                  display: "flex",
+                  gap: "14px",
+                  fontSize: "13px",
+                  color: "#1E40AF",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
+              >
+                <span>
+                  <strong>Email Delivery:</strong> Sent: {emailStats.sent} | Skipped:{" "}
+                  {emailStats.skipped} | Failed: {emailStats.failed}
+                </span>
+                {emailStats.failed > 0 && (
+                  <button
+                    onClick={handleRetryFailedEmails}
+                    disabled={retryingEmails}
+                    style={{
+                      background: "#2563EB",
+                      color: "#fff",
+                      border: "none",
+                      padding: "4px 10px",
+                      borderRadius: "4px",
+                      cursor: "pointer",
+                      fontSize: "12px",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "4px",
+                    }}
+                  >
+                    <RotateCcw size={12} /> Retry Failed
+                  </button>
+                )}
+              </div>
+            )}
 
             <div className="qr-code-center-frame">
               <div className="qr-code-box" id="printable-qr-code">
                 <div className="qr-box-header">
                   <div className="qr-maatram-pill">MAATRAM IMPACT HUB</div>
                   <h4>{event.title}</h4>
-                  <p>{event.date} &bull; {event.location || "Tamil Nadu"}</p>
+                  <p>
+                    {event.date} &bull; {event.location || "Tamil Nadu"}
+                  </p>
+                  {!attendanceOpen && (
+                    <span
+                      style={{
+                        background: "#FEE2E2",
+                        color: "#DC2626",
+                        padding: "3px 8px",
+                        borderRadius: "4px",
+                        fontSize: "11px",
+                        fontWeight: 700,
+                        marginTop: 4,
+                        display: "inline-block",
+                      }}
+                    >
+                      ATTENDANCE CLOSED
+                    </span>
+                  )}
                 </div>
 
-                <div className="qr-svg-wrap">
-                  <QRCodeSVG value={qrToken} size={220} />
+                <div className="qr-svg-wrap" style={{ padding: "12px", background: "#fff", borderRadius: "12px" }}>
+                  <QRCodeSVG
+                    value={qrToken}
+                    size={220}
+                    level="H"
+                    includeMargin={true}
+                  />
                 </div>
 
                 <div className="qr-code-footer-code">
@@ -289,11 +433,57 @@ export default function QRAttendanceModal({
               </button>
 
               {isAdmin && (
-                <button className="qr-btn qr-btn-secondary" onClick={handleRegenerateQR}>
-                  <RefreshCw size={16} /> Regenerate QR
-                </button>
+                <>
+                  <button className="qr-btn qr-btn-secondary" onClick={handleRegenerateQR}>
+                    <RefreshCw size={16} /> Regenerate QR
+                  </button>
+
+                  {attendanceOpen ? (
+                    <button
+                      className="qr-btn qr-btn-secondary"
+                      style={{ color: "#DC2626" }}
+                      onClick={handleInvalidateQR}
+                    >
+                      <Ban size={16} /> Invalidate QR
+                    </button>
+                  ) : null}
+                </>
               )}
             </div>
+
+            {/* Admin Management Actions: Selection Email & Attendance Close */}
+            {isAdmin && (
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: "10px",
+                  marginTop: "16px",
+                  paddingTop: "16px",
+                  borderTop: "1px solid #E2E8F0",
+                }}
+              >
+                <button
+                  className="qr-btn qr-btn-secondary"
+                  onClick={handleConfirmSelection}
+                  disabled={confirmingSelection}
+                  title="Sends Volunteer Selection Confirmation Email (Email 1) to all approved applicants"
+                >
+                  <Mail size={16} color="#0066CC" />
+                  {confirmingSelection ? "Sending Selection Emails..." : "Confirm Selection (Send Emails)"}
+                </button>
+
+                <button
+                  className="qr-btn qr-btn-primary"
+                  onClick={handleCloseAttendanceAndVerify}
+                  disabled={verifying}
+                  title="Closes attendance, verifies completed hours, awards 10 pts/hr, and sends Thank You Email (Email 2)"
+                >
+                  <ShieldCheck size={16} />
+                  {verifying ? "Closing & Crediting..." : "Close Attendance & Award Points"}
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -303,11 +493,15 @@ export default function QRAttendanceModal({
             <div className="roster-stats-row">
               <div className="roster-stat-pill">
                 <Users size={14} color="#0066CC" />
-                <span>Check-ins Logged: <strong>{attendanceRoster.length}</strong></span>
+                <span>
+                  Check-ins Logged: <strong>{attendanceRoster.length}</strong>
+                </span>
               </div>
               <div className="roster-stat-pill">
                 <Clock size={14} color="#16A34A" />
-                <span>Credited per Volunteer: <strong>{event.durationHours || 4} hrs</strong></span>
+                <span>
+                  Rate: <strong>10 Points per Verified Hour ({event.durationHours || 4} hrs = {(event.durationHours || 4) * 10} pts)</strong>
+                </span>
               </div>
             </div>
 
@@ -325,11 +519,12 @@ export default function QRAttendanceModal({
                       <th>Check-in Method</th>
                       <th>Time</th>
                       <th>Attendance Status</th>
+                      <th>Verified Points</th>
                     </tr>
                   </thead>
                   <tbody>
                     {attendanceRoster.map((item) => (
-                      <tr key={item.id}>
+                      <tr key={item.id || item._id}>
                         <td>
                           <strong>{item.volunteerName || item.user?.fullName || "Volunteer"}</strong>
                           <span className="sub-text">{item.user?.college || item.volunteerEmail}</span>
@@ -338,12 +533,25 @@ export default function QRAttendanceModal({
                           <span className="checkin-method-badge">{item.checkInMethod || "QR_SCAN"}</span>
                         </td>
                         <td>
-                          {new Date(item.checkInTime || item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          {new Date(item.checkInTime || item.createdAt).toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
                         </td>
                         <td>
-                          <span className="status-pill-present">
-                            <CheckCircle2 size={13} /> {item.status || "Checked-In"}
+                          <span
+                            className={item.isVerified ? "status-pill-present" : "checkin-method-badge"}
+                          >
+                            <CheckCircle2 size={13} />{" "}
+                            {item.isVerified ? "Verified Present" : item.status || "Checked-In"}
                           </span>
+                        </td>
+                        <td>
+                          <strong>
+                            {item.pointsAwarded
+                              ? `+${item.points || (item.verifiedHours || 4) * 10} pts`
+                              : `${(event.durationHours || 4) * 10} pts (Pending close)`}
+                          </strong>
                         </td>
                       </tr>
                     ))}
@@ -357,15 +565,16 @@ export default function QRAttendanceModal({
               <div className="verify-info-text">
                 <ShieldCheck size={18} color="#15803D" />
                 <span>
-                  Verifying participation will award <strong>+{event.points || 50} Points</strong>, credit <strong>{event.durationHours || 4} Verified Hours</strong>, issue official certificates, and send thank-you emails!
+                  Closing attendance will award <strong>10 points for each verified hour</strong>, update
+                  student profiles & leaderboard, and dispatch official thank-you emails!
                 </span>
               </div>
               <button
                 className="qr-btn qr-btn-primary"
-                onClick={handleVerifyParticipation}
+                onClick={handleCloseAttendanceAndVerify}
                 disabled={verifying}
               >
-                {verifying ? "Verifying & Crediting..." : "Verify All & Issue Verified Hours"}
+                {verifying ? "Closing & Verifying..." : "Close Attendance & Credit All Verified Hours"}
               </button>
             </div>
           </div>
@@ -382,32 +591,96 @@ export default function QRAttendanceModal({
                 <h3>Attendance Recorded!</h3>
                 <p>{checkInMessage}</p>
                 <div className="success-details-pill">
-                  <span>Drive: <strong>{event.title}</strong></span>
-                  <span>Hours Pending Audit: <strong>{event.durationHours || 4} hrs</strong></span>
+                  <span>
+                    Drive: <strong>{event.title}</strong>
+                  </span>
+                  <span>
+                    Hours Pending Audit: <strong>{event.durationHours || 4} hrs</strong>
+                  </span>
+                  <span>
+                    Potential Impact: <strong>+{(event.durationHours || 4) * 10} Points</strong>
+                  </span>
                 </div>
-                <button className="qr-btn qr-btn-primary" onClick={onClose} style={{ marginTop: 16 }}>
+                <button
+                  className="qr-btn qr-btn-primary"
+                  onClick={onClose}
+                  style={{ marginTop: 16 }}
+                >
                   Close & View Dashboard
                 </button>
               </div>
             ) : (
               <div className="scan-interactive-box">
-                <div className="camera-sim-view">
-                  <div className="camera-overlay-frame">
-                    <div className="scan-laser-line" />
-                    <Camera size={38} color="#FFFFFF" />
-                    <span>Point device at Event Coordinator's QR Code</span>
+                {/* Real Camera Viewport */}
+                {cameraActive ? (
+                  <div style={{ position: "relative", marginBottom: "16px" }}>
+                    <div
+                      id="qr-reader-viewport"
+                      style={{
+                        width: "100%",
+                        borderRadius: "12px",
+                        overflow: "hidden",
+                        border: "2px solid #0066CC",
+                        minHeight: "260px",
+                        background: "#000",
+                      }}
+                    />
+                    <button
+                      onClick={stopCameraScanner}
+                      style={{
+                        position: "absolute",
+                        top: 10,
+                        right: 10,
+                        background: "rgba(0,0,0,0.6)",
+                        color: "#fff",
+                        border: "none",
+                        padding: "6px 12px",
+                        borderRadius: "6px",
+                        cursor: "pointer",
+                        fontSize: "12px",
+                      }}
+                    >
+                      Cancel Camera
+                    </button>
                   </div>
-                </div>
+                ) : (
+                  <div className="camera-sim-view" onClick={startCameraScanner} style={{ cursor: "pointer" }}>
+                    <div className="camera-overlay-frame">
+                      <div className="scan-laser-line" />
+                      <Camera size={38} color="#FFFFFF" />
+                      <span style={{ fontWeight: 600 }}>Tap to Open Device Camera</span>
+                      <small style={{ color: "#E2E8F0" }}>Point device at Coordinator's QR Code</small>
+                    </div>
+                  </div>
+                )}
 
-                <div className="sim-scan-action">
-                  <button
-                    className="qr-btn qr-btn-primary full-width"
-                    onClick={() => handleCheckIn(qrToken)}
-                    disabled={scanning}
+                {cameraError && (
+                  <div
+                    style={{
+                      background: "#FEF2F2",
+                      border: "1px solid #FCA5A5",
+                      color: "#B91C1C",
+                      padding: "10px",
+                      borderRadius: "8px",
+                      fontSize: "13px",
+                      marginBottom: "12px",
+                    }}
                   >
-                    {scanning ? "Recording Attendance..." : "Simulate QR Code Scan & Check-in"}
-                  </button>
-                </div>
+                    {cameraError}
+                  </div>
+                )}
+
+                {!cameraActive && (
+                  <div className="sim-scan-action">
+                    <button
+                      className="qr-btn qr-btn-primary full-width"
+                      onClick={startCameraScanner}
+                      disabled={scanning}
+                    >
+                      <Camera size={16} /> Open Camera Scanner
+                    </button>
+                  </div>
+                )}
 
                 <div className="or-divider">
                   <span>OR ENTER CHECK-IN CODE</span>
@@ -418,7 +691,7 @@ export default function QRAttendanceModal({
                     <KeyRound size={16} color="#64748B" />
                     <input
                       type="text"
-                      placeholder="e.g. MF-QR-AB12-34CD"
+                      placeholder="e.g. MFQR-AB12-34CD"
                       value={manualToken}
                       onChange={(e) => setManualToken(e.target.value)}
                     />
@@ -428,7 +701,7 @@ export default function QRAttendanceModal({
                     onClick={() => handleCheckIn(manualToken)}
                     disabled={!manualToken.trim() || scanning}
                   >
-                    Submit Code
+                    {scanning ? "Verifying..." : "Submit Code"}
                   </button>
                 </div>
               </div>

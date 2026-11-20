@@ -387,10 +387,10 @@ export default function LoginPage() {
                     onClick={() => {
                       setRole("student");
                       setLoginMethod("email");
-                      setIdentifier("esakkimuthu2907@gmail.com");
-                      setPassword("Esakki@123");
+                      setIdentifier("");
+                      setPassword("");
                     }}
-                    title="Fill Esakkimuthu S Credentials"
+                    title="Student Mode"
                   >
                     <GraduationCap size={14} /> Student
                   </button>

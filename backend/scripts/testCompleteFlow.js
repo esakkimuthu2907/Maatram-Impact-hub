@@ -46,15 +46,15 @@ async function runTest() {
   }
   console.log(`✅ Admin identified: ${adminUser.fullName || adminUser.name} (${adminUser.email})`);
 
-  let studentUser = await Storage.findUserByEmail("chithiraiselvan0311@gmail.com");
+  let studentUser = await Storage.findUserByEmail("test.volunteer@example.com");
   if (!studentUser) {
     studentUser = await Storage.createUser({
-      fullName: "Chithiraiselvan G",
-      email: "chithiraiselvan0311@gmail.com",
+      fullName: "Test Volunteer",
+      email: "test.volunteer@example.com",
       role: "student",
       applicationId: "MAA005",
-      college: "Velammal Engineering college Chennai",
-      department: "Mechanical Engineering",
+      college: "Engineering College Chennai",
+      department: "Computer Science",
       academicYear: "4 Year",
       points: 100,
       totalHours: 8,

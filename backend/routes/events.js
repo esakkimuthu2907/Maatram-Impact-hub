@@ -9,6 +9,10 @@ const {
   updateEvent,
   deleteEvent,
   generateQRToken,
+  invalidateQRToken,
+  confirmSelection,
+  closeAttendance,
+  retryFailedEmails,
   checkInViaQR,
   getAttendance,
   sendReminder,
@@ -28,6 +32,11 @@ router.post("/", protect, adminOnly, createEvent);
 router.put("/:id", protect, adminOnly, updateEvent);
 router.delete("/:id", protect, adminOnly, deleteEvent);
 router.post("/:id/qr-token", protect, adminOnly, generateQRToken);
+router.post("/:id/qr-invalidate", protect, adminOnly, invalidateQRToken);
+router.post("/:id/confirm-selection", protect, adminOnly, confirmSelection);
+router.patch("/:id/attendance/close", protect, adminOnly, closeAttendance);
+router.post("/:id/attendance/close", protect, adminOnly, closeAttendance);
+router.post("/:id/retry-failed-emails", protect, adminOnly, retryFailedEmails);
 router.post("/:id/remind", protect, adminOnly, sendReminder);
 
 module.exports = router;

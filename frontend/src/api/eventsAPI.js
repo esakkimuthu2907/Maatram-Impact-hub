@@ -15,9 +15,20 @@ export const eventsAPI = {
   remove: (id) => api.delete(`/events/${id}`),
 
   // QR Attendance
-  generateQRToken: (id) => api.post(`/events/${id}/qr-token`),
+  generateQRToken: (id, validityHours) => api.post(`/events/${id}/qr-token`, { validityHours }),
+  invalidateQRToken: (id) => api.post(`/events/${id}/qr-invalidate`),
   checkInViaQR: (id, qrToken) => api.post(`/events/${id}/checkin`, { qrToken }),
   getAttendance: (id) => api.get(`/events/${id}/attendance`),
+
+  // Module 1 & 3: Selection Confirmation and Attendance Close & Verification
+  confirmSelection: (id, data = {}) => api.post(`/events/${id}/confirm-selection`, data),
+  closeAttendance: (id, data = {}) => {
+    if (typeof api.patch === "function") {
+      return api.patch(`/events/${id}/attendance/close`, data);
+    }
+    return api.post(`/events/${id}/attendance/close`, data);
+  },
+  retryFailedEmails: (id) => api.post(`/events/${id}/retry-failed-emails`),
 
   // Email reminders blast
   sendReminder: (id) => api.post(`/events/${id}/remind`),

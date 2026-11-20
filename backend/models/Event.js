@@ -44,6 +44,8 @@ const eventSchema = new mongoose.Schema(
       }
     ],
     qrCodeToken:      { type: String, default: "" },
+    qrTokenHash:      { type: String, default: "" },
+    qrExpiresAt:      { type: Date },
     attendanceOpen:   { type: Boolean, default: true },
     slots:            [
       {

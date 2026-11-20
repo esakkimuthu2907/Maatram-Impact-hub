@@ -79,8 +79,65 @@ const deleteEvent = async (req, res) => {
 // POST /api/events/:id/qr-token (Admin only - generate QR)
 const generateQRToken = async (req, res) => {
   try {
-    const result = await Storage.generateEventQRToken(req.params.id, req.user);
-    res.json({ success: true, data: result, message: "Event QR Code generated successfully!" });
+    const { validityHours } = req.body;
+    const qrResult = await Storage.generateEventQRToken(req.params.id, req.user, validityHours);
+    res.json({ success: true, data: qrResult, message: "Event QR Code generated successfully!" });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+};
+
+// POST /api/events/:id/qr-invalidate (Admin only - invalidate QR)
+const invalidateQRToken = async (req, res) => {
+  try {
+    const invalidateResult = await Storage.invalidateEventQR(req.params.id, req.user);
+    res.json({ success: true, data: invalidateResult, message: invalidateResult.message });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+};
+
+// POST /api/events/:id/confirm-selection (Admin only - confirm volunteer selection email)
+const confirmSelection = async (req, res) => {
+  try {
+    const selectionResult = await Storage.confirmEventSelection(req.params.id, req.body, req.user);
+    res.json({
+      success: true,
+      data: selectionResult,
+      message: selectionResult.message,
+      sentCount: selectionResult.sentCount,
+      failedCount: selectionResult.failedCount,
+      skippedCount: selectionResult.skippedCount,
+    });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+};
+
+// PATCH /api/events/:id/attendance/close (Admin only - close attendance, award points, send completion email)
+const closeAttendance = async (req, res) => {
+  try {
+    const closeResult = await Storage.closeEventAttendanceAndVerify(req.params.id, req.body, req.user);
+    res.json({
+      success: true,
+      data: closeResult,
+      message: closeResult.message,
+      verifiedCount: closeResult.verifiedCount,
+      totalPointsAwarded: closeResult.totalPointsAwarded,
+      sentCount: closeResult.sentCount,
+      failedCount: closeResult.failedCount,
+      skippedCount: closeResult.skippedCount,
+    });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+};
+
+// POST /api/events/:id/retry-failed-emails (Admin only - retry failed event emails)
+const retryFailedEmails = async (req, res) => {
+  try {
+    const retryResult = await Storage.retryFailedEventEmails(req.params.id);
+    res.json({ success: true, data: retryResult, message: "Retried failed emails." });
   } catch (err) {
     res.status(400).json({ success: false, message: err.message });
   }
@@ -90,12 +147,12 @@ const generateQRToken = async (req, res) => {
 const checkInViaQR = async (req, res) => {
   try {
     const { qrToken } = req.body;
-    const result = await Storage.checkInViaQR({
+    const checkInResult = await Storage.checkInViaQR({
       eventId: req.params.id,
       qrToken,
       user: req.user,
     });
-    res.json({ success: true, data: result, message: result.message });
+    res.json({ success: true, data: checkInResult, message: checkInResult.message });
   } catch (err) {
     res.status(400).json({ success: false, message: err.message });
   }
@@ -114,11 +171,11 @@ const getAttendance = async (req, res) => {
 // POST /api/events/:id/remind (Admin trigger event reminders via email)
 const sendReminder = async (req, res) => {
   try {
-    const result = await Storage.sendEventReminderBlast(req.params.id, req.user);
+    const reminderResult = await Storage.sendEventReminderBlast(req.params.id, req.user);
     res.json({
       success: true,
-      data: result,
-      message: `Event reminder emails dispatched to ${result.sentCount} approved volunteer(s)!`,
+      data: reminderResult,
+      message: `Event reminder emails dispatched to ${reminderResult.sentCount} approved volunteer(s)!`,
     });
   } catch (err) {
     res.status(400).json({ success: false, message: err.message });
@@ -133,6 +190,10 @@ module.exports = {
   updateEvent,
   deleteEvent,
   generateQRToken,
+  invalidateQRToken,
+  confirmSelection,
+  closeAttendance,
+  retryFailedEmails,
   checkInViaQR,
   getAttendance,
   sendReminder,

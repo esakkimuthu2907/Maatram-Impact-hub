@@ -288,6 +288,7 @@ function DashboardCalendar({ events = [], applications = [], onSelectEvent }) {
           const hasOpen = dayEvents.some((e) => e.kind === "open");
           const isToday = k === todayKey;
           const isSelected = k === selectedKey;
+          const ringColor = isToday ? "#FFD629" : fillColor;
 
           return (
             <button
@@ -309,23 +310,36 @@ function DashboardCalendar({ events = [], applications = [], onSelectEvent }) {
                 padding: 0,
               }}
             >
+              {/* outer ring */}
               <span
                 style={{
-                  width: 34,
-                  height: 34,
+                  width: 38,
+                  height: 38,
+                  boxSizing: "border-box",
                   borderRadius: "50%",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  background: fillColor || "transparent",
-                  color: fillColor ? "#FFFFFF" : "#0F172A",
-                  fontSize: 13.5,
-                  fontWeight: fillColor || isToday ? 800 : 600,
-                  outline: isToday ? "2px solid #FFD629" : "none",
-                  outlineOffset: 1,
+                  border: `2px solid ${ringColor || "transparent"}`,
                 }}
               >
-                {d.getDate()}
+                {/* inner filled circle */}
+                <span
+                  style={{
+                    width: 28,
+                    height: 28,
+                    borderRadius: "50%",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    background: fillColor || "transparent",
+                    color: fillColor ? "#FFFFFF" : "#0F172A",
+                    fontSize: 13,
+                    fontWeight: fillColor || isToday ? 800 : 600,
+                  }}
+                >
+                  {d.getDate()}
+                </span>
               </span>
               {hasOpen && (
                 <span
@@ -445,7 +459,7 @@ function UpcomingEventsCarousel({
         <h2
           style={{
             margin: 0,
-            fontFamily: 'Georgia, "Times New Roman", serif',
+            fontFamily: '"Inter", sans-serif',
             fontSize: 28,
             fontWeight: 800,
             color: "#0F172A",
@@ -1239,6 +1253,13 @@ export default function StudentDashboard() {
 
   return (
     <div className="dashboard-container" style={{ background: "#FFFFFF" }}>
+      {/* One font (Inter) for the whole page */}
+      <style>{`
+        .dashboard-container,
+        .dashboard-container * {
+          font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif !important;
+        }
+      `}</style>
 
       {/* SECTION A: WELCOME BANNER */}
 
@@ -1547,7 +1568,7 @@ export default function StudentDashboard() {
           style={{
             textDecoration: "none",
             color: "inherit",
-            borderLeft: "4px solid #2563EB",
+            borderLeft: "4px solid #FFD629",
           }}
         >
           <div className="stat-icon-wrap blue">
@@ -1589,7 +1610,7 @@ export default function StudentDashboard() {
           style={{
             textDecoration: "none",
             color: "inherit",
-            borderLeft: "4px solid #16A34A",
+            borderLeft: "4px solid #FFD629",
           }}
         >
           <div className="stat-icon-wrap green">
@@ -1625,7 +1646,7 @@ export default function StudentDashboard() {
           style={{
             textDecoration: "none",
             color: "inherit",
-            borderLeft: "4px solid #D97706",
+            borderLeft: "4px solid #FFD629",
           }}
         >
           <div className="stat-icon-wrap amber">
@@ -1751,14 +1772,14 @@ export default function StudentDashboard() {
                 display: "grid",
                 gridTemplateColumns: "repeat(auto-fit, minmax(min(340px, 100%), 1fr))",
                 gap: 24,
-                alignItems: "start",
+                alignItems: "stretch",
               }}
             >
 
               {/* OPEN VOLUNTEERING DRIVES */}
 
-              <div className="dash-section-card" style={{ padding: "26px 24px", minWidth: 0 }}>
-                <div className="section-card-header" style={{ minHeight: 40, flexWrap: "nowrap" }}>
+              <div className="dash-section-card" style={{ padding: "26px 24px", minWidth: 0, height: "100%", boxSizing: "border-box" }}>
+                <div className="section-card-header" style={{ minHeight: 64, boxSizing: "border-box", flexWrap: "nowrap" }}>
                   <div>
                     <h2 style={{ margin: 0, fontSize: 18, whiteSpace: "nowrap" }}>Open Volunteering Drives</h2>
                   </div>
@@ -1890,8 +1911,8 @@ export default function StudentDashboard() {
 
               {/* MY REGISTERED EVENTS */}
 
-              <div className="dash-section-card" style={{ padding: "26px 24px", minWidth: 0 }}>
-                <div className="section-card-header" style={{ minHeight: 40, flexWrap: "nowrap" }}>
+              <div className="dash-section-card" style={{ padding: "26px 24px", minWidth: 0, height: "100%", boxSizing: "border-box" }}>
+                <div className="section-card-header" style={{ minHeight: 64, boxSizing: "border-box", flexWrap: "nowrap" }}>
                   <div>
                     <h2 style={{ margin: 0, fontSize: 18, whiteSpace: "nowrap" }}>My Upcoming Events</h2>
                   </div>
@@ -1992,8 +2013,8 @@ export default function StudentDashboard() {
               </div>
 
               {/* STUDENT INTERACTIVE EVENT CALENDAR */}
-              <div className="dash-section-card" style={{ padding: "26px 24px", minWidth: 0 }}>
-                <div className="section-card-header" style={{ minHeight: 40, flexWrap: "nowrap" }}>
+              <div className="dash-section-card" style={{ padding: "26px 24px", minWidth: 0, height: "100%", boxSizing: "border-box" }}>
+                <div className="section-card-header" style={{ minHeight: 64, boxSizing: "border-box", flexWrap: "nowrap" }}>
                   <div>
                     <h2 style={{ margin: 0, fontSize: 18, whiteSpace: "nowrap" }}>Event Calendar</h2>
                   </div>
@@ -2270,54 +2291,98 @@ export default function StudentDashboard() {
                     flexDirection: "column",
                   }}
                 >
-                  {/* Header band */}
+                  {/* Partial certificate preview (top part only) */}
                   <div
+                    onClick={() => openCertificate?.(cert)}
+                    title="Click to view full certificate"
                     style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      gap: 12,
-                      padding: "18px 22px",
+                      position: "relative",
+                      height: 170,
+                      overflow: "hidden",
+                      cursor: "pointer",
                       background: "linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%)",
                       borderBottom: "1px solid #FDE9B0",
                     }}
                   >
-                    <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+                    {/* Certificate paper — cropped so only the top part shows */}
+                    <div
+                      style={{
+                        width: "86%",
+                        margin: "46px auto 0",
+                        background: "#FFFFFF",
+                        border: "3px double #D4A017",
+                        borderRadius: 6,
+                        padding: "14px 18px 70px",
+                        textAlign: "center",
+                        boxShadow: "0 6px 18px rgba(15, 23, 42, 0.15)",
+                      }}
+                    >
+                      <div style={{ fontSize: 9.5, letterSpacing: 3, fontWeight: 800, color: "#B45309" }}>
+                        MAATRAM FOUNDATION
+                      </div>
                       <div
                         style={{
-                          width: 46,
-                          height: 46,
-                          borderRadius: 14,
-                          background: "linear-gradient(135deg, #FFD629 0%, #F59E0B 100%)",
+                          fontFamily: '"Inter", sans-serif',
+                          fontSize: 20,
+                          fontWeight: 700,
                           color: "#0F172A",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          flexShrink: 0,
+                          margin: "4px 0 2px",
                         }}
                       >
-                        <Award size={24} />
+                        Certificate of Participation
                       </div>
-                      <span
+                      <div style={{ fontSize: 10.5, color: "#64748B" }}>This is proudly presented to</div>
+                      <div
                         style={{
-                          fontSize: 12.5,
-                          fontWeight: 800,
+                          fontFamily: '"Inter", sans-serif',
+                          fontSize: 17,
+                          fontStyle: "italic",
                           color: "#B45309",
-                          background: "#FFFFFF",
-                          border: "1.5px solid #FDE68A",
-                          padding: "5px 12px",
-                          borderRadius: 999,
-                          whiteSpace: "nowrap",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
+                          marginTop: 4,
                         }}
                       >
-                        {cert.eventCategory || "Volunteering"}
-                      </span>
+                        {cert.volunteerName || user?.fullName}
+                      </div>
                     </div>
 
+                    {/* Fade-out at the bottom so it looks "partially shown" */}
+                    <div
+                      style={{
+                        position: "absolute",
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        height: 56,
+                        background: "linear-gradient(to bottom, rgba(255,255,255,0), #FFFFFF)",
+                        pointerEvents: "none",
+                      }}
+                    />
+
+                    {/* Category chip */}
                     <span
                       style={{
+                        position: "absolute",
+                        top: 12,
+                        left: 14,
+                        fontSize: 12.5,
+                        fontWeight: 800,
+                        color: "#B45309",
+                        background: "#FFFFFF",
+                        border: "1.5px solid #FDE68A",
+                        padding: "5px 12px",
+                        borderRadius: 999,
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {cert.eventCategory || "Volunteering"}
+                    </span>
+
+                    {/* Verified badge */}
+                    <span
+                      style={{
+                        position: "absolute",
+                        top: 12,
+                        right: 14,
                         display: "inline-flex",
                         alignItems: "center",
                         gap: 5,
@@ -2328,7 +2393,6 @@ export default function StudentDashboard() {
                         border: "1.5px solid #86EFAC",
                         padding: "5px 12px",
                         borderRadius: 999,
-                        flexShrink: 0,
                       }}
                     >
                       <CheckCircle2 size={14} /> Verified
@@ -2466,18 +2530,17 @@ export default function StudentDashboard() {
             <h2 style={{ fontSize: 24, fontWeight: 900, margin: "4px 0", color: "#0F172A" }}>
               Ready-to-Share LinkedIn Posts
             </h2>
-            <p style={{ margin: 0, fontSize: 13.5, color: "#64748B" }}>
-              Broaden your professional presence! Copy professionally drafted posts highlighting your social volunteering drives.
-            </p>
           </div>
 
           {(() => {
             const completedEvents = applications.filter((a) => a.status === "Completed");
             const certPosts = (allCertificates || []).map((c, idx) => ({
               id: `post_cert_${c.certificateId || idx}`,
-              tag: `Official Certificate • ${c.certificateId}`,
+              tag: "Official Certificate",
               headline: `Participation Certificate: ${c.eventTitle}`,
-              content: c.linkedInPost || `I am proud to share that I have completed the volunteering initiative for "${c.eventTitle}" with Maatram Foundation! Dedicated ${c.verifiedHours || 4} hours to empower deserving youth. Grateful to be part of this impactful journey. Certificate ID: ${c.certificateId}. #MaatramFoundation #Volunteering #SocialImpact #StudentLeadership`,
+              content:
+                c.linkedInPost ||
+                `I am proud to share that I have completed the volunteering initiative for "${c.eventTitle}" with Maatram Foundation! Dedicated ${c.verifiedHours || 4} hours to empower deserving youth. Grateful to be part of this impactful journey. #MaatramFoundation #Volunteering #SocialImpact #StudentLeadership`,
             }));
 
             const eventPosts = completedEvents
@@ -2486,7 +2549,7 @@ export default function StudentDashboard() {
                 id: `post_event_${idx}`,
                 tag: "Event Completion",
                 headline: `Completed Initiative: ${a.opportunityTitle || a.event?.title || "Community Drive"}`,
-                content: `I am proud to share that I have successfully completed the volunteering initiative for "${a.opportunityTitle || a.event?.title || 'Community Service'}" with Maatram Foundation!\n\nDedicated ${a.event?.durationHours || 4} hours to creating meaningful community impact. Grateful to be part of the change!\n\n"Thank you for being part of the Maatram community. Your contribution is helping us build a better tomorrow!"\n\n#MaatramFoundation #Volunteering #SocialImpact #StudentLeadership`,
+                content: `I am proud to share that I have successfully completed the volunteering initiative for "${a.opportunityTitle || a.event?.title || "Community Service"}" with Maatram Foundation!\n\nDedicated ${a.event?.durationHours || 4} hours to creating meaningful community impact. Grateful to be part of the change!\n\n"Thank you for being part of the Maatram community. Your contribution is helping us build a better tomorrow!"\n\n#MaatramFoundation #Volunteering #SocialImpact #StudentLeadership`,
               }));
 
             const postsToShare = [
@@ -2511,7 +2574,15 @@ export default function StudentDashboard() {
               );
 
             return (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(440px, 100%), 1fr))", gap: 22, alignItems: "start" }}>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fill, minmax(min(440px, 100%), 1fr))",
+                  gridAutoRows: "1fr", /* every card = same height */
+                  alignItems: "stretch",
+                  gap: 22,
+                }}
+              >
                 {postsToShare.map((postItem, idx) => (
                   <div
                     key={postItem.id}
@@ -2521,6 +2592,9 @@ export default function StudentDashboard() {
                       border: "1.5px solid #E2E8F0",
                       boxShadow: "0 8px 24px rgba(15, 23, 42, 0.06)",
                       overflow: "hidden",
+                      display: "flex",
+                      flexDirection: "column",
+                      height: "100%",
                     }}
                   >
                     {/* Card header */}
@@ -2555,12 +2629,12 @@ export default function StudentDashboard() {
                       <span style={{ fontSize: 12, fontWeight: 700, color: "#64748B" }}>LinkedIn Post</span>
                     </div>
 
-                    <div style={{ padding: "18px 20px 20px" }}>
-                      <h3 style={{ margin: "0 0 14px", fontSize: 17, fontWeight: 900, color: "#0F172A", lineHeight: 1.35 }}>
+                    <div style={{ padding: "18px 20px 20px", display: "flex", flexDirection: "column", flex: 1 }}>
+                      <h3 style={{ margin: "0 0 14px", fontSize: 17, fontWeight: 900, color: "#0F172A", lineHeight: 1.35, minHeight: 46 }}>
                         {postItem.headline}
                       </h3>
 
-                      {/* LinkedIn-style post preview */}
+                      {/* LinkedIn-style post preview (grows to fill the card) */}
                       <div
                         style={{
                           background: "#F8FAFC",
@@ -2568,6 +2642,7 @@ export default function StudentDashboard() {
                           borderRadius: 16,
                           padding: 16,
                           marginBottom: 16,
+                          flex: 1,
                         }}
                       >
                         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
@@ -2599,7 +2674,8 @@ export default function StudentDashboard() {
                         </div>
                       </div>
 
-                      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                      {/* Buttons stay pinned to the bottom */}
+                      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: "auto" }}>
                         <button
                           type="button"
                           onClick={async () => {
@@ -2788,9 +2864,21 @@ export default function StudentDashboard() {
             My Complete Activity History <span style={{ color: "#F59E0B" }}>.</span>
           </h2>
 
-          {/* Search & Status Filter Controls */}
-          <div style={{ background: "#FFFFFF", borderRadius: 16, border: "1px solid #E2E8F0", padding: "16px 20px", marginBottom: 20, display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-            <div style={{ position: "relative", flex: "1 1 240px" }}>
+          {/* Search & Status Filter Controls — single row */}
+          <div
+            style={{
+              background: "#FFFFFF",
+              borderRadius: 16,
+              border: "1px solid #E2E8F0",
+              padding: "14px 20px",
+              marginBottom: 20,
+              display: "flex",
+              flexWrap: "wrap",
+              alignItems: "center",
+              gap: 12,
+            }}
+          >
+            <div style={{ position: "relative", flex: "1 1 260px", minWidth: 200 }}>
               <Search size={15} color="#94A3B8" style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)" }} />
               <input
                 type="text"
@@ -2808,7 +2896,7 @@ export default function StudentDashboard() {
               />
             </div>
 
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", width: "100%" }}>
+            <div style={{ display: "flex", gap: 6, flexWrap: "nowrap", flexShrink: 0 }}>
               {["All", "Completed", "Approved", "Pending"].map((st) => (
                 <button
                   key={st}
@@ -2823,6 +2911,7 @@ export default function StudentDashboard() {
                     fontWeight: 700,
                     fontSize: 12,
                     cursor: "pointer",
+                    whiteSpace: "nowrap",
                   }}
                 >
                   {st}

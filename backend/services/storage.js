@@ -3,6 +3,7 @@
 // Fully supports Admin Event Creation, Student Applications, Attendance, Hours, Certificates, and Email Automation
 
 const bcrypt = require("bcryptjs");
+const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
 const mongoose = require("mongoose");
@@ -68,7 +69,7 @@ const Storage = {
     if (getIsConnected()) {
       try {
         const u = await User.findOne({ email: clean });
-        if (u) return u;
+        return u || null;
       } catch (err) {}
     }
     const db = readDB();
@@ -83,7 +84,7 @@ const Storage = {
         const u = await User.findOne({
           $or: [{ email: clean.toLowerCase() }, { applicationId: clean.toUpperCase() }],
         });
-        if (u) return u;
+        return u || null;
       } catch (err) {}
     }
     const db = readDB();
@@ -892,6 +893,18 @@ const Storage = {
           message: `Your application for "${event.title}" has been received. We'll notify you once reviewed.`,
           link: "/applications",
         });
+
+        // Automatically dispatch Event Registration Received email
+        try {
+          await EmailService.sendEventRegistrationReceivedEmail({
+            user,
+            event,
+            application: doc.toObject(),
+          });
+        } catch (emErr) {
+          console.warn("Event registration received email notice:", emErr.message);
+        }
+
         return { ...doc.toObject(), id: doc._id.toString() };
       } catch (err) {
         console.warn("Mongo createApplication notice, falling back:", err.message);
@@ -917,6 +930,17 @@ const Storage = {
       message: `Your application for "${event.title}" has been received. We'll notify you once reviewed.`,
       link: "/applications",
     });
+
+    // Automatically dispatch Event Registration Received email
+    try {
+      await EmailService.sendEventRegistrationReceivedEmail({
+        user,
+        event,
+        application: createdApp,
+      });
+    } catch (emErr) {
+      console.warn("Event registration received email notice:", emErr.message);
+    }
 
     return createdApp;
   },
@@ -1127,45 +1151,583 @@ const Storage = {
     return false;
   },
 
-  // QR ATTENDANCE
-  async generateEventQRToken(eventId, adminUser) {
+  // QR ATTENDANCE (Module 2: Cryptographic token, SHA-256 hash storage, validity window, regeneration)
+  async generateEventQRToken(eventId, adminUser, validityHours = 24) {
     const event = await this.getEventById(eventId);
     if (!event) throw new Error("Event not found.");
-    const token = "MF-QR-" + Math.random().toString(36).substring(2, 8).toUpperCase() + "-" + Date.now().toString(36).toUpperCase();
-    await this.updateEvent(eventId, { qrCodeToken: token, attendanceOpen: true }, adminUser);
-    return { eventId: (event.id || event._id).toString(), qrCodeToken: token, title: event.title, date: event.date };
+
+    // Generate a cryptographically secure random token
+    const token = "MFQR-" + crypto.randomBytes(16).toString("hex").toUpperCase();
+    const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+    const expiresAt = new Date(Date.now() + Number(validityHours) * 3600 * 1000);
+
+    // Store only the SHA-256 hash of the token in MongoDB (along with raw token for admin UI display)
+    await this.updateEvent(
+      eventId,
+      {
+        qrCodeToken: token,
+        qrTokenHash: tokenHash,
+        qrExpiresAt: expiresAt,
+        attendanceOpen: true,
+      },
+      adminUser
+    );
+
+    return {
+      eventId: (event.id || event._id).toString(),
+      qrCodeToken: token,
+      qrTokenHash: tokenHash,
+      expiresAt,
+      attendanceOpen: true,
+      title: event.title,
+      date: event.date,
+    };
   },
 
-  async checkInViaQR({ eventId, qrToken, user }) {
+  async invalidateEventQR(eventId, adminUser) {
     const event = await this.getEventById(eventId);
     if (!event) throw new Error("Event not found.");
+
+    await this.updateEvent(
+      eventId,
+      {
+        qrTokenHash: "",
+        attendanceOpen: false,
+      },
+      adminUser
+    );
+
+    return {
+      eventId: (event.id || event._id).toString(),
+      attendanceOpen: false,
+      message: "Event QR attendance invalidated successfully.",
+    };
+  },
+
+  // Student QR Check-in with validation, registration verification, duplicate prevention, and JWT auth
+  async checkInViaQR({ eventId, qrToken, user }) {
+    if (!qrToken || typeof qrToken !== "string" || !qrToken.trim()) {
+      throw new Error("QR attendance token is required.");
+    }
+
+    const event = await this.getEventById(eventId);
+    if (!event) throw new Error("Event not found.");
+
+    if (event.attendanceOpen === false) {
+      throw new Error("Attendance for this event is closed.");
+    }
+
+    if (event.qrExpiresAt && new Date() > new Date(event.qrExpiresAt)) {
+      throw new Error("This attendance QR code has expired. Please ask the coordinator to regenerate it.");
+    }
+
+    const cleanToken = qrToken.trim();
+    const incomingHash = crypto.createHash("sha256").update(cleanToken).digest("hex");
+
+    // Validate QR token: compare with SHA-256 hash or legacy token
+    const isValidToken =
+      (event.qrTokenHash && incomingHash === event.qrTokenHash) ||
+      (event.qrCodeToken && cleanToken === event.qrCodeToken);
+
+    if (!isValidToken) {
+      throw new Error("Invalid QR attendance token. Please scan the current official event code.");
+    }
+
     const userId = (user._id || user.id || "").toString();
+
+    // 1. Verify Event Registration (Must be Approved)
+    const apps = await this.getApplicationsByEvent(eventId, event.title);
+    const userApp = apps.find(
+      (a) =>
+        (a.userId || "").toString() === userId ||
+        (a.applicantDetails?.email || "").toLowerCase() === (user.email || "").toLowerCase()
+    );
+
+    if (!userApp) {
+      throw new Error("You are not registered for this event. Only registered volunteers can check in.");
+    }
+
+    if (userApp.status !== "Approved" && userApp.status !== "Completed") {
+      throw new Error(
+        userApp.status === "Rejected"
+          ? "Your application for this event was not approved."
+          : "Your application is still pending administrator approval."
+      );
+    }
+
+    // 2. Prevent Duplicate Check-ins
+    const eventIdStr = (eventId || "").toString();
+    if (getIsConnected()) {
+      try {
+        const existingAtt = await Attendance.findOne({ eventId: eventIdStr, userId });
+        if (existingAtt) {
+          throw new Error("Attendance already recorded for this event.");
+        }
+      } catch (err) {
+        if (err.message.includes("already recorded")) throw err;
+      }
+    }
 
     const db = readDB();
     if (!Array.isArray(db.attendance)) db.attendance = [];
+    const localExisting = db.attendance.find(
+      (a) => (a.eventId || "").toString() === eventIdStr && (a.userId || "").toString() === userId
+    );
+    if (localExisting) {
+      throw new Error("Attendance already recorded for this event.");
+    }
+
+    // 3. Record Attendance (isVerified remains false until Admin verifies completion)
+    // A student must not be able to manually award themselves attendance, hours or points.
     const attRecord = {
       id: "att_" + Date.now(),
-      eventId,
+      eventId: eventIdStr,
       userId,
-      volunteerName: user.fullName || "Volunteer",
-      volunteerEmail: user.email || "",
+      applicationId: userApp.id || userApp._id || "",
+      volunteerName: user.fullName || userApp.applicantDetails?.name || "Volunteer",
+      volunteerEmail: user.email || userApp.applicantDetails?.email || "",
       status: "Checked-In",
       checkInMethod: "QR_SCAN",
       checkInTime: new Date().toISOString(),
+      isVerified: false,
+      verifiedHours: 0,
+      pointsAwarded: false,
+      points: 0,
       markedByName: "Self (QR Scan)",
     };
+
     db.attendance.push(attRecord);
     writeDB(db);
+
+    if (getIsConnected()) {
+      try {
+        await Attendance.create({
+          eventId: eventIdStr,
+          userId,
+          applicationId: userApp.id || userApp._id || "",
+          volunteerName: user.fullName || userApp.applicantDetails?.name || "Volunteer",
+          volunteerEmail: user.email || userApp.applicantDetails?.email || "",
+          status: "Checked-In",
+          checkInMethod: "QR_SCAN",
+          checkInTime: new Date(),
+          isVerified: false,
+          verifiedHours: 0,
+          pointsAwarded: false,
+          points: 0,
+          markedByName: "Self (QR Scan)",
+        });
+      } catch (mErr) {
+        if (mErr.code === 11000) {
+          throw new Error("Attendance already recorded for this event.");
+        }
+      }
+    }
 
     await this.createNotification({
       userId,
       type: "attendance",
       title: "QR Attendance Recorded! ✅",
-      message: `Your attendance at "${event.title}" has been logged via QR Scan.`,
+      message: `Your attendance at "${event.title}" has been recorded. Verified hours will be credited upon admin completion.`,
       link: `/opportunities/${eventId}`,
     });
 
-    return { success: true, message: "Attendance recorded successfully!" };
+    return {
+      success: true,
+      message: "Attendance recorded successfully! Awaiting admin hours verification.",
+      data: attRecord,
+    };
+  },
+
+  // MODULE 1: Email 1: Volunteer Selection Confirmation
+  // API: POST /api/events/:id/confirm-selection
+  async confirmEventSelection(eventId, { applicationId, studentId, userId } = {}, adminUser) {
+    const event = await this.getEventById(eventId);
+    if (!event) throw new Error("Event not found.");
+
+    const apps = await this.getApplicationsByEvent(eventId, event.title);
+
+    // Target specific student or all approved students
+    let targetApps = apps.filter((a) => a.status === "Approved" || a.status === "Completed");
+
+    if (applicationId || studentId || userId) {
+      const targetId = (applicationId || studentId || userId).toString();
+      targetApps = targetApps.filter(
+        (a) =>
+          (a.id || a._id || "").toString() === targetId ||
+          (a.userId || "").toString() === targetId ||
+          (a.applicationId || "").toString() === targetId
+      );
+    }
+
+    // STRICT: Do not send the selection email to rejected students
+    targetApps = targetApps.filter((a) => a.status !== "Rejected" && a.status !== "Cancelled");
+
+    if (targetApps.length === 0) {
+      return {
+        success: true,
+        message: "No eligible approved volunteers found to confirm selection.",
+        sentCount: 0,
+        failedCount: 0,
+        skippedCount: 0,
+        recipients: [],
+      };
+    }
+
+    let sentCount = 0;
+    let failedCount = 0;
+    let skippedCount = 0;
+    const recipients = [];
+
+    for (const app of targetApps) {
+      let vEmail = app.applicantDetails?.email;
+      let vName = app.applicantDetails?.name;
+      let vUser = null;
+
+      if (app.userId) {
+        vUser = await this.findUserById(app.userId);
+        if (vUser) {
+          vEmail = vUser.email || vEmail;
+          vName = vUser.fullName || vName;
+        }
+      }
+
+      if (!vEmail) {
+        failedCount++;
+        continue;
+      }
+
+      const emailPayload = {
+        user: {
+          _id: app.userId,
+          fullName: vName || "Volunteer",
+          email: vEmail,
+          applicationId: app.applicationId || vUser?.applicationId,
+          role: vUser?.role || "student",
+        },
+        event: {
+          _id: event.id || event._id,
+          id: event.id || event._id,
+          title: event.title,
+          date: event.date,
+          time: event.time || "Scheduled Time",
+          location: event.location || "Assigned Location",
+        },
+      };
+
+      try {
+        const res = await EmailService.sendVolunteerSelectionEmail(emailPayload);
+        if (res.skipped) {
+          skippedCount++;
+        } else if (res.success && !res.failed) {
+          sentCount++;
+        } else {
+          failedCount++;
+        }
+        recipients.push({
+          email: vEmail,
+          name: vName,
+          status: res.skipped ? "skipped" : res.success ? "sent" : "failed",
+        });
+      } catch (err) {
+        failedCount++;
+        console.error(`[confirmSelection] Error sending to ${vEmail}:`, err.message);
+      }
+    }
+
+    return {
+      success: true,
+      message: `Volunteer selection confirmed. Sent: ${sentCount}, Skipped: ${skippedCount}, Failed: ${failedCount}`,
+      sentCount,
+      failedCount,
+      skippedCount,
+      recipients,
+    };
+  },
+
+  // MODULE 1 (Email 2) & MODULE 3 (Volunteer Hours & Points Management):
+  // API: PATCH /api/events/:id/attendance/close
+  // When an administrator closes attendance and verifies completion:
+  // - Calculate actual verified volunteer hours
+  // - Award 10 points for each verified hour (2h=20, 5h=50, 10h=100)
+  // - Update student's profile & leaderboard
+  // - Maintain immutable points transaction history
+  // - Never award points twice for the same attendance record
+  // - Send Email 2 (Volunteer Completion Thank You) only to verified volunteers
+  async closeEventAttendanceAndVerify(eventId, { defaultHours } = {}, adminUser) {
+    const event = await this.getEventById(eventId);
+    if (!event) throw new Error("Event not found.");
+
+    const eventIdStr = (event.id || event._id).toString();
+    const verifiedHours = Number(defaultHours) || Number(event.durationHours) || 4;
+    const pointsPerVolunteer = verifiedHours * 10; // Exactly 10 points per verified hour!
+
+    // 1. Close attendance and mark event completed
+    await this.updateEvent(
+      eventIdStr,
+      {
+        attendanceOpen: false,
+        qrTokenHash: "",
+        status: "Completed",
+        eventStatus: "Completed",
+        pointsDistributed: true,
+      },
+      adminUser
+    );
+
+    // 2. Fetch all registered applications and attendance records
+    const attendanceRecords = await this.getEventAttendance(eventIdStr);
+    const applications = await this.getApplicationsByEvent(eventIdStr, event.title);
+
+    let verifiedCount = 0;
+    let totalPointsAwarded = 0;
+    let sentCount = 0;
+    let failedCount = 0;
+    let skippedCount = 0;
+
+    const db = readDB();
+    if (!Array.isArray(db.attendance)) db.attendance = [];
+    if (!Array.isArray(db.pointsTransactions)) db.pointsTransactions = [];
+
+    // Combine any volunteer who checked in via QR or was approved in applications
+    const candidateVolunteers = [];
+    const seenUserIds = new Set();
+
+    for (const att of attendanceRecords) {
+      const uId = (att.userId || "").toString();
+      if (uId && !seenUserIds.has(uId)) {
+        seenUserIds.add(uId);
+        candidateVolunteers.push({
+          userId: uId,
+          applicationId: att.applicationId,
+          volunteerName: att.volunteerName,
+          volunteerEmail: att.volunteerEmail,
+          status: att.status || "Present",
+          checkInMethod: att.checkInMethod || "QR_SCAN",
+        });
+      }
+    }
+
+    // Also include any approved applications that weren't checked in via QR yet
+    for (const app of applications) {
+      const uId = (app.userId || "").toString();
+      if (uId && !seenUserIds.has(uId) && (app.status === "Approved" || app.status === "Completed")) {
+        seenUserIds.add(uId);
+        candidateVolunteers.push({
+          userId: uId,
+          applicationId: app.id || app._id,
+          volunteerName: app.applicantDetails?.name,
+          volunteerEmail: app.applicantDetails?.email,
+          status: app.attendanceStatus === "Absent" ? "Absent" : "Present",
+          checkInMethod: "ADMIN_CONFIRMED",
+        });
+      }
+    }
+
+    for (const vol of candidateVolunteers) {
+      // Do not verify or award points to absent or rejected volunteers
+      if (vol.status === "Absent") continue;
+
+      const userIdStr = vol.userId.toString();
+      const user = await this.findUserById(userIdStr);
+      if (!user) continue;
+
+      const volunteerEmail = user.email || vol.volunteerEmail;
+      const volunteerName = user.fullName || vol.volunteerName || "Volunteer";
+
+      // Check if points have already been awarded for this attendance record (idempotency)
+      const transactionKey = `${userIdStr}_${eventIdStr}_CREDIT`;
+      let alreadyAwarded = false;
+
+      if (getIsConnected()) {
+        try {
+          const existingTx = await PointsTransaction.findOne({
+            $or: [{ transactionKey }, { userId: userIdStr, eventId: eventIdStr, type: "CREDIT" }],
+          }).lean();
+          if (existingTx) alreadyAwarded = true;
+        } catch (_) {}
+      }
+
+      if (!alreadyAwarded) {
+        const localTx = (db.pointsTransactions || []).find(
+          (t) =>
+            t.transactionKey === transactionKey ||
+            ((t.userId || "").toString() === userIdStr &&
+              (t.eventId || "").toString() === eventIdStr &&
+              t.type === "CREDIT")
+        );
+        if (localTx) alreadyAwarded = true;
+      }
+
+      if (!alreadyAwarded) {
+        // Module 3: Calculate actual verified hours & award 10 points for each verified hour
+        const pts = pointsPerVolunteer;
+
+        // 3a. Update student's profile (totalHours, points, completedEventsCount)
+        const updatedHours = (Number(user.totalHours) || 0) + verifiedHours;
+        const updatedPoints = (Number(user.points) || 0) + pts;
+        const updatedCompleted = (Number(user.completedEventsCount) || 0) + 1;
+
+        await this.updateUser(userIdStr, {
+          totalHours: updatedHours,
+          points: updatedPoints,
+          completedEventsCount: updatedCompleted,
+          eventsJoined: Math.max((Number(user.eventsJoined) || 0), updatedCompleted),
+        });
+
+        // 3b. Maintain an immutable points transaction history
+        const txDoc = {
+          userId: userIdStr,
+          applicationId: user.applicationId || "MAA001",
+          studentName: volunteerName,
+          eventId: eventIdStr,
+          eventName: event.title,
+          type: "CREDIT",
+          points: pts,
+          reason: `Verified ${verifiedHours} volunteer hours for "${event.title}" (10 pts/hr)`,
+          adminRemarks: `Attendance verified and closed by ${adminUser?.fullName || "Admin"}`,
+          adminId: adminUser?._id || adminUser?.id,
+          adminName: adminUser?.fullName || "Admin Coordinator",
+          transactionKey,
+          date: new Date().toISOString(),
+        };
+
+        db.pointsTransactions.unshift({ ...txDoc, id: "tx_" + Date.now() + "_" + Math.floor(Math.random() * 1000) });
+
+        if (getIsConnected()) {
+          try {
+            await PointsTransaction.create(txDoc);
+          } catch (tErr) {
+            if (tErr.code !== 11000) console.warn("[closeAttendance] Transaction log notice:", tErr.message);
+          }
+        }
+
+        totalPointsAwarded += pts;
+      }
+
+      // 3c. Update attendance record (isVerified: true, verifiedHours, pointsAwarded: true)
+      const attIdx = db.attendance.findIndex(
+        (at) => (at.eventId || "").toString() === eventIdStr && (at.userId || "").toString() === userIdStr
+      );
+      const updatedAtt = {
+        eventId: eventIdStr,
+        userId: userIdStr,
+        applicationId: vol.applicationId,
+        volunteerName,
+        volunteerEmail,
+        status: "Present",
+        isVerified: true,
+        verifiedHours,
+        pointsAwarded: true,
+        points: pointsPerVolunteer,
+        verifiedAt: new Date().toISOString(),
+        markedByName: adminUser?.fullName || "Admin",
+      };
+
+      if (attIdx !== -1) {
+        db.attendance[attIdx] = { ...db.attendance[attIdx], ...updatedAtt };
+      } else {
+        db.attendance.push(updatedAtt);
+      }
+
+      if (getIsConnected()) {
+        try {
+          await Attendance.findOneAndUpdate(
+            { eventId: eventIdStr, userId: userIdStr },
+            {
+              $set: {
+                status: "Present",
+                isVerified: true,
+                verifiedHours,
+                pointsAwarded: true,
+                points: pointsPerVolunteer,
+                verifiedAt: new Date(),
+                markedByName: adminUser?.fullName || "Admin",
+              },
+            },
+            { upsert: true, new: true }
+          );
+        } catch (_) {}
+      }
+
+      verifiedCount++;
+
+      // 4. Module 1: Email 2: Volunteer Completion Thank You
+      // Do not send completion emails until attendance is verified!
+      if (volunteerEmail) {
+        try {
+          const emailRes = await EmailService.sendVolunteerCompletionEmail({
+            user: {
+              _id: userIdStr,
+              fullName: volunteerName,
+              email: volunteerEmail,
+              applicationId: user.applicationId,
+              role: user.role || "student",
+            },
+            event: {
+              _id: eventIdStr,
+              title: event.title,
+              date: event.date,
+              durationHours: verifiedHours,
+            },
+            verifiedHours,
+            pointsEarned: pointsPerVolunteer,
+          });
+
+          if (emailRes.skipped) {
+            skippedCount++;
+          } else if (emailRes.success && !emailRes.failed) {
+            sentCount++;
+          } else {
+            failedCount++;
+          }
+        } catch (eErr) {
+          failedCount++;
+          console.error(`[closeAttendance] Completion email error for ${volunteerEmail}:`, eErr.message);
+        }
+      }
+
+      // 5. In-app notification
+      await this.createNotification({
+        userId: userIdStr,
+        type: "hours",
+        title: "Attendance Verified & Points Credited! 🎉",
+        message: `Your attendance at "${event.title}" has been verified! +${verifiedHours} verified hours and +${pointsPerVolunteer} points added.`,
+        link: "/contributions",
+      });
+    }
+
+    writeDB(db);
+
+    return {
+      success: true,
+      message: `Event attendance closed successfully. Verified: ${verifiedCount} volunteer(s), Points Awarded: ${totalPointsAwarded}. Emails - Sent: ${sentCount}, Skipped: ${skippedCount}, Failed: ${failedCount}`,
+      verifiedCount,
+      totalPointsAwarded,
+      sentCount,
+      failedCount,
+      skippedCount,
+      eventStatus: "Completed",
+    };
+  },
+
+  async retryFailedEventEmails(eventId) {
+    return EmailService.retryFailedEventEmails(eventId);
+  },
+
+  async getEmailLogs(limit = 100) {
+    if (getIsConnected()) {
+      try {
+        const EmailLog = require("../models/EmailLog");
+        const logs = await EmailLog.find().sort({ createdAt: -1 }).limit(limit).lean();
+        if (logs && logs.length > 0) {
+          return logs.map((l) => ({ ...l, id: l._id.toString() }));
+        }
+      } catch (err) {
+        console.warn("[Storage] getEmailLogs mongo error:", err.message);
+      }
+    }
+    const db = readDB();
+    return (db.emailLogs || []).slice(0, limit);
   },
 
   async getEventAttendance(eventId) {

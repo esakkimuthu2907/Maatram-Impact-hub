@@ -81,6 +81,15 @@ const toggleUserStatus = async (req, res) => {
     const updated = await Storage.toggleUserStatus(req.params.id, status, req.user);
     if (!updated) return res.status(404).json({ success: false, message: "User not found." });
 
+    // If account was activated, send automated account approved email
+    if (status === "active") {
+      try {
+        await EmailService.sendAccountApprovedEmail({ user: updated, adminUser: req.user });
+      } catch (emErr) {
+        console.warn("Account approved email notice:", emErr.message);
+      }
+    }
+
     res.json({
       success: true,
       data: updated,
@@ -107,6 +116,13 @@ const approveUser = async (req, res) => {
         link: "/dashboard",
       });
     } catch {}
+
+    // Send automated account approval email
+    try {
+      await EmailService.sendAccountApprovedEmail({ user: updated, adminUser: req.user });
+    } catch (emErr) {
+      console.warn("Account approved email notice:", emErr.message);
+    }
 
     res.json({
       success: true,
@@ -319,6 +335,10 @@ const sendTestEmail = async (req, res) => {
 
     if (triggerType === "registration_confirmation") {
       result = await EmailService.sendRegistrationConfirmation({ user: targetUser });
+    } else if (triggerType === "account_approved") {
+      result = await EmailService.sendAccountApprovedEmail({ user: targetUser, adminUser: req.user });
+    } else if (triggerType === "event_registration_received") {
+      result = await EmailService.sendEventRegistrationReceivedEmail({ user: targetUser, event: sampleEvent, application: { referenceId: "MAT-2940" } });
     } else if (triggerType === "application_approval") {
       result = await EmailService.sendApplicationApproval({ user: targetUser, event: sampleEvent, application: { opportunityTitle: sampleEvent.title, referenceId: "MAT-2940" } });
     } else if (triggerType === "application_rejection") {

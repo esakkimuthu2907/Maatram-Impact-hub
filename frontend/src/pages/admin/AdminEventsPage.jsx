@@ -51,6 +51,7 @@ import {
 import { useApp } from "../../context/AppContext";
 import { CATEGORIES } from "../../data/mockData";
 import { adminAPI } from "../../api/adminAPI";
+import { eventsAPI } from "../../api/eventsAPI";
 import { certificatesAPI } from "../../api/certificatesAPI";
 import BadgeShowcase from "../../components/common/BadgeShowcase";
 import ManageEventCard from "../../components/common/ManageEventCard";
@@ -541,6 +542,19 @@ export default function AdminEventsPage() {
         ...prev,
         [app.id]: "Approved",
       }));
+      // Trigger Volunteer Selection Confirmation Email (Module 1 - Email 1)
+      try {
+        const evId = managingEvent?.id || managingEvent?._id;
+        if (evId) {
+          const emailRes = await eventsAPI.confirmSelection(evId, { applicationId: app.id || app._id });
+          if (emailRes && emailRes.sentCount > 0) {
+            showToast(`✅ ${app.applicantDetails?.name || "Volunteer"} approved & selection email dispatched!`);
+            return;
+          }
+        }
+      } catch (e) {
+        console.warn("Selection email trigger notice:", e.message);
+      }
       showToast(`✅ ${app.applicantDetails?.name || "Volunteer"} has been approved to participate in this event!`);
     } catch (err) {
       showToast(err.message || "Failed to approve volunteer", "error");
@@ -620,15 +634,17 @@ export default function AdminEventsPage() {
   const handleCompleteEventInside = async (event, approvedCount) => {
     setAwardingPoints(true);
     try {
-      const res = await adminAPI.awardEventPoints(
-        event.id || event._id,
-        event.points || 50,
-        `Event completed: ${event.title}`
-      );
+      const evId = event.id || event._id;
+      // Close attendance, verify hours, award 10 pts/hr, and send Thank You completion emails
+      const res = await eventsAPI.closeAttendance(evId, {
+        defaultHours: event.durationHours || 4,
+      });
+
+      const awardedPts = (event.durationHours || 4) * 10;
       setAwardResult({
         ...res,
         eventTitle: event.title,
-        points: event.points || 50,
+        points: awardedPts,
         linkedInPost: `I am proud to share that I have successfully completed the volunteering initiative for "${event.title}" with Maatram Foundation! Dedicated ${event.durationHours || 4} hours to creating meaningful community impact. Grateful to be part of the change! #MaatramFoundation #Volunteering #SocialImpact #StudentLeadership`,
       });
       setEventLocalApps((prev) => {
@@ -648,24 +664,24 @@ export default function AdminEventsPage() {
       setManagingEvent((prev) => (prev ? { ...prev, eventStatus: "Completed", status: "Completed", pointsDistributed: true } : prev));
       if (typeof markEventCompletedInContext === "function") {
         markEventCompletedInContext(
-          event.id || event._id,
+          evId,
           event.title,
-          event.points || 50,
+          awardedPts,
           {
             certificateId: res.data?.certificateId || res.certificateId,
             eventTitle: event.title,
             verifiedHours: event.durationHours || 4,
-            pointsAwarded: event.points || 50,
+            pointsAwarded: awardedPts,
           }
         );
       }
-      if (updateOpportunity && (event.id || event._id)) {
-        await updateOpportunity(event.id || event._id, { eventStatus: "Completed", status: "Completed", pointsDistributed: true }).catch(() => { });
+      if (updateOpportunity && evId) {
+        await updateOpportunity(evId, { eventStatus: "Completed", status: "Completed", pointsDistributed: true }).catch(() => { });
       }
       if (typeof refreshAllData === "function") {
         refreshAllData().catch(() => { });
       }
-      showToast(res.message || "Event completed successfully! Points, certificates, and emails dispatched to approved volunteers.");
+      showToast(res.message || "Event completed successfully! Verified hours, points (+10/hr), and thank-you emails dispatched to volunteers.");
     } catch (err) {
       showToast(err.message || "Failed to complete event", "error");
     } finally {
@@ -762,6 +778,21 @@ export default function AdminEventsPage() {
       showToast(err.message || "Failed to send test email", "error");
     } finally {
       setSendingTest(false);
+    }
+  };
+
+  const [retryingEmailId, setRetryingEmailId] = useState(null);
+
+  const handleRetryEmail = async (logId) => {
+    try {
+      setRetryingEmailId(logId);
+      const res = await adminAPI.retryEmail(logId);
+      showToast(res.message || "Email retry dispatched successfully!");
+      fetchEmailLogs?.();
+    } catch (err) {
+      showToast(err.message || "Failed to retry email", "error");
+    } finally {
+      setRetryingEmailId(null);
     }
   };
 
@@ -1582,12 +1613,14 @@ export default function AdminEventsPage() {
                 defaultValue="thank_you"
                 style={{ fontSize: 12.5 }}
               >
-                <option value="registration_confirmation">Trigger: Registration Confirmation</option>
-                <option value="application_approval">Trigger: Application Approval</option>
+                <option value="registration_confirmation">Trigger: User Registration (Account Created)</option>
+                <option value="account_approved">Trigger: User Account Approved & Activated</option>
+                <option value="event_registration_received">Trigger: Event Registration Received</option>
+                <option value="application_approval">Trigger: Volunteer Selection / Event Approved</option>
                 <option value="application_rejection">Trigger: Application Rejection</option>
                 <option value="event_reminder">Trigger: Event Reminder</option>
                 <option value="hours_verification">Trigger: Hours Verification</option>
-                <option value="thank_you">Trigger: Thank-you Message</option>
+                <option value="thank_you">Trigger: Volunteer Completion Thank You</option>
                 <option value="certificate_availability">Trigger: Certificate Availability</option>
               </select>
 
@@ -1655,9 +1688,39 @@ export default function AdminEventsPage() {
                       </td>
 
                       <td>
-                        <span className="status-pill approved">
-                          <CheckCircle2 size={12} /> {log.status || "Delivered"}
-                        </span>
+                        {log.status === "failed" ? (
+                          <span
+                            className="status-pill rejected"
+                            style={{ background: "#FEF2F2", color: "#DC2626", border: "1px solid #FECACA" }}
+                            title={log.errorDetails || "Delivery failed"}
+                          >
+                            <AlertCircle size={12} /> Failed
+                          </span>
+                        ) : log.status === "sending" || log.status === "pending" ? (
+                          <span className="status-pill pending">
+                            <Clock3 size={12} /> {log.status}
+                          </span>
+                        ) : (
+                          <span className="status-pill approved">
+                            <CheckCircle2 size={12} /> {log.status || "Delivered"}
+                          </span>
+                        )}
+                        {log.errorDetails && log.status === "failed" && (
+                          <div
+                            style={{
+                              fontSize: 11,
+                              color: "#DC2626",
+                              marginTop: 3,
+                              maxWidth: 220,
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                            }}
+                            title={log.errorDetails}
+                          >
+                            {log.errorDetails}
+                          </div>
+                        )}
                       </td>
 
                       <td>
@@ -1667,13 +1730,35 @@ export default function AdminEventsPage() {
                       </td>
 
                       <td style={{ textAlign: "right" }}>
-                        <button
-                          className="dash-btn dash-btn-outline"
-                          onClick={() => setPreviewEmail(log)}
-                          style={{ fontSize: 12, padding: "5px 10px" }}
-                        >
-                          <Eye size={13} /> Preview HTML
-                        </button>
+                        <div style={{ display: "inline-flex", gap: 6, alignItems: "center", justifyContent: "flex-end" }}>
+                          {log.status === "failed" && (
+                            <button
+                              className="dash-btn dash-btn-outline"
+                              onClick={() => handleRetryEmail(log._id || log.id)}
+                              disabled={retryingEmailId === (log._id || log.id)}
+                              style={{
+                                fontSize: 11.5,
+                                padding: "4px 8px",
+                                borderColor: "#DC2626",
+                                color: "#DC2626",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 4,
+                              }}
+                              title="Retry sending this failed email"
+                            >
+                              <RotateCcw size={12} className={retryingEmailId === (log._id || log.id) ? "spin-animate" : ""} />
+                              {retryingEmailId === (log._id || log.id) ? "Retrying..." : "Retry"}
+                            </button>
+                          )}
+                          <button
+                            className="dash-btn dash-btn-outline"
+                            onClick={() => setPreviewEmail(log)}
+                            style={{ fontSize: 12, padding: "5px 10px" }}
+                          >
+                            <Eye size={13} /> Preview HTML
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -1702,9 +1787,32 @@ export default function AdminEventsPage() {
                 </span>
               </div>
               <button className="modal-close-btn" onClick={() => setPreviewEmail(null)}>
-                <X size={20} />
+                <X size={18} />
               </button>
             </div>
+
+            {previewEmail.status === "failed" && previewEmail.errorDetails && (
+              <div
+                style={{
+                  margin: "14px 0",
+                  padding: "10px 14px",
+                  background: "#FEF2F2",
+                  border: "1px solid #FECACA",
+                  borderRadius: 8,
+                  color: "#B91C1C",
+                  fontSize: 12.5,
+                  display: "flex",
+                  gap: 8,
+                  alignItems: "flex-start",
+                }}
+              >
+                <AlertCircle size={16} style={{ flexShrink: 0, marginTop: 2 }} />
+                <div>
+                  <strong>Dispatch Failure Reason:</strong>
+                  <p style={{ margin: "3px 0 0", color: "#7F1D1D" }}>{previewEmail.errorDetails}</p>
+                </div>
+              </div>
+            )}
 
             <div
               style={{
@@ -2389,40 +2497,8 @@ export default function AdminEventsPage() {
               let resolvedApps = [...rawApps, ...matchingExtra];
 
               // If no registered applications exist yet, provide both default volunteers
-              // matching user reference screenshots 1 (Chithiraiselvan G) & 2 (Priya S)
               if (resolvedApps.length === 0) {
-                resolvedApps = [
-                  {
-                    id: "app_chithirai",
-                    _id: "app_chithirai",
-                    userId: "user_chithirai",
-                    applicantDetails: {
-                      name: "Chithiraiselvan G",
-                      applicationId: "MAA005",
-                      email: "chithiraiselvan0311@gmail.com",
-                      college: "Velammal Engineering college Chennai",
-                      department: "Mechanical Engineering",
-                      academicYear: "4 Year",
-                    },
-                    status: "Approved",
-                    attendanceStatus: "Present",
-                  },
-                  {
-                    id: "app_priya",
-                    _id: "app_priya",
-                    userId: "user_priya",
-                    applicantDetails: {
-                      name: "Priya S",
-                      applicationId: "MAA008",
-                      email: "priya.s@maatram.org",
-                      college: "Velammal Engineering college Chennai",
-                      department: "Computer Science",
-                      academicYear: "3rd Year",
-                    },
-                    status: "Approved",
-                    attendanceStatus: "Present",
-                  },
-                ];
+                resolvedApps = [];
               }
 
               const allCurrentApps = resolvedApps.map((a) => ({
