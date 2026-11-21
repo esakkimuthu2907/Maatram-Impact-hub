@@ -181,7 +181,7 @@ function startBackend(portToTry, attempts = 0) {
   return serverInstance;
 }
 
-const server = startBackend(DEFAULT_PORT);
+const server = !process.env.VERCEL ? startBackend(DEFAULT_PORT) : null;
 
 // Connect to MongoDB
 connectDB()
@@ -236,3 +236,5 @@ process.on("uncaughtException", (err) => {
 process.on("unhandledRejection", (reason) => {
   console.error("⚠️ Unhandled Rejection intercepted:", reason?.message || reason);
 });
+
+module.exports = app;

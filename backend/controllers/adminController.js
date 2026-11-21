@@ -115,7 +115,7 @@ const approveUser = async (req, res) => {
         message: "Vanakkam! Your Maatram Foundation volunteer account has been approved by the admin. You now have full access to register for drives and earn leadership points.",
         link: "/dashboard",
       });
-    } catch {}
+    } catch { }
 
     // Send automated account approval email
     try {
@@ -370,8 +370,8 @@ function generateStudentLinkedInContent({ studentName, eventTitle, eventDescript
   const cleanSkills = typeof skills === "string" && skills.trim()
     ? skills
     : Array.isArray(skills) && skills.length > 0
-    ? skills.join(", ")
-    : "Youth Leadership, Community Engagement, Teamwork, Civic Transformation & Social Impact";
+      ? skills.join(", ")
+      : "Youth Leadership, Community Engagement, Teamwork, Civic Transformation & Social Impact";
   const descSnippet = eventDescription ? `\n\n📌 Initiative Focus: ${eventDescription.slice(0, 160)}${eventDescription.length > 160 ? "..." : ""}` : "";
   const cleanTag = (eventTitle || "CommunityImpact").replace(/[^a-zA-Z0-9]/g, "");
 
@@ -409,7 +409,7 @@ const awardEventPointsBulk = async (req, res) => {
     }
     if (!event) {
       try {
-        const Event = require("../models/Event");
+        let Event = require("../models/Event");
         const mongoose = require("mongoose");
         if (eventId && mongoose.isValidObjectId(eventId)) {
           event = await Event.findById(eventId).lean();
@@ -417,7 +417,7 @@ const awardEventPointsBulk = async (req, res) => {
         if (!event && fallbackTitle) {
           event = await Event.findOne({ title: new RegExp(`^${fallbackTitle.trim()}$`, "i") }).lean();
         }
-      } catch (_) {}
+      } catch (_) { }
     }
 
     if (!event) {
@@ -448,7 +448,7 @@ const awardEventPointsBulk = async (req, res) => {
             { opportunityTitle: new RegExp(`^${eventTitle.trim()}$`, "i") },
           ],
         }).lean();
-      } catch (_) {}
+      } catch (_) { }
     }
 
     // If still no applications in DB, but frontend sent volunteer list (like in user's active view), sync them
@@ -496,7 +496,7 @@ const awardEventPointsBulk = async (req, res) => {
         try {
           const Application = require("../models/Application");
           await Application.create(createdApp);
-        } catch (_) {}
+        } catch (_) { }
         eventApps.push(createdApp);
       }
     }
@@ -504,7 +504,7 @@ const awardEventPointsBulk = async (req, res) => {
     // Auto-verify attendance for approved volunteers
     try {
       await Storage.autoVerifyApprovedAttendance(resolvedEventId, req.user, eventHours);
-    } catch (_) {}
+    } catch (_) { }
 
     // Filter volunteers to award completion points
     const eligibleApps = [];
@@ -550,7 +550,7 @@ const awardEventPointsBulk = async (req, res) => {
             if (db && Array.isArray(db.users)) {
               u = db.users.find((x) => x.applicationId === app.applicationId);
             }
-          } catch (_) {}
+          } catch (_) { }
         }
         if (!u) {
           const email = (app.applicantDetails?.email || `volunteer_${Date.now()}@maatram.org`).toLowerCase().trim();
@@ -663,7 +663,7 @@ const awardEventPointsBulk = async (req, res) => {
               certificateId: finalCertId,
             });
           }
-        } catch (_) {}
+        } catch (_) { }
 
         // E. In-App Notification
         if (userIdStr) {
@@ -675,7 +675,7 @@ const awardEventPointsBulk = async (req, res) => {
               message: `Congratulations! ${points} points added and Certificate (${finalCertId}) issued for "${eventTitle}". Share your achievement on LinkedIn!`,
               link: "/contributions",
             });
-          } catch (_) {}
+          } catch (_) { }
         }
 
         // F. Dispatch Resend Email — FIRE AND FORGET (non-blocking, never crashes server)
@@ -713,7 +713,7 @@ const awardEventPointsBulk = async (req, res) => {
         { status: "Completed", eventStatus: "Completed", pointsDistributed: true },
         req.user
       );
-    } catch (_) {}
+    } catch (_) { }
 
     if (!lastLinkedInPost) {
       lastLinkedInPost = generateStudentLinkedInContent({

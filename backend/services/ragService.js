@@ -117,7 +117,7 @@ async function buildIndex(force = false) {
       cachedIndex = JSON.parse(fs.readFileSync(INDEX_FILE, "utf8"));
       console.log(`[RAG] Loaded existing index with ${cachedIndex.chunks.length} chunks.`);
       return { success: true, chunks: cachedIndex.chunks.length, source: "cache" };
-    } catch (_) {}
+    } catch (_) { }
   }
 
   console.log("[RAG] Building knowledge base index from PDFs...");
@@ -241,8 +241,8 @@ async function generateResponse({ query, context, maatramId, userProfile, conver
   const userInfo = userProfile
     ? `Volunteer Profile: ${userProfile.fullName || "Volunteer"} (Maatram ID: ${maatramId || userProfile.applicationId || "N/A"}, Role: ${userProfile.role || "student"}, Points: ${userProfile.points || 0})`
     : maatramId
-    ? `Maatram ID: ${maatramId}`
-    : "";
+      ? `Maatram ID: ${maatramId}`
+      : "";
 
   const systemPrompt = `You are the Maatram Foundation AI Assistant — a warm, helpful, and polite guide for volunteers on the Maatram Impact Hub platform.
 ${userInfo ? "\n" + userInfo : ""}

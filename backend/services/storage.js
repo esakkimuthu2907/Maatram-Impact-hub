@@ -1153,7 +1153,7 @@ const Storage = {
 
   // QR ATTENDANCE (Module 2: Cryptographic token, SHA-256 hash storage, validity window, regeneration)
   async generateEventQRToken(eventId, adminUser, validityHours = 24) {
-    const event = await this.getEventById(eventId);
+    let event = await this.getEventById(eventId);
     if (!event) throw new Error("Event not found.");
 
     // Generate a cryptographically secure random token
@@ -1185,7 +1185,7 @@ const Storage = {
   },
 
   async invalidateEventQR(eventId, adminUser) {
-    const event = await this.getEventById(eventId);
+    let event = await this.getEventById(eventId);
     if (!event) throw new Error("Event not found.");
 
     await this.updateEvent(
@@ -1210,7 +1210,7 @@ const Storage = {
       throw new Error("QR attendance token is required.");
     }
 
-    const event = await this.getEventById(eventId);
+    let event = await this.getEventById(eventId);
     if (!event) throw new Error("Event not found.");
 
     if (event.attendanceOpen === false) {
@@ -1341,7 +1341,7 @@ const Storage = {
   // MODULE 1: Email 1: Volunteer Selection Confirmation
   // API: POST /api/events/:id/confirm-selection
   async confirmEventSelection(eventId, { applicationId, studentId, userId } = {}, adminUser) {
-    const event = await this.getEventById(eventId);
+    let event = await this.getEventById(eventId);
     if (!event) throw new Error("Event not found.");
 
     const apps = await this.getApplicationsByEvent(eventId, event.title);
@@ -1454,7 +1454,7 @@ const Storage = {
   // - Never award points twice for the same attendance record
   // - Send Email 2 (Volunteer Completion Thank You) only to verified volunteers
   async closeEventAttendanceAndVerify(eventId, { defaultHours } = {}, adminUser) {
-    const event = await this.getEventById(eventId);
+    let event = await this.getEventById(eventId);
     if (!event) throw new Error("Event not found.");
 
     const eventIdStr = (event.id || event._id).toString();
@@ -1841,7 +1841,7 @@ const Storage = {
 
   // ATTENDANCE & POINTS & CERTIFICATES & AUTOMATED EMAILS
   async trackAttendanceAndAwardPoints({ eventId, attendanceRecords, adminUser }) {
-    const event = await this.getEventById(eventId);
+    let event = await this.getEventById(eventId);
     if (!event) throw new Error("Event not found");
 
     const pointsPerVolunteer = Number(event.points) || 50;
@@ -1980,7 +1980,7 @@ const Storage = {
         user = await this.findUserByEmail(app.applicantDetails.email);
       }
     }
-    const event = await this.getEventById(eventId);
+    let event = await this.getEventById(eventId);
     if (!user) {
       user = {
         fullName: "Volunteer",
@@ -3109,7 +3109,7 @@ const Storage = {
   // EVENT REMINDER BLASTS & SCHEDULED REMINDERS ENGINE
   // ══════════════════════════════════════════════════════════════
   async sendEventReminderBlast(eventId, type = "instant", adminUser) {
-    const event = await this.getEventById(eventId);
+    let event = await this.getEventById(eventId);
     if (!event) throw new Error("Event not found");
 
     const apps = await this.getApplicationsByEvent(eventId);
@@ -3196,7 +3196,7 @@ const Storage = {
     targetEmailOverride = null,
     adminUser,
   }) {
-    const event = await this.getEventById(eventId);
+    let event = await this.getEventById(eventId);
     if (!event) throw new Error("Event not found");
 
     const apps = await this.getApplicationsByEvent(eventId);
