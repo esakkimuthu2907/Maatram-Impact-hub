@@ -48,13 +48,16 @@ const getUserById = async (req, res) => {
     if (!user) return res.status(404).json({ success: false, message: "User not found." });
 
     const uId = user._id || user.id;
-    const transactions = await Storage.getPointsTransactions({ userId: uId });
+    const transactions = await Storage.getPointsTransactions({ userId: uId, applicationId: user.applicationId, name: user.fullName });
     const applications = await Storage.getMyApplications(uId, user.applicationId, user.email);
     const certificates = await Storage.getUserCertificates(uId);
     const gradingLevels = await Storage.getGradingLevels();
     const grade = Storage.calculateUserGrade(user.points || 0, gradingLevels);
 
     const { passwordHash, password, ...safeUser } = user;
+    if (safeUser.rating === undefined || safeUser.rating === null || safeUser.rating === 4.8) {
+      safeUser.rating = Storage.calculateInvolvementRating(safeUser);
+    }
     res.json({
       success: true,
       data: {
@@ -957,11 +960,109 @@ const sendEventReminders = async (req, res) => {
   }
 };
 
+// PUT /api/admin/users/:id/profile — Admin updates student achievements, certificates, points, notes
+const updateStudentProfile = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      achievements,
+      adminNotes,
+      bio,
+      skills,
+      interests,
+      fullName,
+      phone,
+      college,
+      department,
+      batch,
+      zone,
+      regNumber,
+    } = req.body;
+
+    const updateData = {};
+    if (Array.isArray(achievements)) updateData.achievements = achievements;
+    if (adminNotes !== undefined) updateData.adminNotes = adminNotes;
+    if (bio !== undefined) updateData.bio = bio;
+    if (Array.isArray(skills)) updateData.skills = skills;
+    if (Array.isArray(interests)) updateData.interests = interests;
+    if (fullName) updateData.fullName = fullName;
+    if (phone !== undefined) updateData.phone = phone;
+    if (college !== undefined) updateData.college = college;
+    if (department !== undefined) updateData.department = department;
+    if (batch !== undefined) updateData.batch = batch;
+    if (zone !== undefined) updateData.zone = zone;
+    if (regNumber !== undefined) updateData.regNumber = regNumber;
+
+    const updated = await Storage.updateUser(id, updateData);
+    if (!updated) {
+      return res.status(404).json({ success: false, message: "User not found." });
+    }
+    res.json({ success: true, data: updated, message: "Student profile updated successfully." });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+};
+
+// POST /api/admin/users/:id/certificates — Admin manually issues a certificate to a student
+const issueCertificate = async (req, res) => {
+  try {
+    const { eventTitle, verifiedHours, pointsAwarded, notes } = req.body;
+    if (!eventTitle) {
+      return res.status(400).json({ success: false, message: "Event title is required." });
+    }
+    const user = await Storage.findUserById(req.params.id);
+    if (!user) return res.status(404).json({ success: false, message: "User not found." });
+
+    const cert = await Storage.generateCertificate({
+      user,
+      userId: (user._id || user.id).toString(),
+      event: { title: eventTitle, _id: "admin_manual_" + Date.now() },
+      eventId: "admin_manual_" + Date.now(),
+      verifiedHours: Number(verifiedHours) || 4,
+      pointsAwarded: Number(pointsAwarded) || 50,
+    });
+
+    // Notify the student
+    try {
+      await Storage.createNotification({
+        userId: (user._id || user.id).toString(),
+        type: "certificate",
+        title: `Certificate Issued: ${eventTitle} 📜`,
+        message: `An official certificate for "${eventTitle}" has been issued to your profile by the administrator.`,
+        link: "/contributions",
+      });
+    } catch (_) {}
+
+    res.json({ success: true, data: cert, message: `Certificate issued for "${eventTitle}"!` });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+};
+
+// PATCH /api/admin/users/:id/rating — Admin updates the volunteer rating based on involvement
+const updateStudentRating = async (req, res) => {
+  try {
+    const { rating } = req.body;
+    if (rating === undefined || isNaN(Number(rating))) {
+      return res.status(400).json({ success: false, message: "Rating (0-5) is required." });
+    }
+    const clampedRating = Math.min(5, Math.max(0, Number(rating)));
+    const updated = await Storage.updateUser(req.params.id, { rating: clampedRating });
+    if (!updated) return res.status(404).json({ success: false, message: "User not found." });
+    res.json({ success: true, data: updated, message: `Rating updated to ${clampedRating} ★` });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+};
+
 module.exports = {
   getStats,
   getUsers,
   getUserById,
   updateUser,
+  updateStudentProfile,
+  issueCertificate,
+  updateStudentRating,
   toggleUserStatus,
   approveUser,
   deleteUser,

@@ -24,6 +24,7 @@ import {
   TrendingUp,
   FileSpreadsheet,
   Bot,
+  Calendar,
 } from "lucide-react";
 import MaatramLogo from "../common/MaatramLogo";
 import { useApp } from "../../context/AppContext";
@@ -66,6 +67,12 @@ export default function Sidebar({ collapsed, onToggleCollapse, isMobile, onClose
       icon: TrendingUp,
     },
     {
+      title: "Meetings & Availability",
+      path: "/admin/meetings",
+      icon: Calendar,
+      badge: "LIVE",
+    },
+    {
       title: "AI Learning Hub",
       path: "/admin/learning",
       icon: Sparkles,
@@ -106,6 +113,12 @@ export default function Sidebar({ collapsed, onToggleCollapse, isMobile, onClose
       title: "Maatram Connect",
       path: "/connect",
       icon: Users,
+    },
+    {
+      title: "Meetings & Availability",
+      path: "/meetings",
+      icon: Calendar,
+      badge: "NEW",
     },
     {
       title: "Leaderboard",
@@ -157,6 +170,12 @@ export default function Sidebar({ collapsed, onToggleCollapse, isMobile, onClose
       title: "Maatram Connect",
       path: "/connect",
       icon: Users,
+    },
+    {
+      title: "Meetings & Availability",
+      path: "/meetings",
+      icon: Calendar,
+      badge: "NEW",
     },
     {
       title: "Leaderboard",

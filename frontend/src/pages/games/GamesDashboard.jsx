@@ -103,10 +103,6 @@ export default function GamesDashboard() {
             <span>Maatram Daily Games</span>
             <span style={{ fontSize: 24 }}>✨</span>
           </h1>
-          <p>
-            Welcome, <strong>{user?.name || "Leader"}</strong>! Sharpen your logical thinking,
-            connect dots in ZIP, solve daily anagrams in WEND, and maintain your streak!
-          </p>
           <div style={{ marginTop: 12, fontSize: 13, color: "#ffd629", fontWeight: 700 }}>
             📅 Today: {todayFormatted} • Challenge #{puzzleNo}
           </div>
@@ -146,23 +142,21 @@ export default function GamesDashboard() {
           {(streak.weekNodes && streak.weekNodes.length > 0
             ? streak.weekNodes
             : [
-                { dayLetter: "W", completed: streak.currentStreak >= 1 },
-                { dayLetter: "T", completed: streak.currentStreak >= 2 },
-                { dayLetter: "F", completed: streak.currentStreak >= 3 },
-                { dayLetter: "S", completed: streak.currentStreak >= 4 },
-                { dayLetter: "S", completed: streak.currentStreak >= 5 },
-                { dayLetter: "M", completed: streak.currentStreak >= 6 },
-                { dayLetter: "T", completed: streak.currentStreak >= 7, isGift: true },
-              ]
+              { dayLetter: "W", completed: streak.currentStreak >= 1 },
+              { dayLetter: "T", completed: streak.currentStreak >= 2 },
+              { dayLetter: "F", completed: streak.currentStreak >= 3 },
+              { dayLetter: "S", completed: streak.currentStreak >= 4 },
+              { dayLetter: "S", completed: streak.currentStreak >= 5 },
+              { dayLetter: "M", completed: streak.currentStreak >= 6 },
+              { dayLetter: "T", completed: streak.currentStreak >= 7, isGift: true },
+            ]
           ).map((node, idx) => (
             <div key={idx} className="week-node-col">
               <span className="week-node-day">{node.dayLetter}</span>
               <div
-                className={`week-node-circle ${
-                  node.completed ? "completed" : ""
-                } ${node.isGift || idx === 6 ? "gift-node" : ""} ${
-                  node.completed && (node.isGift || idx === 6) ? "unlocked" : ""
-                }`}
+                className={`week-node-circle ${node.completed ? "completed" : ""
+                  } ${node.isGift || idx === 6 ? "gift-node" : ""} ${node.completed && (node.isGift || idx === 6) ? "unlocked" : ""
+                  }`}
               >
                 {node.isGift || idx === 6 ? (
                   "🎁"
@@ -265,9 +259,8 @@ export default function GamesDashboard() {
         {/* ZIP GAME CARD (Screenshot 2 Inspiration) */}
         <div className="game-card">
           <div
-            className={`game-card-badge ${
-              userProg.zipDone ? "badge-completed" : "badge-pending"
-            }`}
+            className={`game-card-badge ${userProg.zipDone ? "badge-completed" : "badge-pending"
+              }`}
           >
             {userProg.zipDone ? "Completed ✓" : "Ready to Play"}
           </div>
@@ -312,9 +305,8 @@ export default function GamesDashboard() {
         {/* WEND GAME CARD (Screenshot 3 Inspiration) */}
         <div className="game-card">
           <div
-            className={`game-card-badge ${
-              userProg.wendDone ? "badge-completed" : "badge-pending"
-            }`}
+            className={`game-card-badge ${userProg.wendDone ? "badge-completed" : "badge-pending"
+              }`}
           >
             {userProg.wendDone ? "Completed ✓" : "Ready to Play"}
           </div>

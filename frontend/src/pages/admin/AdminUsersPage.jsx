@@ -90,8 +90,9 @@ export default function AdminUsersPage() {
             ? res
             : [];
 
-      // Filter student/volunteer users
-      const students = raw
+      // Filter student/volunteer users and deduplicate by _id
+      const unique = [...new Map(raw.map((u) => [u._id || u.id || u.email, u])).values()];
+      const students = unique
         .filter((u) => u && (u.role === "student" || u.role === "volunteer" || !u.role))
         .map((u) => ({
           ...u,
@@ -100,7 +101,7 @@ export default function AdminUsersPage() {
           department: u.department || "CSE",
           college: u.college || "Maatram Institute of Technology",
           rollNumber: u.regNumber || u.rollNumber || u.applicationId || "MA2022001",
-          rating: u.rating || 4.8,
+          rating: u.rating !== undefined ? u.rating : 0,
           points: Number(u.points) || 0,
           totalHours: Number(u.totalHours) || 0,
           eventsJoined: Number(u.eventsJoined) || Number(u.completedEventsCount) || 0,

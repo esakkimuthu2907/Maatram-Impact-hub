@@ -370,7 +370,7 @@ function buildSelectionEmailHtml({ studentName, eventName, eventDate, eventTime,
   `.trim();
 }
 
-function buildCompletionEmailHtml({ studentName, eventName, verifiedHours, pointsEarned }) {
+function buildCompletionEmailHtml({ studentName, eventName, verifiedHours, pointsEarned, certificateId, certificateUrl }) {
   return `
 <!DOCTYPE html>
 <html>
@@ -415,13 +415,21 @@ function buildCompletionEmailHtml({ studentName, eventName, verifiedHours, point
           <span class="metric-label">Points Earned:</span>
           <span class="metric-value">+${pointsEarned} Points</span>
         </div>
+        ${certificateId ? `
+        <div class="metric-item">
+          <span class="metric-label">Official Certificate:</span>
+          <span class="metric-value" style="color:#047857;font-family:monospace;">${escapeHtml(certificateId)}</span>
+        </div>` : ""}
       </div>
       
-      <p>Your contribution makes a difference.</p>
-      <p>Check your updated profile and leaderboard.</p>
+      <p>Your contribution makes a significant difference in empowering deserving youth.</p>
+      <p>Your official volunteering certificate has been issued and credited to your student dashboard!</p>
       
       <div style="text-align: center; margin: 24px 0;">
-        <a href="${FRONTEND_URL}/leaderboard" class="cta-btn">View Updated Leaderboard</a>
+        ${certificateId ? `
+        <a href="${certificateUrl || (FRONTEND_URL + '/contributions')}" class="cta-btn" style="background:#16a34a;margin-right:10px;">📜 View Certificate</a>
+        ` : ""}
+        <a href="${FRONTEND_URL}/leaderboard" class="cta-btn">View Leaderboard</a>
       </div>
       
       <p style="margin-top: 28px;">
@@ -615,7 +623,7 @@ Maatram Foundation`;
    * Trigger: When the administrator closes attendance and verifies completion.
    * API: PATCH /api/events/:id/attendance/close
    */
-  async sendVolunteerCompletionEmail({ user, event, verifiedHours, pointsEarned }) {
+  async sendVolunteerCompletionEmail({ user, event, verifiedHours, pointsEarned, certificateId, certificateUrl }) {
     const studentName = user.fullName || user.name || "Volunteer";
     const eventName = event.title || "Volunteering Event";
     const hours = verifiedHours !== undefined ? Number(verifiedHours) : (Number(event.durationHours) || 4);
@@ -632,6 +640,7 @@ Thank you for participating in the event!
 Event: ${eventName}
 Verified Volunteer Hours: ${hours}
 Points Earned: ${points}
+${certificateId ? `Certificate ID: ${certificateId}\nView Certificate: ${certificateUrl || `${FRONTEND_URL}/contributions`}` : ""}
 
 Your contribution makes a difference.
 
@@ -645,6 +654,8 @@ Maatram Foundation`;
       eventName,
       verifiedHours: hours,
       pointsEarned: points,
+      certificateId,
+      certificateUrl,
     });
 
     return dispatchEmail({

@@ -63,7 +63,7 @@ export default function AppLayout({ children }) {
           </ErrorBoundary>
         </main>
 
-        {/* Mobile Bottom Navigation matching app reference */}
+        {/* Mobile Bottom Navigation */}
         <MobileNav />
       </div>
 

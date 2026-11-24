@@ -1,11 +1,14 @@
 // backend/controllers/eventController.js
 const Storage = require("../services/storage");
+const aiSelectionService = require("../services/aiSelectionService");
 
 // GET /api/events
 const getEvents = async (req, res) => {
   try {
-    const { category, mode, search, status } = req.query;
-    const events = await Storage.getEvents({ category, mode, search, status });
+    const { category, mode, search, status, zone, role } = req.query;
+    const userRole = role || req.user?.role;
+    const userZone = zone || req.user?.zone;
+    const events = await Storage.getEvents({ category, mode, search, status, zone: userZone, role: userRole });
     res.json({ success: true, data: events });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -79,8 +82,8 @@ const deleteEvent = async (req, res) => {
 // POST /api/events/:id/qr-token (Admin only - generate QR)
 const generateQRToken = async (req, res) => {
   try {
-    const { validityHours } = req.body;
-    const qrResult = await Storage.generateEventQRToken(req.params.id, req.user, validityHours);
+    const { validityHours, force } = req.body;
+    const qrResult = await Storage.generateEventQRToken(req.params.id, req.user, validityHours, Boolean(force));
     res.json({ success: true, data: qrResult, message: "Event QR Code generated successfully!" });
   } catch (err) {
     res.status(400).json({ success: false, message: err.message });
@@ -158,6 +161,35 @@ const checkInViaQR = async (req, res) => {
   }
 };
 
+// POST /api/events/:id/session/lock (Volunteer or timer locks session)
+const lockSession = async (req, res) => {
+  try {
+    const { lockMethod, hours } = req.body;
+    const result = await Storage.lockVolunteerSession({
+      eventId: req.params.id,
+      userId: req.user._id || req.user.id,
+      lockMethod: lockMethod || "MANUAL",
+      hours,
+    });
+    res.json({ success: true, ...result });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+};
+
+// GET /api/events/:id/session/my (Get student's active volunteering session)
+const getMySession = async (req, res) => {
+  try {
+    const result = await Storage.getVolunteerSession({
+      eventId: req.params.id,
+      userId: req.user._id || req.user.id,
+    });
+    res.json({ success: true, ...result });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+};
+
 // GET /api/events/:id/attendance (Admin & Volunteers view roster)
 const getAttendance = async (req, res) => {
   try {
@@ -182,6 +214,64 @@ const sendReminder = async (req, res) => {
   }
 };
 
+// GET /api/events/:id/ai-recommendations
+const getAIRecommendations = async (req, res) => {
+  try {
+    const { volunteersNeeded } = req.query;
+    const recommendations = await aiSelectionService.getEventRecommendations(req.params.id, {
+      volunteersNeededOverride: volunteersNeeded,
+    });
+    res.json({ success: true, data: recommendations });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// POST /api/events/:id/apply-selection
+const applyAISelection = async (req, res) => {
+  try {
+    const { selectedApplicationIds, sendEmail } = req.body;
+    const result = await aiSelectionService.applySelection(
+      req.params.id,
+      { selectedApplicationIds, sendEmail },
+      req.user
+    );
+    res.json({ success: true, data: result, message: result.message });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+};
+
+// POST /api/events/:id/feedback
+const submitEventFeedback = async (req, res) => {
+  try {
+    const result = await Storage.submitEventFeedback(req.params.id, req.body, req.user);
+    res.json({ success: true, ...result });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+};
+
+// GET /api/events/:id/feedback/my
+const getMyEventFeedback = async (req, res) => {
+  try {
+    const result = await Storage.getMyEventFeedback(req.params.id, req.user);
+    res.json({ success: true, data: result });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// GET /api/events/:id/feedbacks (Admin only)
+const getEventFeedbacks = async (req, res) => {
+  try {
+    const result = await Storage.getEventFeedbacks(req.params.id);
+    res.json({ success: true, data: result });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
 module.exports = {
   getEvents,
   getEventById,
@@ -197,4 +287,11 @@ module.exports = {
   checkInViaQR,
   getAttendance,
   sendReminder,
+  getAIRecommendations,
+  applyAISelection,
+  submitEventFeedback,
+  getMyEventFeedback,
+  getEventFeedbacks,
+  lockSession,
+  getMySession,
 };

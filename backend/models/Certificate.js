@@ -25,6 +25,9 @@ const certificateSchema = new mongoose.Schema(
     verificationUrl:  { type: String, default: "" },
     linkedInPost:     { type: String, default: "" },
     status:           { type: String, enum: ["Issued", "Revoked"], default: "Issued" },
+    unlocked:         { type: Boolean, default: false },
+    feedbackSubmitted:{ type: Boolean, default: false },
+    feedbackId:       { type: String, default: "" },
   },
   { timestamps: true }
 );

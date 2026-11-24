@@ -1,23 +1,18 @@
-/* Maatram — volunteering opportunities (green + white, yellow accent) */
+/* Maatram — volunteering opportunities (white + yellow, slight black) */
 .page {
-  --green: #1fb35a;
-  /* your green */
-  --green-text: #0e7a3b;
-  /* darker shade for small text on white */
-  --green-dark: #0b5a2c;
-  --green-mid: #1fb35a;
-  --green-soft: #e8f9ef;
-  --yellow: #facc15;
-  --yellow-dark: #ca8a04;
-  --yellow-soft: #fef9c3;
-  --ink: #12281b;
-  --muted: #4b6355;
-  --line: #d6eadc;
+  --yellow: #ffce1b;
+  --yellow-dark: #f2bd00;
+  --yellow-soft: #fff8dc;
+  --black: #111111;
+  --ink: #1c1c1c;
+  --muted: #4a4a4a;
+  --line: #ece7d3;
 
   min-height: 100vh;
+  width: 100%;
   display: flex;
   flex-direction: column;
-  background: #f7fbf8;
+  background: #ffffff;
   color: var(--ink);
   font-family: "Inter", "Segoe UI", Arial, sans-serif;
 }
@@ -41,9 +36,9 @@
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 14px 6%;
-  background: #fff;
-  border-bottom: 3px solid var(--yellow);
+  padding: 14px 3%;
+  background: #ffffff;
+  border-bottom: 4px solid var(--yellow);
 }
 
 .brand {
@@ -57,24 +52,6 @@
   width: auto;
   display: block;
   object-fit: contain;
-}
-
-.brandText {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.15;
-}
-
-.brandText strong {
-  font-size: 19px;
-  color: var(--green-dark);
-}
-
-.brandText small {
-  font-size: 11px;
-  color: var(--muted);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 
 .topActions {
@@ -101,152 +78,96 @@
 
 .btnSolid {
   padding: 11px 20px;
-  background: var(--green);
-  color: #fff;
-  box-shadow: 0 6px 16px rgba(21, 128, 61, 0.28);
+  background: var(--yellow);
+  color: var(--black);
+  border-color: var(--yellow);
+  box-shadow: 0 6px 16px rgba(255, 206, 27, 0.4);
 }
 
 .btnSolid:hover {
-  background: var(--green-dark);
+  background: var(--black);
+  border-color: var(--black);
+  color: var(--yellow);
   transform: translateY(-2px);
 }
 
 .btnGhost {
   padding: 10px 16px;
-  background: #fff;
-  color: var(--green-text);
-  border-color: var(--green);
+  background: #ffffff;
+  color: var(--black);
+  border-color: var(--black);
 }
 
 .btnGhost:hover {
-  background: var(--green-soft);
+  background: var(--black);
+  color: var(--yellow);
 }
 
-/* ===== hero banner ===== */
+/* ===== hero banner (full width) ===== */
 .hero {
-  background: linear-gradient(120deg, var(--green-dark), var(--green) 70%);
-  color: #fff;
-  padding: 22px 6% 24px;
+  width: 100%;
+  background: var(--yellow);
+  color: var(--black);
+  padding: 18px 3% 20px;
   position: relative;
   overflow: hidden;
 }
 
 .heroInner {
   position: relative;
-  max-width: 1400px;
-  margin: 0 auto;
+  width: 100%;
 }
 
 .hero h1 {
-  font-size: clamp(24px, 3vw, 34px);
+  font-size: clamp(24px, 2.6vw, 32px);
   font-weight: 800;
   letter-spacing: -0.02em;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 
 .hero p {
-  max-width: 620px;
-  font-size: 15px;
-  line-height: 1.6;
-  color: #e3f6ea;
+  width: 100%;
+  max-width: none;
+  font-size: 16px;
+  line-height: 1.7;
+  color: #2b2b2b;
+  text-align: left;
 }
 
-/* ===== main ===== */
+/* ===== main (uses the full width) ===== */
 .main {
   flex: 1;
   width: 100%;
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 32px 6% 64px;
-}
-
-.toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-  margin-bottom: 26px;
-}
-
-.chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 9px 16px;
-  border-radius: 999px;
-  background: #fff;
-  color: var(--green-dark);
-  border: 1.5px solid var(--line);
-  font-family: inherit;
-  font-size: 14px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.18s ease;
-}
-
-.chip:hover {
-  border-color: var(--green);
-  background: var(--green-soft);
-}
-
-.chipActive,
-.chipActive:hover {
-  background: var(--green);
-  color: #fff;
-  border-color: var(--green);
-}
-
-.chipCount {
-  min-width: 24px;
-  padding: 1px 7px;
-  border-radius: 999px;
-  text-align: center;
-  background: var(--yellow-soft);
-  color: var(--green-dark);
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.chipActive .chipCount {
-  background: var(--yellow);
-}
-
-.count {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--muted);
+  padding: 32px 3% 64px;
+  background: #fffdf4;
 }
 
 /* ===== cards ===== */
 .grid {
+  width: 100%;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
-  gap: 22px;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 24px;
+  align-items: stretch;
 }
 
 .card {
   display: flex;
   flex-direction: column;
-  padding: 24px 24px 22px;
-  background: #fff;
+  height: 100%;
+  padding: 26px 26px 24px;
+  background: #ffffff;
   border: 1px solid var(--line);
-  border-top: 5px solid var(--green);
+  border-top: 6px solid var(--yellow);
   border-radius: 18px;
-  box-shadow: 0 4px 14px rgba(20, 83, 45, 0.07);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
   transition: transform 0.2s ease, box-shadow 0.2s ease, border-top-color 0.2s ease;
 }
 
 .card:hover {
   transform: translateY(-5px);
-  border-top-color: var(--yellow);
-  box-shadow: 0 16px 32px rgba(20, 83, 45, 0.15);
+  border-top-color: var(--yellow-dark);
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.14);
 }
 
 .cardTop {
@@ -261,7 +182,7 @@
   padding: 4px 12px;
   border-radius: 999px;
   background: var(--yellow);
-  color: var(--green-dark);
+  color: var(--black);
   font-size: 13px;
   font-weight: 800;
   letter-spacing: 0.05em;
@@ -270,8 +191,9 @@
 .cardTag {
   padding: 4px 10px;
   border-radius: 8px;
-  background: var(--green-soft);
-  color: var(--green-text);
+  background: #1fb35a;
+  color: #ffffff;
+  border: 1px solid #1fb35a;
   font-size: 12px;
   font-weight: 700;
   text-align: right;
@@ -281,15 +203,18 @@
   font-size: 20px;
   font-weight: 800;
   line-height: 1.3;
-  color: var(--green-dark);
+  color: var(--black);
   margin-bottom: 10px;
 }
 
 .card p {
   flex: 1;
   font-size: 15px;
-  line-height: 1.7;
+  line-height: 1.75;
   color: var(--muted);
+  text-align: justify;
+  text-justify: inter-word;
+  hyphens: auto;
 }
 
 .cardLink {
@@ -299,15 +224,14 @@
   align-items: center;
   gap: 8px;
   padding: 10px 18px;
-  border: none;
+  border: 2px solid var(--yellow);
   border-radius: 999px;
-  background: var(--green);
-  color: #fff;
+  background: var(--yellow);
+  color: var(--black);
   font-family: inherit;
   font-size: 14px;
   font-weight: 800;
   cursor: pointer;
-  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.18);
   transition: all 0.18s ease;
 }
 
@@ -315,9 +239,12 @@
   transition: transform 0.2s;
 }
 
-.cardLink:hover {
-  background: var(--yellow);
-  color: var(--green-dark);
+.cardLink:hover,
+.cardLink:active,
+.cardLink:focus-visible {
+  background: var(--black);
+  border-color: var(--black);
+  color: var(--yellow);
 }
 
 .card:hover .cardLink svg {
@@ -326,15 +253,16 @@
 
 /* ===== footer ===== */
 .footer {
-  padding: 18px 6%;
+  width: 100%;
+  padding: 18px 3%;
   text-align: center;
-  background: var(--green-dark);
-  color: #cfe9d9;
+  background: var(--black);
+  color: var(--yellow);
   font-size: 13px;
+  font-weight: 600;
 }
 
 /* ===== keyboard focus ===== */
-.chip:focus-visible,
 .btnSolid:focus-visible,
 .btnGhost:focus-visible,
 .cardLink:focus-visible {
@@ -348,10 +276,6 @@
     padding: 12px 5%;
   }
 
-  .brandText small {
-    display: none;
-  }
-
   .btnGhost {
     display: none;
   }
@@ -362,7 +286,7 @@
   }
 
   .hero {
-    padding: 18px 5% 20px;
+    padding: 14px 5% 16px;
   }
 
   .logoImg {
@@ -373,18 +297,165 @@
     padding: 24px 5% 48px;
   }
 
-  .chips {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    padding-bottom: 6px;
-    width: 100%;
-  }
-
-  .chip {
-    flex-shrink: 0;
-  }
-
   .grid {
     grid-template-columns: 1fr;
+  }
+}
+
+/* =========================================
+   SMOOTH TRANSITIONS
+========================================= */
+
+:global(html) {
+  scroll-behavior: smooth;
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeDown {
+  from {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+/* page sections ease in one after another */
+.topbar {
+  animation: fadeDown 0.5s ease both;
+}
+
+.hero h1 {
+  animation: fadeUp 0.6s 0.1s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.hero p {
+  animation: fadeUp 0.6s 0.2s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.footer {
+  animation: fadeIn 0.8s 0.4s ease both;
+}
+
+/* cards rise in with a gentle stagger */
+.card {
+  animation: fadeUp 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+  transition:
+    transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.35s ease,
+    border-top-color 0.3s ease;
+}
+
+.card:nth-child(1) {
+  animation-delay: 0.10s;
+}
+
+.card:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.card:nth-child(3) {
+  animation-delay: 0.20s;
+}
+
+.card:nth-child(4) {
+  animation-delay: 0.25s;
+}
+
+.card:nth-child(5) {
+  animation-delay: 0.30s;
+}
+
+.card:nth-child(6) {
+  animation-delay: 0.35s;
+}
+
+.card:nth-child(7) {
+  animation-delay: 0.40s;
+}
+
+.card:nth-child(8) {
+  animation-delay: 0.45s;
+}
+
+.card:nth-child(n + 9) {
+  animation-delay: 0.50s;
+}
+
+/* smoother buttons */
+.btnSolid,
+.btnGhost,
+.cardLink {
+  transition:
+    background-color 0.3s ease,
+    color 0.3s ease,
+    border-color 0.3s ease,
+    transform 0.3s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.3s ease;
+}
+
+.cardLink:hover {
+  transform: translateY(-2px);
+}
+
+.cardLink:active,
+.btnSolid:active {
+  transform: scale(0.97);
+}
+
+.cardLink svg,
+.btnSolid svg {
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.btnSolid:hover svg {
+  transform: translateX(4px);
+}
+
+/* respect people who prefer less motion */
+@media (prefers-reduced-motion: reduce) {
+  :global(html) {
+    scroll-behavior: auto;
+  }
+
+  .topbar,
+  .hero h1,
+  .hero p,
+  .footer,
+  .card {
+    animation: none;
+  }
+
+  .card,
+  .btnSolid,
+  .btnGhost,
+  .cardLink,
+  .cardLink svg,
+  .btnSolid svg {
+    transition: none;
   }
 }

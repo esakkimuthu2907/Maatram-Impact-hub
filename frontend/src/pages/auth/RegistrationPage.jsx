@@ -10,6 +10,7 @@ import {
   EyeOff,
   Sparkles,
   GraduationCap,
+  Zap,
 } from "lucide-react";
 
 import authService from "../../services/authService";
@@ -29,6 +30,8 @@ const districts = [
   "Vellore", "Viluppuram", "Virudhunagar",
 ];
 
+const bloodGroups = ["A+", "A-", "B+", "B-", "O+", "O-", "AB+", "AB-"];
+
 const initialForm = {
   role: "student",
   fullName: "",
@@ -36,6 +39,8 @@ const initialForm = {
   phone: "",
   dob: "",
   gender: "",
+  bloodGroup: "",
+  pincode: "",
   college: "",
   residence: "Day Scholar", // "Day Scholar" or "Hostel"
   zone: "Zone 1",
@@ -51,6 +56,28 @@ const initialForm = {
   studentPassword: "",
   confirmPassword: "",
   agreeTerms: false,
+};
+
+// ⚡ FAST FILL DATA - click the "Fast Fill" button to fill the form with this
+// NOTE: Maatram ID was not given, so type it yourself (or put it below).
+const fastFillData = {
+  role: "student",
+  fullName: "Esakkimuthu S",
+  email: "esakkimuthu2907@gmail.com",
+  phone: "7904577032",
+  dob: "2005-07-29", // date input needs YYYY-MM-DD
+  gender: "Male",
+  bloodGroup: "B+",
+  pincode: "600066",
+  college: "Velammal Engineering College, Chennai",
+  residence: "Hostel",
+  zone: "Zone 1",
+  district: "Tiruvallur",
+  department: "Mechanical Engineering",
+  regNumber: "", // <- add your Maatram ID here if you want it auto-filled
+  studentPassword: "Esakki@123",
+  confirmPassword: "Esakki@123",
+  agreeTerms: true,
 };
 
 export default function RegistrationPage() {
@@ -69,6 +96,13 @@ export default function RegistrationPage() {
   const goToLogin = (event) => {
     event.preventDefault();
     flipTo("/login", "back");
+  };
+
+  // FAST FILL
+  const handleFastFill = () => {
+    setFormData((previous) => ({ ...previous, ...fastFillData }));
+    setErrors({});
+    setApiError("");
   };
 
   // PASSWORD STRENGTH
@@ -94,14 +128,18 @@ export default function RegistrationPage() {
   const handleChange = (event) => {
     const { name, value, type, checked } = event.target;
 
+    let nextValue = value;
+    if (type === "checkbox") {
+      nextValue = checked;
+    } else if (name === "phone") {
+      nextValue = value.replace(/\D/g, "").slice(0, 10);
+    } else if (name === "pincode") {
+      nextValue = value.replace(/\D/g, "").slice(0, 6);
+    }
+
     setFormData((previous) => ({
       ...previous,
-      [name]:
-        type === "checkbox"
-          ? checked
-          : name === "phone"
-            ? value.replace(/\D/g, "").slice(0, 10)
-            : value,
+      [name]: nextValue,
     }));
 
     setErrors((previous) => ({ ...previous, [name]: "" }));
@@ -136,6 +174,14 @@ export default function RegistrationPage() {
       nextErrors.gender = "Please select your gender.";
     }
 
+    if (!formData.bloodGroup) {
+      nextErrors.bloodGroup = "Please select your blood group.";
+    }
+
+    if (!/^\d{6}$/.test(formData.pincode)) {
+      nextErrors.pincode = "Enter a valid 6-digit pincode.";
+    }
+
     if (!formData.college.trim()) {
       nextErrors.college = "Please enter your college name.";
     }
@@ -149,7 +195,7 @@ export default function RegistrationPage() {
         nextErrors.department = "Please enter your department.";
       }
       if (!formData.regNumber.trim()) {
-        nextErrors.regNumber = "Enter your student registration / roll number.";
+        nextErrors.regNumber = "Enter your Maatram ID No.";
       }
     } else {
       if (!formData.organization.trim()) {
@@ -202,6 +248,8 @@ export default function RegistrationPage() {
         phone: formData.phone,
         dob: formData.dob,
         gender: formData.gender,
+        bloodGroup: formData.bloodGroup,
+        pincode: formData.pincode,
         college: formData.college,
         residence: formData.residence,
         zone: formData.zone,
@@ -406,6 +454,17 @@ export default function RegistrationPage() {
                     </button>
                   </div>
 
+                  {/* FILL DETAILS */}
+                  <div className="register-quick-fill">
+                    <button
+                      type="button"
+                      className="register-quick-fill-btn"
+                      onClick={handleFastFill}
+                    >
+                      <Zap size={14} /> Fill Details
+                    </button>
+                  </div>
+
                   {/* API ERROR */}
                   {apiError && (
                     <div className="register-alert register-alert-error" role="alert">
@@ -520,6 +579,50 @@ export default function RegistrationPage() {
                       {errors.gender && (
                         <small className="register-field-error">{errors.gender}</small>
                       )}
+                    </div>
+
+                    {/* BLOOD GROUP & PINCODE */}
+                    <div className="register-field-grid">
+                      <div className="register-field">
+                        <label htmlFor="bloodGroup">Blood Group</label>
+                        <select
+                          id="bloodGroup"
+                          name="bloodGroup"
+                          value={formData.bloodGroup}
+                          onChange={handleChange}
+                          aria-invalid={Boolean(errors.bloodGroup)}
+                        >
+                          <option value="">Select blood group</option>
+                          {bloodGroups.map((group) => (
+                            <option key={group} value={group}>
+                              {group}
+                            </option>
+                          ))}
+                        </select>
+                        {errors.bloodGroup && (
+                          <small className="register-field-error">
+                            {errors.bloodGroup}
+                          </small>
+                        )}
+                      </div>
+
+                      <div className="register-field">
+                        <label htmlFor="pincode">Pincode</label>
+                        <input
+                          id="pincode"
+                          name="pincode"
+                          type="text"
+                          inputMode="numeric"
+                          placeholder="6-digit pincode"
+                          maxLength={6}
+                          value={formData.pincode}
+                          onChange={handleChange}
+                          aria-invalid={Boolean(errors.pincode)}
+                        />
+                        {errors.pincode && (
+                          <small className="register-field-error">{errors.pincode}</small>
+                        )}
+                      </div>
                     </div>
 
                     {/* SECTION 02: ACADEMIC / PROFESSIONAL */}
@@ -726,12 +829,12 @@ export default function RegistrationPage() {
                           </div>
 
                           <div className="register-field">
-                            <label htmlFor="regNumber">Student Roll / Reg Number</label>
+                            <label htmlFor="regNumber">Maatram ID No</label>
                             <input
                               id="regNumber"
                               name="regNumber"
                               type="text"
-                              placeholder="e.g. Maatram ID"
+                              placeholder="e.g. MAA001"
                               value={formData.regNumber}
                               onChange={handleChange}
                               aria-invalid={Boolean(errors.regNumber)}

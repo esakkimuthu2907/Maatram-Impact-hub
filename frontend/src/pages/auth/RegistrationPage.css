@@ -11,7 +11,7 @@
   --reg-red-hover: #c41439;
   --reg-red-dark: #a90f2c;
   --reg-red-light: #fff1f3;
-  --reg-yellow: #ffce1b;
+  --reg-yellow: #FFCE1B;
   --reg-yellow-dark: #f2bd00;
   --reg-on-yellow: #172033;
   --reg-ink: #0f172a;
@@ -954,4 +954,55 @@
 /* Gender: Male / Female / Other in one straight line */
 .residence-options.gender-options {
   grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+/* =========================================
+   FILL DETAILS BUTTON (registration)
+========================================= */
+
+.register-form-panel {
+  position: relative;
+}
+
+/* pinned to the top-right corner of the form panel */
+.register-quick-fill {
+  position: absolute;
+  top: 22px;
+  right: 24px;
+  z-index: 5;
+  margin: 0;
+  display: flex;
+  justify-content: flex-end;
+}
+
+@media (max-width: 680px) {
+  .register-quick-fill {
+    top: 14px;
+    right: 14px;
+  }
+
+  .register-form-panel {
+    padding-top: 56px;
+  }
+}
+
+.register-quick-fill-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: 1.5px solid var(--reg-yellow);
+  border-radius: 8px;
+  background: var(--reg-yellow);
+  color: var(--reg-on-yellow);
+  font-size: 12.5px;
+  font-weight: 700;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.register-quick-fill-btn:hover {
+  transform: translateY(-1px);
+  background: var(--reg-yellow-dark);
+  border-color: var(--reg-yellow-dark);
+  box-shadow: 0 4px 12px rgba(255, 206, 27, 0.4);
 }

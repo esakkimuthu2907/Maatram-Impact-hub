@@ -43,6 +43,11 @@ export default function QRAttendanceModal({
   const [cameraError, setCameraError] = useState("");
   const [checkInSuccess, setCheckInSuccess] = useState(false);
   const [checkInMessage, setCheckInMessage] = useState("");
+  const [sessionData, setSessionData] = useState(null);
+  const [sessionLocked, setSessionLocked] = useState(false);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [lockingSession, setLockingSession] = useState(false);
+
   const [attendanceRoster, setAttendanceRoster] = useState([]);
   const [loadingRoster, setLoadingRoster] = useState(false);
   const [verifying, setVerifying] = useState(false);
@@ -54,7 +59,7 @@ export default function QRAttendanceModal({
   const eventId = event?.id || event?._id;
   const scannerRef = useRef(null);
 
-  // Load roster when modal opens
+  // Load roster & student's active session when modal opens
   const loadRoster = async () => {
     if (!eventId) return;
     try {
@@ -68,6 +73,25 @@ export default function QRAttendanceModal({
     } finally {
       setLoadingRoster(false);
     }
+
+    // Check student session
+    if (!isAdmin) {
+      try {
+        const sRes = await eventsAPI.getMySession(eventId);
+        if (sRes?.data?.hasSession && sRes?.data?.session) {
+          const s = sRes.data.session;
+          setSessionData(s);
+          setCheckInSuccess(true);
+          const isLocked = s.sessionStatus === "Locked" || s.status === "Present";
+          setSessionLocked(isLocked);
+          if (s.checkInTime) {
+            const startMs = new Date(s.checkInTime).getTime();
+            const endMs = isLocked && s.checkOutTime ? new Date(s.checkOutTime).getTime() : Date.now();
+            setElapsedSeconds(Math.max(0, Math.floor((endMs - startMs) / 1000)));
+          }
+        }
+      } catch (_) {}
+    }
   };
 
   useEffect(() => {
@@ -77,6 +101,31 @@ export default function QRAttendanceModal({
       loadRoster();
     }
   }, [isOpen, eventId]);
+
+  // Live timer tick for active volunteering session
+  useEffect(() => {
+    if (!checkInSuccess || sessionLocked) return;
+
+    const interval = setInterval(() => {
+      const startTime = sessionData?.checkInTime ? new Date(sessionData.checkInTime).getTime() : Date.now();
+      const now = Date.now();
+      const diffSec = Math.max(0, Math.floor((now - startTime) / 1000));
+      setElapsedSeconds(diffSec);
+
+      // Check if scheduled meet end time has arrived — automatically lock timer on meet end
+      if (sessionData?.scheduledEndTime || (event?.time && event.time.includes("-"))) {
+        const timeStr = sessionData?.scheduledEndTime || event.time.split("-")[1].trim();
+        // Parse time like "1:30 PM" or "13:30"
+        const dStr = event?.date || new Date().toISOString().split("T")[0];
+        const endDateTime = new Date(`${dStr} ${timeStr}`);
+        if (!isNaN(endDateTime.getTime()) && now >= endDateTime.getTime()) {
+          handleLockSession("MEET_END_TIMER");
+        }
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [checkInSuccess, sessionLocked, sessionData, event]);
 
   // Clean up camera scanner on unmount or modal close
   useEffect(() => {
@@ -159,17 +208,48 @@ export default function QRAttendanceModal({
 
   if (!isOpen || !event) return null;
 
-  // Admin: Generate fresh QR Code with cryptographically secure random token & SHA-256 hash
-  const handleRegenerateQR = async () => {
+  // Admin: Generate fresh QR Code only if problem with current one ("one event one qr generate if any problem only use another qr for the same ok")
+  const handleRegenerateQR = async (force = true) => {
     try {
-      const res = await eventsAPI.generateQRToken(eventId, 24);
+      const res = await eventsAPI.generateQRToken(eventId, 24, force);
       if (res && res.data) {
-        setQrToken(res.data.qrCodeToken);
+        const d = res.data.data || res.data;
+        setQrToken(d.qrCodeToken);
         setAttendanceOpen(true);
-        showToast?.("Generated fresh event QR code (SHA-256 protected, 24h validity)!");
+        if (d.reused) {
+          showToast?.("Using active Single Event QR code.");
+        } else {
+          showToast?.("Generated replacement Event QR code!");
+        }
       }
     } catch (err) {
       showToast?.(err.message || "Failed to generate QR token", "error");
+    }
+  };
+
+  // Student: Lock volunteering session manually or when meet ends
+  const handleLockSession = async (lockMethod = "MANUAL") => {
+    try {
+      setLockingSession(true);
+      const hoursCounted = Number((elapsedSeconds / 3600).toFixed(1));
+      const res = await eventsAPI.lockSession(eventId, {
+        lockMethod,
+        hours: Math.max(0.5, hoursCounted),
+      });
+      setSessionLocked(true);
+      if (res && res.data) {
+        setSessionData((prev) => ({ ...prev, ...(res.data.data || {}), sessionStatus: "Locked" }));
+      }
+      showToast?.(
+        lockMethod === "MEET_END_TIMER"
+          ? "Meet schedule reached! Session timer ended and locked automatically."
+          : "Volunteering session manually locked! Hours recorded. ✅"
+      );
+      loadRoster();
+    } catch (err) {
+      showToast?.(err.message || "Failed to lock session", "error");
+    } finally {
+      setLockingSession(false);
     }
   };
 
@@ -265,11 +345,15 @@ export default function QRAttendanceModal({
     try {
       setScanning(true);
       const res = await eventsAPI.checkInViaQR(eventId, finalToken);
+      const data = res.data?.data || res.data || {};
       setCheckInSuccess(true);
+      setSessionData(data);
+      setSessionLocked(false);
+      setElapsedSeconds(0);
       setCheckInMessage(
-        res.message || "Attendance recorded successfully! Awaiting admin hours verification."
+        res.message || "Attendance recorded successfully! Live volunteering session timer active."
       );
-      showToast?.("QR Attendance Recorded! ✅");
+      showToast?.("QR Attendance Recorded! Volunteering timer started. ✅");
       loadRoster();
     } catch (err) {
       showToast?.(err.message || "Check-in failed. Please verify approval.", "error");
@@ -580,34 +664,170 @@ export default function QRAttendanceModal({
           </div>
         )}
 
-        {/* VOLUNTEER SCAN / CHECK-IN TAB */}
+        {/* VOLUNTEER SCAN / CHECK-IN TAB & LIVE TIMER */}
         {!isAdmin && activeTab === "scan" && (
           <div className="volunteer-scan-section">
             {checkInSuccess ? (
-              <div className="scan-success-card">
-                <div className="success-icon-wrap">
-                  <CheckCircle2 size={44} color="#15803D" />
+              <div
+                className="scan-success-card"
+                style={{
+                  background: "#FFFFFF",
+                  border: sessionLocked ? "2px solid #86EFAC" : "2px solid #FDE047",
+                  borderRadius: 20,
+                  padding: "24px 22px",
+                  boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
+                  textAlign: "center",
+                }}
+              >
+                {/* Session Status Pill */}
+                <div style={{ marginBottom: 14 }}>
+                  <span
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
+                      fontSize: 12,
+                      fontWeight: 900,
+                      textTransform: "uppercase",
+                      letterSpacing: 0.6,
+                      padding: "6px 14px",
+                      borderRadius: 999,
+                      background: sessionLocked ? "#DCFCE7" : "#FEF9C3",
+                      color: sessionLocked ? "#166534" : "#854D0E",
+                      border: `1.5px solid ${sessionLocked ? "#86EFAC" : "#FDE047"}`,
+                    }}
+                  >
+                    <span
+                      style={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: "50%",
+                        background: sessionLocked ? "#16A34A" : "#EAB308",
+                        display: "inline-block",
+                      }}
+                    />
+                    {sessionLocked ? "🔒 Session Completed · Hours Locked" : "🟢 Live Volunteering Session Active"}
+                  </span>
                 </div>
-                <h3>Attendance Recorded!</h3>
-                <p>{checkInMessage}</p>
-                <div className="success-details-pill">
-                  <span>
-                    Drive: <strong>{event.title}</strong>
-                  </span>
-                  <span>
-                    Hours Pending Audit: <strong>{event.durationHours || 4} hrs</strong>
-                  </span>
-                  <span>
-                    Potential Impact: <strong>+{(event.durationHours || 4) * 10} Points</strong>
-                  </span>
-                </div>
-                <button
-                  className="qr-btn qr-btn-primary"
-                  onClick={onClose}
-                  style={{ marginTop: 16 }}
+
+                <h3 style={{ margin: "0 0 6px", fontSize: 20, fontWeight: 900, color: "#0F172A" }}>
+                  {event.title}
+                </h3>
+                <p style={{ margin: "0 0 18px", fontSize: 13, color: "#64748B" }}>
+                  {sessionLocked
+                    ? "Your volunteering time has been recorded and locked for administrative verification."
+                    : "Your attendance is verified. Timer is actively counting your volunteering hours."}
+                </p>
+
+                {/* Digital Clock Display */}
+                <div
+                  style={{
+                    background: "#0F172A",
+                    color: "#FACC15",
+                    borderRadius: 16,
+                    padding: "20px 16px",
+                    marginBottom: 18,
+                    boxShadow: "inset 0 2px 8px rgba(0,0,0,0.4)",
+                  }}
                 >
-                  Close & View Dashboard
-                </button>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>
+                    {sessionLocked ? "Total Verified Time" : "Active Elapsed Time"}
+                  </div>
+                  <div
+                    style={{
+                      fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+                      fontSize: 40,
+                      fontWeight: 900,
+                      letterSpacing: 3,
+                    }}
+                  >
+                    {(() => {
+                      const h = Math.floor(elapsedSeconds / 3600);
+                      const m = Math.floor((elapsedSeconds % 3600) / 60);
+                      const s = elapsedSeconds % 60;
+                      return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+                    })()}
+                  </div>
+                  <div style={{ fontSize: 12, color: "#CBD5E1", marginTop: 4 }}>
+                    Logged: <strong>{Number((elapsedSeconds / 3600).toFixed(1))} hour(s)</strong> &bull; Potential: <strong>+{Math.max(10, Math.round((elapsedSeconds / 3600) * 10))} pts</strong>
+                  </div>
+                </div>
+
+                {/* Details Breakdown */}
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: 10,
+                    background: "#F8FAFC",
+                    border: "1px solid #E2E8F0",
+                    borderRadius: 14,
+                    padding: "12px 14px",
+                    marginBottom: 18,
+                    fontSize: 12.5,
+                    textAlign: "left",
+                  }}
+                >
+                  <div>
+                    <span style={{ color: "#64748B", display: "block", fontSize: 11, fontWeight: 700, textTransform: "uppercase" }}>
+                      Check-In Time
+                    </span>
+                    <strong style={{ color: "#0F172A" }}>
+                      {sessionData?.checkInTime
+                        ? new Date(sessionData.checkInTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                        : "Just Now"}
+                    </strong>
+                  </div>
+                  <div>
+                    <span style={{ color: "#64748B", display: "block", fontSize: 11, fontWeight: 700, textTransform: "uppercase" }}>
+                      Scheduled Meet End
+                    </span>
+                    <strong style={{ color: "#0F172A" }}>
+                      {event.time && event.time.includes("-") ? event.time.split("-")[1].trim() : `${event.durationHours || 4} Hours`}
+                    </strong>
+                  </div>
+                </div>
+
+                {/* Lock Session Actions */}
+                {!sessionLocked ? (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    <button
+                      type="button"
+                      className="qr-btn qr-btn-primary"
+                      onClick={() => handleLockSession("MANUAL")}
+                      disabled={lockingSession}
+                      style={{
+                        width: "100%",
+                        padding: "12px",
+                        fontSize: 14,
+                        fontWeight: 900,
+                        background: "#0F172A",
+                        color: "#FACC15",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <Clock size={16} />
+                      {lockingSession ? "Locking Session..." : "🔒 Lock Time Manually & Finish Check-Out"}
+                    </button>
+                    <span style={{ fontSize: 11.5, color: "#64748B" }}>
+                      ⏱️ Auto-lock: Timer automatically ends and locks at the scheduled meet end time.
+                    </span>
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    <div style={{ background: "#DCFCE7", border: "1px solid #86EFAC", padding: "10px 14px", borderRadius: 10, color: "#166534", fontSize: 12.5, fontWeight: 800 }}>
+                      ✓ Session Locked ({sessionData?.lockMethod === "MEET_END_TIMER" ? "Ended at Meet Time" : "Manually Completed"}).
+                    </div>
+                    <button
+                      type="button"
+                      className="qr-btn qr-btn-primary"
+                      onClick={onClose}
+                      style={{ width: "100%", justifyContent: "center", padding: "11px", fontWeight: 800 }}
+                    >
+                      Close &amp; View Dashboard
+                    </button>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="scan-interactive-box">

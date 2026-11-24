@@ -15,6 +15,7 @@ import {
   Share2,
   Award,
   Star,
+  QrCode,
 } from "lucide-react";
 
 import { useApp } from "../../context/AppContext";
@@ -40,6 +41,7 @@ export default function MyApplicationsPage() {
     cancelApplication,
     openLinkedInShare,
     openCertificate,
+    openQRAttendance,
     user,
   } = useApp();
   const [filter, setFilter] = useState("All");
@@ -664,24 +666,44 @@ export default function MyApplicationsPage() {
                     </div>
                   )}
 
-                  {/* Approved but not completed: show info only (no QR) */}
+                  {/* Approved but not completed: allow direct QR check-in & live session tracking */}
                   {isApproved && (
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 8,
-                        background: "#EFF6FF",
-                        border: "1px solid #BFDBFE",
-                        borderRadius: 8,
-                        padding: "8px 12px",
-                        fontSize: 12,
-                        color: "#1D4ED8",
-                        fontWeight: 600,
-                      }}
-                    >
-                      <CheckCircle2 size={13} color="#1D4ED8" />
-                      Approved — Awaiting event completion for certificate
+                    <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                      <button
+                        type="button"
+                        onClick={() => openQRAttendance?.(opp)}
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 6,
+                          background: "#DCFCE7",
+                          color: "#166534",
+                          border: "1.5px solid #86EFAC",
+                          borderRadius: 8,
+                          padding: "8px 14px",
+                          fontSize: 12.5,
+                          fontWeight: 800,
+                          cursor: "pointer",
+                        }}
+                      >
+                        <QrCode size={14} /> Scan Event QR / Live Session
+                      </button>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 6,
+                          background: "#EFF6FF",
+                          border: "1px solid #BFDBFE",
+                          borderRadius: 8,
+                          padding: "8px 12px",
+                          fontSize: 12,
+                          color: "#1D4ED8",
+                          fontWeight: 600,
+                        }}
+                      >
+                        <CheckCircle2 size={13} color="#1D4ED8" /> Approved
+                      </div>
                     </div>
                   )}
                 </div>

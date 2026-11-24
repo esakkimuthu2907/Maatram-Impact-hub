@@ -3899,3 +3899,289 @@
 .admin-event-form .agenda-auto-btn:hover {
   background: #fde68a;
 }
+
+/* ══════════════════════════════════════════════════════════════
+   POST / EDIT EVENT FORM — Accordion Sections
+══════════════════════════════════════════════════════════════ */
+.form-accordion-section {
+  border: 1.5px solid #E2E8F0;
+  border-radius: 14px;
+  background: #FFFFFF;
+  margin-bottom: 18px;
+  overflow: hidden;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.03);
+  transition: border-color 0.2s ease;
+}
+
+.form-accordion-section:focus-within {
+  border-color: #CBD5E1;
+}
+
+.form-accordion-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  background: #F8FAFC;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s ease;
+}
+
+.form-accordion-header:hover {
+  background: #F1F5F9;
+}
+
+.form-accordion-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.form-accordion-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.form-accordion-icon.amber {
+  background: #FEF3C7;
+  color: #D97706;
+}
+
+.form-accordion-icon.purple {
+  background: #F3E8FF;
+  color: #9333EA;
+}
+
+.form-accordion-body {
+  padding: 18px 20px 8px;
+  border-top: 1px solid #F1F5F9;
+}
+
+
+/* ══════════════════════════════════════════════════════════════
+   PROMINENT SIDE SCROLLBAR FOR POST/EDIT EVENT MODAL (IMAGE 1)
+══════════════════════════════════════════════════════════════ */
+.admin-event-form {
+  display: flex;
+  flex-direction: column;
+  overflow-y: scroll !important;
+  max-height: calc(88vh - 75px);
+  padding: 0 8px 20px 0;
+  scrollbar-width: thin;
+  scrollbar-color: #F59E0B #F1F5F9;
+}
+
+.admin-event-form::-webkit-scrollbar {
+  width: 9px;
+  display: block !important;
+}
+
+.admin-event-form::-webkit-scrollbar-track {
+  background: #F1F5F9;
+  border-radius: 8px;
+  margin: 6px 0;
+}
+
+.admin-event-form::-webkit-scrollbar-thumb {
+  background: #F59E0B;
+  border-radius: 8px;
+  border: 2px solid #F1F5F9;
+}
+
+.admin-event-form::-webkit-scrollbar-thumb:hover {
+  background: #D97706;
+}
+
+.modal-actions-row {
+  position: sticky;
+  bottom: 0;
+  z-index: 30;
+  background: #F8FAFC !important;
+  box-shadow: 0 -4px 15px rgba(0, 0, 0, 0.08);
+  border-top: 1.5px solid #E2E8F0 !important;
+}
+
+
+/* ══════════════════════════════════════════════════════════════
+   FLAWLESS FULL-PAGE MODAL VIEW & DOWN-SCROLL CONTROLS
+══════════════════════════════════════════════════════════════ */
+.modal-content-large {
+  max-width: 880px !important;
+  width: 95% !important;
+  max-height: 90vh !important;
+  height: 90vh !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  border-radius: 20px !important;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.4) !important;
+}
+
+.modal-header {
+  flex-shrink: 0 !important;
+  background: #FFFFFF !important;
+  border-bottom: 1.5px solid #E2E8F0 !important;
+  z-index: 10 !important;
+}
+
+.admin-event-form {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  height: 100% !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  padding: 20px 24px 30px 24px !important;
+  box-sizing: border-box !important;
+  scrollbar-width: thin !important;
+  scrollbar-color: #F59E0B #F1F5F9 !important;
+}
+
+.admin-event-form::-webkit-scrollbar {
+  width: 10px !important;
+  display: block !important;
+}
+
+.admin-event-form::-webkit-scrollbar-track {
+  background: #F1F5F9 !important;
+  border-radius: 8px !important;
+}
+
+.admin-event-form::-webkit-scrollbar-thumb {
+  background: #F59E0B !important;
+  border-radius: 8px !important;
+  border: 2px solid #F1F5F9 !important;
+}
+
+.admin-event-form::-webkit-scrollbar-thumb:hover {
+  background: #D97706 !important;
+}
+
+.modal-actions-row {
+  flex-shrink: 0 !important;
+  position: sticky !important;
+  bottom: 0 !important;
+  z-index: 50 !important;
+  background: #F8FAFC !important;
+  border-top: 2px solid #E2E8F0 !important;
+  padding: 16px 26px !important;
+  box-shadow: 0 -6px 20px rgba(0, 0, 0, 0.08) !important;
+}
+
+
+/* ══════════════════════════════════════════════════════════════
+   FULL-PAGE VIEW FOR POST/EDIT VOLUNTEERING OPPORTUNITY
+══════════════════════════════════════════════════════════════ */
+.adm-event-fullpage-overlay {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 1000 !important;
+  background: #F8FAFC !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  display: flex !important;
+  flex-direction: column !important;
+  animation: fadeIn 0.2s ease !important;
+}
+
+.adm-event-fullpage-header {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 100 !important;
+  background: #FFFFFF !important;
+  border-bottom: 1.5px solid #E2E8F0 !important;
+  padding: 14px 32px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04) !important;
+}
+
+.adm-event-fullpage-header-left {
+  display: flex !important;
+  align-items: center !important;
+  gap: 16px !important;
+}
+
+.adm-event-fullpage-back-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  background: #F1F5F9 !important;
+  color: #334155 !important;
+  border: 1.5px solid #CBD5E1 !important;
+  padding: 8px 16px !important;
+  border-radius: 10px !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+}
+
+.adm-event-fullpage-back-btn:hover {
+  background: #E2E8F0 !important;
+  color: #0F172A !important;
+}
+
+.adm-event-fullpage-title-box {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+}
+
+.adm-event-fullpage-title-box h2 {
+  margin: 0 !important;
+  font-size: 19px !important;
+  font-weight: 900 !important;
+  color: #0F172A !important;
+  letter-spacing: -0.02em !important;
+}
+
+.adm-event-fullpage-header-right {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+}
+
+.adm-event-fullpage-content {
+  flex: 1 !important;
+  width: 100% !important;
+  max-width: 1080px !important;
+  margin: 0 auto !important;
+  padding: 32px 24px 80px !important;
+  box-sizing: border-box !important;
+}
+
+.adm-event-fullpage-content .admin-event-form {
+  overflow-y: visible !important;
+  max-height: none !important;
+  height: auto !important;
+  padding: 0 !important;
+}
+
+.adm-event-fullpage-content .form-accordion-section {
+  border: 1.5px solid #E2E8F0 !important;
+  border-radius: 18px !important;
+  background: #FFFFFF !important;
+  margin-bottom: 24px !important;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04) !important;
+  overflow: hidden !important;
+}
+
+.adm-event-fullpage-content .form-accordion-header {
+  padding: 18px 24px !important;
+}
+
+.adm-event-fullpage-content .form-accordion-body {
+  padding: 24px 28px 12px !important;
+}

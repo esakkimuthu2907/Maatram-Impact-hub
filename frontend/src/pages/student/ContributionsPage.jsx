@@ -9,10 +9,12 @@ import {
   Download,
   Coins,
   Share2,
+  Star,
 } from "lucide-react";
 
 import { useApp } from "../../context/AppContext";
 import { usersAPI } from "../../api/usersAPI";
+import EventFeedbackModal from "../../components/common/EventFeedbackModal";
 import "./StudentDashboard.css";
 import "./OpportunityDetailPage.css";
 
@@ -35,6 +37,9 @@ export default function ContributionsPage() {
   const [showLogModal, setShowLogModal] = useState(false);
   const [pointsHistory, setPointsHistory] = useState([]);
   const [submittingHours, setSubmittingHours] = useState(false);
+  // Feedback unlock state
+  const [selectedFeedbackCert, setSelectedFeedbackCert] = useState(null);
+  const [unlockedCerts, setUnlockedCerts] = useState(new Set());
 
   const [newLog, setNewLog] = useState({
     eventTitle: "",
@@ -468,45 +473,73 @@ export default function ContributionsPage() {
                   </div>
 
                   <div style={{ display: "flex", gap: 8, paddingTop: 12, borderTop: "1px solid #CBD5E1" }}>
-                    <button
-                      onClick={() => openCertificate?.(cert)}
-                      style={{
-                        flex: 1,
-                        background: "#1D4ED8",
-                        color: "#FFFFFF",
-                        border: "none",
-                        borderRadius: 8,
-                        padding: "7px 12px",
-                        fontSize: 12.5,
-                        fontWeight: 700,
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: 6,
-                      }}
-                    >
-                      <Download size={13} /> View / Save
-                    </button>
-                    <button
-                      onClick={() => openLinkedInShare?.(cert)}
-                      style={{
-                        background: "#0A66C2",
-                        color: "#FFFFFF",
-                        border: "none",
-                        borderRadius: 8,
-                        padding: "7px 12px",
-                        fontSize: 12.5,
-                        fontWeight: 700,
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: 6,
-                      }}
-                    >
-                      <Share2 size={13} /> LinkedIn
-                    </button>
+                    {(!cert.unlocked && !cert.feedbackSubmitted && !unlockedCerts.has(cert.certificateId || cert.eventId)) ? (
+                      /* Locked — feedback required */
+                      <button
+                        onClick={() => setSelectedFeedbackCert(cert)}
+                        style={{
+                          flex: 1,
+                          background: "#FACC15",
+                          color: "#000000",
+                          border: "none",
+                          borderRadius: 8,
+                          padding: "9px 12px",
+                          fontSize: 12.5,
+                          fontWeight: 900,
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: 6,
+                          boxShadow: "0 3px 8px rgba(234,179,8,0.3)",
+                        }}
+                      >
+                        <Star size={13} fill="#000" color="#000" /> Submit Feedback to Unlock
+                      </button>
+                    ) : (
+                      /* Unlocked */
+                      <>
+                        <button
+                          onClick={() => openCertificate?.(cert)}
+                          style={{
+                            flex: 1,
+                            background: "#1D4ED8",
+                            color: "#FFFFFF",
+                            border: "none",
+                            borderRadius: 8,
+                            padding: "7px 12px",
+                            fontSize: 12.5,
+                            fontWeight: 700,
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: 6,
+                          }}
+                        >
+                          <Download size={13} /> View / Save
+                        </button>
+                        <button
+                          onClick={() => openLinkedInShare?.(cert)}
+                          style={{
+                            background: "#0A66C2",
+                            color: "#FFFFFF",
+                            border: "none",
+                            borderRadius: 8,
+                            padding: "7px 12px",
+                            fontSize: 12.5,
+                            fontWeight: 700,
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: 6,
+                          }}
+                        >
+                          <Share2 size={13} /> LinkedIn
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               ))}
@@ -730,6 +763,24 @@ export default function ContributionsPage() {
           </div>
         </div>
       )}
+
+      {/* FEEDBACK MODAL — submit feedback to unlock certificate */}
+      <EventFeedbackModal
+        isOpen={Boolean(selectedFeedbackCert)}
+        certificate={selectedFeedbackCert}
+        onClose={() => setSelectedFeedbackCert(null)}
+        onFeedbackSuccess={(unlockedCert) => {
+          setUnlockedCerts((prev) => {
+            const next = new Set(prev);
+            if (unlockedCert.certificateId) next.add(unlockedCert.certificateId);
+            if (unlockedCert.eventId) next.add(unlockedCert.eventId);
+            return next;
+          });
+          showToast("🎉 Certificate unlocked! Feedback submitted successfully.");
+          setSelectedFeedbackCert(null);
+          setTimeout(() => openCertificate?.(unlockedCert), 400);
+        }}
+      />
     </div>
   );
 }

@@ -6,6 +6,9 @@ const {
   getUsers,
   getUserById,
   updateUser,
+  updateStudentProfile,
+  issueCertificate,
+  updateStudentRating,
   toggleUserStatus,
   approveUser,
   deleteUser,
@@ -46,6 +49,9 @@ router.delete("/users/:id", deleteUser);
 router.post("/users/:id/assign-work", assignAlumniWork);
 router.post("/users/:id/points/adjust", adjustUserPoints);
 router.post("/users/:id/points/deduct", deductUserPoints);
+router.put("/users/:id/profile", updateStudentProfile);
+router.post("/users/:id/certificates", issueCertificate);
+router.patch("/users/:id/rating", updateStudentRating);
 router.get("/grading", getGradingLevels);
 router.put("/grading", updateGradingLevels);
 router.post("/events/:id/attendance", trackAttendance);

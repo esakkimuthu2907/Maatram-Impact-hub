@@ -112,6 +112,7 @@ app.use("/api/certificates", require("./routes/certificates"));
 app.use("/api/hours", require("./routes/hours"));
 app.use("/api/games", require("./routes/games"));
 app.use("/api/chat", require("./routes/chat"));
+app.use("/api/meetings", require("./routes/meetings"));
 
 // Root route
 app.get("/", (req, res) => {

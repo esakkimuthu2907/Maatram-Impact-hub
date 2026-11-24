@@ -904,6 +904,7 @@ export default function OpportunitiesPage() {
   const { categorySlug } = useParams();
   const [searchParams] = useSearchParams();
   const {
+    user,
     opportunities = [],
     applications = [],
     bookmarks = [],
@@ -923,7 +924,28 @@ export default function OpportunitiesPage() {
     : null;
   const activeCategorySlug = currentCategory ? currentCategory.slug : "all";
 
-  const rawOpps = opportunities || [];
+  // Filter raw opportunities by student's zone and role targeting
+  const rawOpps = useMemo(() => {
+    const list = opportunities || [];
+    if (!user || user.role === "admin") return list;
+
+    const userZone = user.zone || "Zone 1";
+    const isStudent = user.role === "student" || user.role === "volunteer";
+    const isAlumni = user.role === "alumni" || user.role === "Alumni";
+
+    return list.filter((opp) => {
+      // 1. Zone filter: if event has targetZones specified, user's zone must be in it
+      if (Array.isArray(opp.targetZones) && opp.targetZones.length > 0) {
+        if (!opp.targetZones.includes(userZone)) return false;
+      }
+      // 2. Audience filter: Students, Alumni, or Both
+      const aud = opp.targetAudience || "Both";
+      if (aud === "Both") return true;
+      if (isStudent && aud === "Students") return true;
+      if (isAlumni && aud === "Alumni") return true;
+      return false;
+    });
+  }, [opportunities, user]);
 
   // Apply search + mode filter + sort to any list of events
   const applyFilters = (list) => {

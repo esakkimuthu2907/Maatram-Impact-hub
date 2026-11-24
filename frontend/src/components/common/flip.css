@@ -1,78 +1,103 @@
 /* Perspective wrapper so the rotation looks 3D.
    overflow-x: clip (not hidden) keeps the sticky sidebar working. */
 .flip-scene {
-  perspective: 2000px;
+  perspective: 2400px;
   perspective-origin: 50% 50%;
   overflow-x: clip;
   width: 100%;
 }
 
-/* No persistent will-change / transform-style, so position: fixed
-   children (the Forgot Password modal) stay relative to the screen. */
+/* No persistent transform-style, so position: fixed children
+   (the Forgot Password modal) stay relative to the screen.
+   will-change is only set while a flip class is on the page. */
 .flip-in-forward,
 .flip-in-back,
 .flip-out-forward,
 .flip-out-back {
+  -webkit-backface-visibility: hidden;
   backface-visibility: hidden;
+  will-change: transform, opacity;
 }
 
-/* ---------- ARRIVING ---------- */
+/* ---------- ARRIVING (slow, soft landing) ---------- */
 .flip-in-forward {
   transform-origin: left center;
-  animation: flipInForward 0.7s cubic-bezier(0.22, 0.8, 0.3, 1) backwards;
+  animation: flipInForward 0.95s cubic-bezier(0.25, 0.8, 0.25, 1) backwards;
 }
 
 .flip-in-back {
   transform-origin: right center;
-  animation: flipInBack 0.7s cubic-bezier(0.22, 0.8, 0.3, 1) backwards;
+  animation: flipInBack 0.95s cubic-bezier(0.25, 0.8, 0.25, 1) backwards;
 }
 
+/* The page fades in during the first half of the turn, and the angle
+   is smaller (-65deg) so the motion feels gentler. */
 @keyframes flipInForward {
-  from {
+  0% {
     opacity: 0;
-    transform: rotateY(-80deg) scale(0.96);
+    transform: rotateY(-65deg) translateX(-2%) scale(0.97);
   }
 
-  to {
+  55% {
     opacity: 1;
-    transform: rotateY(0) scale(1);
+  }
+
+  100% {
+    opacity: 1;
+    transform: rotateY(0) translateX(0) scale(1);
   }
 }
 
 @keyframes flipInBack {
-  from {
+  0% {
     opacity: 0;
-    transform: rotateY(80deg) scale(0.96);
+    transform: rotateY(65deg) translateX(2%) scale(0.97);
   }
 
-  to {
+  55% {
     opacity: 1;
-    transform: rotateY(0) scale(1);
+  }
+
+  100% {
+    opacity: 1;
+    transform: rotateY(0) translateX(0) scale(1);
   }
 }
 
-/* ---------- LEAVING ---------- */
+/* ---------- LEAVING ----------
+   Keep this duration (0.45s) the same as the delay used before
+   navigating in useFlipNavigate, so the two stay in sync. */
 .flip-out-forward {
   transform-origin: right center;
-  animation: flipOutForward 0.45s ease-in forwards;
+  animation: flipOutForward 0.45s cubic-bezier(0.4, 0, 0.7, 0.4) forwards;
 }
 
 .flip-out-back {
   transform-origin: left center;
-  animation: flipOutBack 0.45s ease-in forwards;
+  animation: flipOutBack 0.45s cubic-bezier(0.4, 0, 0.7, 0.4) forwards;
 }
 
 @keyframes flipOutForward {
-  to {
+  0% {
+    opacity: 1;
+    transform: rotateY(0) scale(1);
+  }
+
+  100% {
     opacity: 0;
-    transform: rotateY(80deg) scale(0.96);
+    transform: rotateY(65deg) translateX(2%) scale(0.97);
   }
 }
 
 @keyframes flipOutBack {
-  to {
+  0% {
+    opacity: 1;
+    transform: rotateY(0) scale(1);
+  }
+
+  100% {
     opacity: 0;
-    transform: rotateY(-80deg) scale(0.96);
+    transform: rotateY(-65deg) translateX(-2%) scale(0.97);
   }
 }
 

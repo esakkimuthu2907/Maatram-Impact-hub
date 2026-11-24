@@ -1,7 +1,8 @@
 // frontend/src/pages/admin/AdminEventsPage.jsx
 import React, { useState, useEffect, useMemo } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
+  ArrowLeft,
   CalendarPlus,
   PlusCircle,
   Edit3,
@@ -46,6 +47,8 @@ import {
   Bell,
   Heart,
   UserCheck,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 
 import { useApp } from "../../context/AppContext";
@@ -165,9 +168,19 @@ const INITIAL_FORM = {
   whatToBring: "",
   agenda: [{ time: "", title: "", description: "" }],
   assignedAlumni: "Sundar R (Senior SDE @ Zoho)",
+  targetAudience: "Both",
+  zone: "All Zones",
 };
 
 export default function AdminEventsPage() {
+  const navigate = useNavigate();
+
+  const handleOpenManageEvent = (ev) => {
+    const id = ev?.id || ev?._id;
+    if (id) {
+      navigate(`/admin/events/${id}/manage`);
+    }
+  };
   const {
     user,
     opportunities = [],
@@ -315,6 +328,7 @@ export default function AdminEventsPage() {
 
   // Modals state
   const [showEventModal, setShowEventModal] = useState(false);
+  const [sectionsOpen, setSectionsOpen] = useState({ necessary: true, additional: true });
   const [modalMode, setModalMode] = useState("add"); // 'add' | 'edit'
   const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState(INITIAL_FORM);
@@ -422,6 +436,9 @@ export default function AdminEventsPage() {
       deadline: opp.deadline || "",
       image: opp.image || PRESET_IMAGES[0].url,
       description: opp.description || "",
+      assignedAlumni: opp.assignedAlumni || "Sundar R (Senior SDE @ Zoho)",
+      targetAudience: opp.targetAudience || "Both",
+      zone: opp.zone || (Array.isArray(opp.targetZones) && opp.targetZones.length === 1 ? opp.targetZones[0] : "All Zones"),
       coordinatorName: opp.coordinatorName || "",
       coordinatorPhone: opp.coordinatorPhone || "",
       whatsappLink: opp.whatsappLink || "",
@@ -471,8 +488,16 @@ export default function AdminEventsPage() {
 
     setSubmitting(true);
     try {
+      let targetZones = ["Zone 1", "Zone 2", "Zone 3", "Zone 4"];
+      if (formData.zone && formData.zone !== "All Zones") {
+        targetZones = [formData.zone];
+      }
+
       const payload = {
         ...formData,
+        zone: formData.zone || "All Zones",
+        targetZones,
+        targetAudience: formData.targetAudience || "Both",
         image: getEventImage(formData),
         volunteersNeeded: Number(formData.volunteersNeeded) || 10,
         slotsAvailable: Number(formData.slotsAvailable) || Number(formData.volunteersNeeded) || 10,
@@ -1009,7 +1034,7 @@ export default function AdminEventsPage() {
                   mode="admin"
                   events={opportunities}
                   applications={applications}
-                  onSelectEvent={(ev) => setManagingEvent(ev)}
+                  onSelectEvent={(ev) => handleOpenManageEvent(ev)}
                 />
               </div>
             )}
@@ -1109,7 +1134,7 @@ export default function AdminEventsPage() {
 
                     {/* Card Body */}
                     <div className="adm-event-card-body">
-                      <h3 className="adm-event-title" onClick={() => setManagingEvent(opp)} title={opp.title} style={{ cursor: "pointer" }}>
+                      <h3 className="adm-event-title" onClick={() => handleOpenManageEvent(opp)} title={opp.title} style={{ cursor: "pointer" }}>
                         {opp.title}
                       </h3>
                       <div className="adm-event-tags">
@@ -1173,7 +1198,7 @@ export default function AdminEventsPage() {
                         <button
                           type="button"
                           className={`adm-card-btn-manage ${isCompleted ? "completed" : ""}`}
-                          onClick={() => setManagingEvent(opp)}
+                          onClick={() => handleOpenManageEvent(opp)}
                           title="Manage registered volunteers and complete event"
                         >
                           <Eye size={14} /> {isCompleted ? "View Summary" : "Manage"}
@@ -1831,433 +1856,537 @@ export default function AdminEventsPage() {
       {/* ADD / EDIT EVENT MODAL */}
       {/* ============================================================== */}
       {showEventModal && (
-        <div className="modal-backdrop" onClick={() => setShowEventModal(false)}>
-          <div
-            className="modal-content modal-content-large"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="modal-header">
-              <div className="modal-title-row">
-                <CalendarPlus size={24} color="#D97706" />
-                <h3>
+        <div className="adm-event-fullpage-overlay">
+          {/* Top Fullpage Header */}
+          <header className="adm-event-fullpage-header">
+            <div className="adm-event-fullpage-header-left">
+              <button
+                type="button"
+                className="adm-event-fullpage-back-btn"
+                onClick={() => setShowEventModal(false)}
+              >
+                <ArrowLeft size={17} /> Back to Events
+              </button>
+              <div style={{ width: 1, height: 26, background: "#CBD5E1" }} />
+              <div className="adm-event-fullpage-title-box">
+                <CalendarPlus size={22} color="#D97706" />
+                <h2>
                   {modalMode === "add"
                     ? "Post New Volunteering Opportunity"
                     : "Edit Volunteering Opportunity"}
-                </h3>
+                </h2>
               </div>
-              <button
-                className="modal-close-btn"
-                onClick={() => setShowEventModal(false)}
-              >
-                <X size={20} />
-              </button>
             </div>
 
+            <div className="adm-event-fullpage-header-right">
+              <button
+                type="button"
+                className="admin-btn admin-btn-outline"
+                onClick={() => setShowEventModal(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="admin-btn admin-btn-primary"
+                onClick={handleFormSubmit}
+                disabled={submitting}
+              >
+                {submitting
+                  ? "Saving Drive..."
+                  : modalMode === "add"
+                  ? "Publish Drive"
+                  : "Save Changes"}
+              </button>
+            </div>
+          </header>
+
+          {/* Fullpage Content Body with Natural Page Scroll */}
+          <div className="adm-event-fullpage-content">
             <form onSubmit={handleFormSubmit} className="admin-event-form">
-              {/* Event Title */}
-              <div className="form-group-full">
-                <label>Event Title *</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Government Higher Secondary School Career Mentoring"
-                  value={formData.title}
-                  onChange={(e) =>
-                    setFormData({ ...formData, title: e.target.value })
-                  }
-                  className={formErrors.title ? "has-error" : ""}
-                />
-                {formErrors.title && (
-                  <span className="error-text">{formErrors.title}</span>
-                )}
-              </div>
+              {/* ══════════════════════════════════════════════════════════════
+                  SECTION 1: NECESSARY DETAILS (EXPAND / COLLAPSE)
+              ══════════════════════════════════════════════════════════════ */}
+              <div className="form-accordion-section">
+                <button
+                  type="button"
+                  className="form-accordion-header"
+                  onClick={() => setSectionsOpen((prev) => ({ ...prev, necessary: !prev.necessary }))}
+                >
+                  <div className="form-accordion-title">
+                    <span className="form-accordion-icon amber">📋</span>
+                    <div>
+                      <h4 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: "#0F172A" }}>
+                        Necessary Details
+                      </h4>
+                      <p style={{ margin: 0, fontSize: 12, color: "#64748B" }}>
+                        Event Title, Category, Mode, Timing, Location, Capacity, Points, Cover &amp; Targeting
+                      </p>
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 12, background: "#FEF3C7", color: "#92400E" }}>
+                      Required *
+                    </span>
+                    {sectionsOpen.necessary ? <ChevronUp size={20} color="#64748B" /> : <ChevronDown size={20} color="#64748B" />}
+                  </div>
+                </button>
 
-              {/* Category, Mode, Duration */}
-              <div className="form-row-3">
-                <div>
-                  <label>Category *</label>
-                  <select
-                    value={formData.category}
-                    onChange={(e) =>
-                      setFormData({ ...formData, category: e.target.value })
-                    }
-                  >
-                    {CATEGORIES.map((cat) => (
-                      <option key={cat.slug} value={cat.name}>
-                        {cat.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                {sectionsOpen.necessary && (
+                  <div className="form-accordion-body">
+                    {/* Event Title */}
+                    <div className="form-group-full">
+                      <label>Event Title *</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Government Higher Secondary School Career Mentoring"
+                        value={formData.title}
+                        onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                        className={formErrors.title ? "has-error" : ""}
+                      />
+                      {formErrors.title && <span className="error-text">{formErrors.title}</span>}
+                    </div>
 
-                <div>
-                  <label>Mode / Format *</label>
-                  <select
-                    value={formData.mode}
-                    onChange={(e) =>
-                      setFormData({ ...formData, mode: e.target.value })
-                    }
-                  >
-                    <option value="Offline">Offline</option>
-                    <option value="Online">Online</option>
-                    <option value="Hybrid">Hybrid</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label>Duration (Hours) *</label>
-                  <input
-                    type="number"
-                    min="1"
-                    max="40"
-                    value={formData.durationHours}
-                    onChange={(e) =>
-                      setFormData({ ...formData, durationHours: e.target.value })
-                    }
-                  />
-                </div>
-              </div>
-
-              {/* Date, Time, Deadline */}
-              <div className="form-row-3">
-                <div>
-                  <label>Event Date *</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. 15 May 2026 (Thu)"
-                    value={formData.date}
-                    onChange={(e) =>
-                      setFormData({ ...formData, date: e.target.value })
-                    }
-                    className={formErrors.date ? "has-error" : ""}
-                  />
-                  {formErrors.date && (
-                    <span className="error-text">{formErrors.date}</span>
-                  )}
-                </div>
-
-                <div>
-                  <label>Timing Schedule</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. 9:30 AM – 1:30 PM (4 hrs)"
-                    value={formData.time}
-                    onChange={(e) =>
-                      setFormData({ ...formData, time: e.target.value })
-                    }
-                  />
-                </div>
-
-                <div>
-                  <label>Application Deadline *</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. 12 May 2026"
-                    value={formData.deadline}
-                    onChange={(e) =>
-                      setFormData({ ...formData, deadline: e.target.value })
-                    }
-                    className={formErrors.deadline ? "has-error" : ""}
-                  />
-                  {formErrors.deadline && (
-                    <span className="error-text">{formErrors.deadline}</span>
-                  )}
-                </div>
-              </div>
-
-              {/* Location / Venue */}
-              <div className="form-group-full">
-                <label>Venue / Location / Meeting Link *</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Government Higher Secondary School, Saidapet, Chennai"
-                  value={formData.location}
-                  onChange={(e) =>
-                    setFormData({ ...formData, location: e.target.value })
-                  }
-                  className={formErrors.location ? "has-error" : ""}
-                />
-                {formErrors.location && (
-                  <span className="error-text">{formErrors.location}</span>
-                )}
-              </div>
-
-              {/* Volunteers Needed & Available Slots */}
-              <div className="form-row-2">
-                <div>
-                  <label>Total Volunteers Needed *</label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={formData.volunteersNeeded}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        volunteersNeeded: e.target.value,
-                        ...(modalMode === "add"
-                          ? { slotsAvailable: e.target.value }
-                          : {}),
-                      })
-                    }
-                    className={formErrors.volunteersNeeded ? "has-error" : ""}
-                  />
-                </div>
-
-                <div>
-                  <label>Open Slots Remaining *</label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={formData.slotsAvailable}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        slotsAvailable: e.target.value,
-                      })
-                    }
-                    className={formErrors.slotsAvailable ? "has-error" : ""}
-                  />
-                </div>
-              </div>
-
-              {/* Points Allocated */}
-              <div className="form-group-full">
-                <label>Volunteering Points Awarded on Completion *</label>
-                <input
-                  type="number"
-                  min="5"
-                  max="500"
-                  value={formData.points || 50}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      points: e.target.value,
-                    })
-                  }
-                  style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1px solid #CBD5E1" }}
-                />
-              </div>
-
-              {/* Cover Image Upload & Preview */}
-              <div className="form-group-full">
-                <label>Event Cover Image (Upload Custom Photo or Auto-Generate)</label>
-                <div className="adm-image-uploader-box">
-                  {formData.image ? (
-                    <div className="adm-image-preview-wrapper">
-                      <img src={formData.image} alt="Cover Preview" className="adm-upload-preview-img" />
-                      <div className="adm-image-preview-overlay">
-                        <label className="adm-change-img-btn">
-                          <Upload size={14} /> Upload Custom Photo
-                          <input
-                            type="file"
-                            accept="image/*"
-                            style={{ display: "none" }}
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (file) {
-                                const reader = new FileReader();
-                                reader.onloadend = () => {
-                                  setFormData({ ...formData, image: reader.result });
-                                  showToast("Image uploaded successfully!", "success");
-                                };
-                                reader.readAsDataURL(file);
-                              }
-                            }}
-                          />
-                        </label>
-                        <button
-                          type="button"
-                          className="adm-auto-img-btn"
-                          onClick={() => setFormData({ ...formData, image: getEventImage(formData) })}
+                    {/* TARGET ROLE & ZONE TYPE */}
+                    <div className="form-row-2">
+                      <div>
+                        <label>Target Audience (Students, Alumni or Both) *</label>
+                        <select
+                          value={formData.targetAudience || "Both"}
+                          onChange={(e) => setFormData({ ...formData, targetAudience: e.target.value })}
+                          style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1.5px solid #2563EB", fontWeight: 600 }}
                         >
-                          <RefreshCw size={13} /> Reset to Smart Photo
+                          <option value="Both">Both Students &amp; Alumni (Open for Everyone)</option>
+                          <option value="Students">Students Only (Send to Students Alone): Event is visible/accessible to student volunteers only.</option>
+                          <option value="Alumni">Alumni Only (Send to Alumni Alone)</option>
+                        </select>
+                        <small style={{ color: "#2563EB", fontSize: 11.5, marginTop: 4, display: "block" }}>
+                          {formData.targetAudience === "Students"
+                            ? "🔒 Only student volunteers will see and apply for this event."
+                            : formData.targetAudience === "Alumni"
+                            ? "🎓 Only verified alumni will see and apply for this event."
+                            : "🌐 Open to all registered students and alumni."}
+                        </small>
+                      </div>
+
+                      <div>
+                        <label>Zone Type *</label>
+                        <select
+                          value={formData.zone || "All Zones"}
+                          onChange={(e) => setFormData({ ...formData, zone: e.target.value })}
+                          style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1.5px solid #059669", fontWeight: 600 }}
+                        >
+                          <option value="All Zones">All Zones (Shows to students across all zones)</option>
+                          <option value="Zone 1">Zone 1 (Shows event to Zone 1 students alone)</option>
+                          <option value="Zone 2">Zone 2 (Shows event to Zone 2 students alone)</option>
+                          <option value="Zone 3">Zone 3 (Shows event to Zone 3 students alone)</option>
+                          <option value="Zone 4">Zone 4 (Shows event to Zone 4 students alone)</option>
+                        </select>
+                        <small style={{ color: "#059669", fontSize: 11.5, marginTop: 4, display: "block" }}>
+                          {formData.zone === "All Zones"
+                            ? "🌍 Universal: All students can view this event regardless of zone."
+                            : `📍 Restricted: Only ${formData.zone} students will see this event.`}
+                        </small>
+                      </div>
+                    </div>
+
+                    {/* Category, Mode, Duration */}
+                    <div className="form-row-3">
+                      <div>
+                        <label>Category *</label>
+                        <select
+                          value={formData.category}
+                          onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                        >
+                          {CATEGORIES.map((cat) => (
+                            <option key={cat.slug} value={cat.name}>
+                              {cat.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label>Mode / Format *</label>
+                        <select
+                          value={formData.mode}
+                          onChange={(e) => setFormData({ ...formData, mode: e.target.value })}
+                        >
+                          <option value="Offline">Offline</option>
+                          <option value="Online">Online</option>
+                          <option value="Hybrid">Hybrid</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label>Duration (Hours) *</label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="40"
+                          value={formData.durationHours}
+                          onChange={(e) => setFormData({ ...formData, durationHours: e.target.value })}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Date, Time, Deadline */}
+                    <div className="form-row-3">
+                      <div>
+                        <label>Event Date *</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. 15 May 2026 (Thu)"
+                          value={formData.date}
+                          onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                          className={formErrors.date ? "has-error" : ""}
+                        />
+                        {formErrors.date && <span className="error-text">{formErrors.date}</span>}
+                      </div>
+
+                      <div>
+                        <label>Timing Schedule</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. 9:30 AM – 1:30 PM (4 hrs)"
+                          value={formData.time}
+                          onChange={(e) => setFormData({ ...formData, time: e.target.value })}
+                        />
+                      </div>
+
+                      <div>
+                        <label>Application Deadline *</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. 12 May 2026"
+                          value={formData.deadline}
+                          onChange={(e) => setFormData({ ...formData, deadline: e.target.value })}
+                          className={formErrors.deadline ? "has-error" : ""}
+                        />
+                        {formErrors.deadline && <span className="error-text">{formErrors.deadline}</span>}
+                      </div>
+                    </div>
+
+                    {/* Venue / Location / Meeting Link */}
+                    <div className="form-group-full">
+                      <label>Venue / Location / Meeting Link *</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Government Higher Secondary School, Saidapet, Chennai"
+                        value={formData.location}
+                        onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                        className={formErrors.location ? "has-error" : ""}
+                      />
+                      {formErrors.location && <span className="error-text">{formErrors.location}</span>}
+                    </div>
+
+                    {/* Volunteers Needed & Available Slots */}
+                    <div className="form-row-2">
+                      <div>
+                        <label>Total Volunteers Needed *</label>
+                        <input
+                          type="number"
+                          min="1"
+                          value={formData.volunteersNeeded}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              volunteersNeeded: e.target.value,
+                              ...(modalMode === "add" ? { slotsAvailable: e.target.value } : {}),
+                            })
+                          }
+                          className={formErrors.volunteersNeeded ? "has-error" : ""}
+                        />
+                      </div>
+
+                      <div>
+                        <label>Open Slots Remaining *</label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={formData.slotsAvailable}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              slotsAvailable: e.target.value,
+                            })
+                          }
+                          className={formErrors.slotsAvailable ? "has-error" : ""}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Points Allocated */}
+                    <div className="form-group-full">
+                      <label>Volunteering Points Awarded on Completion *</label>
+                      <input
+                        type="number"
+                        min="5"
+                        max="500"
+                        value={formData.points || 50}
+                        onChange={(e) => setFormData({ ...formData, points: e.target.value })}
+                        style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1px solid #CBD5E1" }}
+                      />
+                    </div>
+
+                    
+
+                    {/* Cover Image Upload & Preview */}
+                    <div className="form-group-full">
+                      <label>Event Cover Image (Upload Custom Photo or Auto-Generate)</label>
+                      <div className="adm-image-uploader-box">
+                        {formData.image ? (
+                          <div className="adm-image-preview-wrapper">
+                            <img src={formData.image} alt="Cover Preview" className="adm-upload-preview-img" />
+                            <div className="adm-image-preview-overlay">
+                              <label className="adm-change-img-btn">
+                                <Upload size={14} /> Upload Custom Photo
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  style={{ display: "none" }}
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) {
+                                      const reader = new FileReader();
+                                      reader.onloadend = () => {
+                                        setFormData({ ...formData, image: reader.result });
+                                        showToast("Image uploaded successfully!", "success");
+                                      };
+                                      reader.readAsDataURL(file);
+                                    }
+                                  }}
+                                />
+                              </label>
+                              <button
+                                type="button"
+                                className="adm-auto-img-btn"
+                                onClick={() => setFormData({ ...formData, image: getEventImage(formData) })}
+                              >
+                                <RefreshCw size={13} /> Reset to Smart Photo
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <label className="adm-upload-dropzone">
+                            <Upload size={28} color="#2563EB" />
+                            <span>Click to upload a custom event cover photo</span>
+                            <small>PNG, JPG, WebP supported</small>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              style={{ display: "none" }}
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  const reader = new FileReader();
+                                  reader.onloadend = () => {
+                                    setFormData({ ...formData, image: reader.result });
+                                    showToast("Image uploaded successfully!", "success");
+                                  };
+                                  reader.readAsDataURL(file);
+                                }
+                              }}
+                            />
+                          </label>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Assigned Alumni Mentor */}
+                    <div className="form-group-full">
+                      <label>Assigned Alumni Mentor &amp; Event Lead</label>
+                      <select
+                        value={formData.assignedAlumni || "Sundar R (Senior SDE @ Zoho)"}
+                        onChange={(e) => setFormData({ ...formData, assignedAlumni: e.target.value })}
+                        style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1px solid #CBD5E1", fontSize: 13.5 }}
+                      >
+                        <option value="Sundar R (Senior SDE @ Zoho)">Sundar R (Senior SDE @ Zoho - CEG Alum)</option>
+                        <option value="Charles (ALU000 - Student coordinator @ SISCO)">Charles (ALU000 - Student coordinator @ SISCO)</option>
+                        <option value="Deepika K (Civil Services Aspirant)">Deepika K (Civil Services Aspirant - MIT Alum)</option>
+                        <option value="Gautham M (Robotics Systems Lead @ Ather)">Gautham M (Robotics Systems Lead @ Ather - VEC Alum)</option>
+                        <option value="Pavithra S (Senior Data Analyst @ TCS)">Pavithra S (Senior Data Analyst @ TCS - Anna Univ Alum)</option>
+                        <option value="Admin Supervised">Admin Supervised (Direct Coordinator)</option>
+                      </select>
+                    </div>
+
+                    {/* Description */}
+                    <div className="form-group-full">
+                      <label>Event Description *</label>
+                      <textarea
+                        rows="3"
+                        placeholder="Provide an inspirational description of the volunteering activity..."
+                        value={formData.description}
+                        onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                        className={formErrors.description ? "has-error" : ""}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* ══════════════════════════════════════════════════════════════
+                  SECTION 2: ADDITIONAL DETAILS (EXPAND / COLLAPSE)
+              ══════════════════════════════════════════════════════════════ */}
+              <div className="form-accordion-section">
+                <button
+                  type="button"
+                  className="form-accordion-header"
+                  onClick={() => setSectionsOpen((prev) => ({ ...prev, additional: !prev.additional }))}
+                >
+                  <div className="form-accordion-title">
+                    <span className="form-accordion-icon purple">✨</span>
+                    <div>
+                      <h4 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: "#0F172A" }}>
+                        Additional Details
+                      </h4>
+                      <p style={{ margin: 0, fontSize: 12, color: "#64748B" }}>
+                        Highlight Note, Team Updates, Agenda &amp; Venue Guidelines
+                      </p>
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 12, background: "#F1F5F9", color: "#475569" }}>
+                      Optional
+                    </span>
+                    {sectionsOpen.additional ? <ChevronUp size={20} color="#64748B" /> : <ChevronDown size={20} color="#64748B" />}
+                  </div>
+                </button>
+
+                {sectionsOpen.additional && (
+                  <div className="form-accordion-body">
+                    {/* About highlight line */}
+                    <div className="form-group-full">
+                      <label>Highlight Message (green note under the description)</label>
+                      <input
+                        type="text"
+                        placeholder="Together, we can make a difference!"
+                        value={formData.highlightNote}
+                        onChange={(e) => setFormData({ ...formData, highlightNote: e.target.value })}
+                      />
+                    </div>
+
+                    {/* Event Team */}
+                    <div className="form-section-title">Event Team &amp; Updates</div>
+                    <div className="form-row-3">
+                      <div>
+                        <label>Coordinator Name</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Dr. Priya Sharma"
+                          value={formData.coordinatorName}
+                          onChange={(e) => setFormData({ ...formData, coordinatorName: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <label>Coordinator Phone</label>
+                        <input
+                          type="tel"
+                          placeholder="e.g. +91 98765 43210"
+                          value={formData.coordinatorPhone}
+                          onChange={(e) => setFormData({ ...formData, coordinatorPhone: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <label>Coordinator Email</label>
+                        <input
+                          type="email"
+                          placeholder="coordinator@maatramfoundation.org"
+                          value={formData.contactEmail}
+                          onChange={(e) => setFormData({ ...formData, contactEmail: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                    <div className="form-group-full">
+                      <label>WhatsApp Group Link</label>
+                      <input
+                        type="url"
+                        placeholder="https://chat.whatsapp.com/..."
+                        value={formData.whatsappLink}
+                        onChange={(e) => setFormData({ ...formData, whatsappLink: e.target.value })}
+                      />
+                    </div>
+
+                    {/* Event Agenda */}
+                    <div className="form-section-title">Event Agenda — Start to End</div>
+                    <div className="agenda-editor">
+                      {(formData.agenda || []).map((row, idx) => (
+                        <div className="agenda-row" key={idx}>
+                          <input
+                            type="text"
+                            aria-label={`Agenda time ${idx + 1}`}
+                            placeholder="09:00 AM"
+                            value={row.time}
+                            onChange={(e) => updateAgendaRow(idx, "time", e.target.value)}
+                          />
+                          <input
+                            type="text"
+                            aria-label={`Agenda title ${idx + 1}`}
+                            placeholder="Activity title"
+                            value={row.title}
+                            onChange={(e) => updateAgendaRow(idx, "title", e.target.value)}
+                          />
+                          <input
+                            type="text"
+                            aria-label={`Agenda description ${idx + 1}`}
+                            placeholder="Short description"
+                            value={row.description}
+                            onChange={(e) => updateAgendaRow(idx, "description", e.target.value)}
+                          />
+                          <button
+                            type="button"
+                            className="agenda-remove-btn"
+                            onClick={() => removeAgendaRow(idx)}
+                            aria-label={`Remove agenda step ${idx + 1}`}
+                            title="Remove this step"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      ))}
+                      <div className="agenda-btn-row">
+                        <button type="button" className="agenda-add-btn" onClick={addAgendaRow}>
+                          <PlusCircle size={15} /> Add agenda item
+                        </button>
+                        <button type="button" className="agenda-auto-btn" onClick={autoFillAgenda} title="Builds a 7-step plan from the Timing Schedule above">
+                          <Sparkles size={15} /> Auto-fill standard agenda
                         </button>
                       </div>
                     </div>
-                  ) : (
-                    <label className="adm-upload-dropzone">
-                      <Upload size={28} color="#2563EB" />
-                      <span>Click to upload a custom event cover photo</span>
-                      <small>PNG, JPG, WebP supported</small>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        style={{ display: "none" }}
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            const reader = new FileReader();
-                            reader.onloadend = () => {
-                              setFormData({ ...formData, image: reader.result });
-                              showToast("Image uploaded successfully!", "success");
-                            };
-                            reader.readAsDataURL(file);
-                          }
-                        }}
+
+                    {/* Live Location & What to Bring */}
+                    <div className="form-section-title">Live Location &amp; What to Bring</div>
+                    <div className="form-row-2">
+                      <div>
+                        <label>Official Venue Name</label>
+                        <input
+                          type="text"
+                          placeholder="Official Venue"
+                          value={formData.venueName}
+                          onChange={(e) => setFormData({ ...formData, venueName: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <label>Google Maps Link</label>
+                        <input
+                          type="url"
+                          placeholder="https://maps.google.com/..."
+                          value={formData.mapLink}
+                          onChange={(e) => setFormData({ ...formData, mapLink: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                    <div className="form-group-full">
+                      <label>What Volunteers Should Bring (1 per line)</label>
+                      <textarea
+                        rows="4"
+                        placeholder={"College ID card & volunteer ID tag\nSmartphone for QR attendance scan\nComfortable outdoor attire\nDrinking water bottle"}
+                        value={formData.whatToBring}
+                        onChange={(e) => setFormData({ ...formData, whatToBring: e.target.value })}
                       />
-                    </label>
-                  )}
-                </div>
-              </div>
-
-              {/* Assigned Alumni Mentor */}
-              <div className="form-group-full">
-                <label>Assigned Alumni Mentor & Event Lead</label>
-                <select
-                  value={formData.assignedAlumni || "Sundar R (Senior SDE @ Zoho)"}
-                  onChange={(e) => setFormData({ ...formData, assignedAlumni: e.target.value })}
-                  style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1px solid #CBD5E1", fontSize: 13.5 }}
-                >
-                  <option value="Sundar R (Senior SDE @ Zoho)">Sundar R (Senior SDE @ Zoho - CEG Alum)</option>
-                  <option value="Deepika K (Civil Services Aspirant)">Deepika K (Civil Services Aspirant - MIT Alum)</option>
-                  <option value="Gautham M (Robotics Systems Lead @ Ather)">Gautham M (Robotics Systems Lead @ Ather - VEC Alum)</option>
-                  <option value="Pavithra S (Senior Data Analyst @ TCS)">Pavithra S (Senior Data Analyst @ TCS - Anna Univ Alum)</option>
-                  <option value="Admin Supervised">Admin Supervised (Direct Coordinator)</option>
-                </select>
-              </div>
-
-              {/* Description */}
-              <div className="form-group-full">
-                <label>Event Description *</label>
-                <textarea
-                  rows="3"
-                  placeholder="Provide an inspirational description of the volunteering activity..."
-                  value={formData.description}
-                  onChange={(e) =>
-                    setFormData({ ...formData, description: e.target.value })
-                  }
-                  className={formErrors.description ? "has-error" : ""}
-                />
-              </div>
-
-              {/* About highlight line */}
-              <div className="form-group-full">
-                <label>Highlight Message (green note under the description)</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Together, we can make a difference!"
-                  value={formData.highlightNote}
-                  onChange={(e) => setFormData({ ...formData, highlightNote: e.target.value })}
-                />
-              </div>
-
-              {/* Event Team */}
-              <div className="form-section-title">Event Team &amp; Updates</div>
-              <div className="form-row-3">
-                <div>
-                  <label>Coordinator Name</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Dr. Priya Sharma"
-                    value={formData.coordinatorName}
-                    onChange={(e) => setFormData({ ...formData, coordinatorName: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <label>Coordinator Phone</label>
-                  <input
-                    type="tel"
-                    placeholder="e.g. +91 98765 43210"
-                    value={formData.coordinatorPhone}
-                    onChange={(e) => setFormData({ ...formData, coordinatorPhone: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <label>Coordinator Email</label>
-                  <input
-                    type="email"
-                    placeholder="e.g. priya@maatram.org"
-                    value={formData.contactEmail}
-                    onChange={(e) => setFormData({ ...formData, contactEmail: e.target.value })}
-                  />
-                </div>
-              </div>
-              <div className="form-group-full">
-                <label>WhatsApp Group Link</label>
-                <input
-                  type="url"
-                  placeholder="https://chat.whatsapp.com/..."
-                  value={formData.whatsappLink}
-                  onChange={(e) => setFormData({ ...formData, whatsappLink: e.target.value })}
-                />
-              </div>
-
-              {/* Event Agenda */}
-              <div className="form-section-title">Event Agenda — Start to End</div>
-              <div className="agenda-editor">
-                {(formData.agenda || []).map((row, idx) => (
-                  <div className="agenda-row" key={idx}>
-                    <input
-                      type="text"
-                      aria-label={`Agenda time ${idx + 1}`}
-                      placeholder="09:00 AM"
-                      value={row.time}
-                      onChange={(e) => updateAgendaRow(idx, "time", e.target.value)}
-                    />
-                    <input
-                      type="text"
-                      aria-label={`Agenda title ${idx + 1}`}
-                      placeholder="Activity title"
-                      value={row.title}
-                      onChange={(e) => updateAgendaRow(idx, "title", e.target.value)}
-                    />
-                    <input
-                      type="text"
-                      aria-label={`Agenda description ${idx + 1}`}
-                      placeholder="Short description"
-                      value={row.description}
-                      onChange={(e) => updateAgendaRow(idx, "description", e.target.value)}
-                    />
-                    <button
-                      type="button"
-                      className="agenda-remove-btn"
-                      onClick={() => removeAgendaRow(idx)}
-                      aria-label={`Remove agenda step ${idx + 1}`}
-                      title="Remove this step"
-                    >
-                      <Trash2 size={14} />
-                    </button>
+                    </div>
                   </div>
-                ))}
-                <div className="agenda-btn-row">
-                  <button type="button" className="agenda-add-btn" onClick={addAgendaRow}>
-                    <PlusCircle size={15} /> Add agenda item
-                  </button>
-                  <button type="button" className="agenda-auto-btn" onClick={autoFillAgenda} title="Builds a 7-step plan from the Timing Schedule above">
-                    <Sparkles size={15} /> Auto-fill standard agenda
-                  </button>
-                </div>
-              </div>
-
-              {/* Live Location */}
-              <div className="form-section-title">Live Location &amp; What to Bring</div>
-              <div className="form-row-2">
-                <div>
-                  <label>Official Venue Name</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Guindy National Park Main Gate"
-                    value={formData.venueName}
-                    onChange={(e) => setFormData({ ...formData, venueName: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <label>Google Maps Link</label>
-                  <input
-                    type="url"
-                    placeholder="https://maps.google.com/..."
-                    value={formData.mapLink}
-                    onChange={(e) => setFormData({ ...formData, mapLink: e.target.value })}
-                  />
-                </div>
-              </div>
-              <div className="form-group-full">
-                <label>What Volunteers Should Bring (1 per line)</label>
-                <textarea
-                  rows="4"
-                  placeholder={"College ID card & volunteer ID tag\nSmartphone for QR attendance scan\nComfortable outdoor attire\nDrinking water bottle"}
-                  value={formData.whatToBring}
-                  onChange={(e) => setFormData({ ...formData, whatToBring: e.target.value })}
-                />
+                )}
               </div>
 
               {/* Actions */}
@@ -2272,8 +2401,7 @@ export default function AdminEventsPage() {
                 <button type="submit" className="admin-btn admin-btn-primary" disabled={submitting}>
                   {submitting ? "Saving Drive..." : modalMode === "add" ? "Publish Drive" : "Save Changes"}
                 </button>
-              </div>
-            </form>
+              </div></form>
           </div>
         </div>
       )}
@@ -2309,1036 +2437,6 @@ export default function AdminEventsPage() {
                 <Trash2 size={16} /> Delete Permanently
               </button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* ══════════════════════════════════════════════════════════════════
-          MANAGE EVENT INSIDE: WHITE, YELLOW & BLACK LUXURY UI/UX
-          PAGE 1: EVENT OVERVIEW & VOLUNTEERS
-          PAGE 2: STUDENT MARK ALLOCATIONS (RUBRIC)
-      ══════════════════════════════════════════════════════════════════ */}
-      {managingEvent && (
-        <div className="modal-backdrop" onClick={() => setManagingEvent(null)} style={{ zIndex: 1200 }}>
-          <div
-            className="modal-content"
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              maxWidth: 960,
-              width: "95%",
-              maxHeight: "92vh",
-              overflowY: "auto",
-              padding: 0,
-              borderRadius: 24,
-              background: "#FFFFFF",
-              border: "2px solid #18181B",
-              boxShadow: "0 25px 60px -15px rgba(0,0,0,0.6)",
-            }}
-          >
-            {/* Top Executive Header - White, Yellow & Black Theme */}
-            <div
-              style={{
-                background: "#09090B",
-                color: "#FFFFFF",
-                padding: "24px 30px",
-                borderTopLeftRadius: 22,
-                borderTopRightRadius: 22,
-                borderBottom: "2.5px solid #EAB308",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "flex-start",
-                position: "relative",
-              }}
-            >
-              <div style={{ maxWidth: "86%" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, flexWrap: "wrap" }}>
-                  <span
-                    style={{
-                      fontSize: 11,
-                      fontWeight: 900,
-                      textTransform: "uppercase",
-                      letterSpacing: 0.8,
-                      background: "#EAB308",
-                      color: "#000000",
-                      padding: "4px 12px",
-                      borderRadius: 8,
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 6,
-                    }}
-                  >
-                    <Sparkles size={13} color="#000000" /> {managingEvent.category || "SPECIAL PROJECTS"}
-                  </span>
-                </div>
-                <h2 style={{ margin: 0, fontSize: 24, fontWeight: 900, color: "#FFFFFF", lineHeight: 1.25 }}>
-                  {managingEvent.title}
-                </h2>
-                <div style={{ display: "flex", gap: 10, marginTop: 12, fontSize: 12.5, color: "#FAFAFA", flexWrap: "wrap" }}>
-                  <span style={{ background: "#18181B", border: "1px solid #27272A", padding: "5px 12px", borderRadius: 8, display: "inline-flex", alignItems: "center", gap: 6 }}>
-                    <Calendar size={13} color="#EAB308" /> {managingEvent.date}
-                  </span>
-                  <span style={{ background: "#18181B", border: "1px solid #27272A", padding: "5px 12px", borderRadius: 8, display: "inline-flex", alignItems: "center", gap: 6 }}>
-                    <Clock size={13} color="#EAB308" /> {managingEvent.time || `${managingEvent.durationHours || 4} hrs`}
-                  </span>
-                  <span style={{ background: "#18181B", border: "1px solid #27272A", padding: "5px 12px", borderRadius: 8, display: "inline-flex", alignItems: "center", gap: 6 }}>
-                    <MapPin size={13} color="#EAB308" /> {managingEvent.location}
-                  </span>
-                  <span style={{ background: "#000000", color: "#FACC15", padding: "5px 12px", borderRadius: 8, fontWeight: 800, border: "1.5px solid #EAB308", display: "inline-flex", alignItems: "center", gap: 5 }}>
-                    🏆 +{managingEvent.points || 50} pts configured
-                  </span>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setManagingEvent(null)}
-                style={{
-                  background: "#18181B",
-                  border: "1.5px solid #27272A",
-                  color: "#FFFFFF",
-                  borderRadius: "50%",
-                  width: 38,
-                  height: 38,
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  transition: "all 0.2s",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = "#EAB308";
-                  e.currentTarget.style.color = "#000000";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = "#18181B";
-                  e.currentTarget.style.color = "#FFFFFF";
-                }}
-                title="Close Modal"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            {/* TWO-PAGE NAVIGATION BAR (White, Yellow, and Black) */}
-            <div
-              style={{
-                display: "flex",
-                background: "#09090B",
-                padding: "10px 28px",
-                borderBottom: "1.5px solid #27272A",
-                gap: 12,
-                flexWrap: "wrap",
-              }}
-            >
-              <button
-                type="button"
-                onClick={() => setModalPage("overview")}
-                style={{
-                  padding: "9px 20px",
-                  borderRadius: 10,
-                  fontSize: 13,
-                  fontWeight: 800,
-                  cursor: "pointer",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 8,
-                  background: modalPage === "overview" ? "#EAB308" : "#18181B",
-                  color: modalPage === "overview" ? "#000000" : "#FAFAFA",
-                  border: modalPage === "overview" ? "1.5px solid #CA8A04" : "1.5px solid #3F3F46",
-                  transition: "all 0.2s ease",
-                  boxShadow: modalPage === "overview" ? "0 2px 8px rgba(234, 179, 8, 0.4)" : "none",
-                }}
-              >
-                <Users size={16} color={modalPage === "overview" ? "#000000" : "#EAB308"} />
-                Page 1: Event &amp; Volunteers Overview
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setModalPage("rubric")}
-                style={{
-                  padding: "9px 20px",
-                  borderRadius: 10,
-                  fontSize: 13,
-                  fontWeight: 800,
-                  cursor: "pointer",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 8,
-                  background: modalPage === "rubric" ? "#EAB308" : "#18181B",
-                  color: modalPage === "rubric" ? "#000000" : "#FAFAFA",
-                  border: modalPage === "rubric" ? "1.5px solid #CA8A04" : "1.5px solid #3F3F46",
-                  transition: "all 0.2s ease",
-                  boxShadow: modalPage === "rubric" ? "0 2px 8px rgba(234, 179, 8, 0.4)" : "none",
-                }}
-              >
-                <Star size={16} color={modalPage === "rubric" ? "#000000" : "#EAB308"} />
-                Page 2: Student Mark Allocations (Rubric)
-              </button>
-            </div>
-
-            {/* RESOLVE VOLUNTEERS & APPLICATIONS */}
-            {(() => {
-              const oppId = String(managingEvent.id || managingEvent._id || "");
-              const eventTitle = (managingEvent.title || "").trim().toLowerCase();
-
-              const rawApps = applications.filter((a) => {
-                const aOppId = String(a.opportunityId?._id || a.opportunityId?.id || a.opportunityId || "");
-                const aTitle = String(a.opportunityTitle || a.opportunity?.title || "").trim().toLowerCase();
-                return (oppId && aOppId === oppId) || (eventTitle && aTitle === eventTitle);
-              });
-
-              const matchingExtra = extraEventApps.filter((a) => {
-                const aOppId = String(a.opportunityId || "");
-                const aTitle = String(a.opportunityTitle || "").trim().toLowerCase();
-                return (oppId && aOppId === oppId) || (eventTitle && aTitle === eventTitle);
-              });
-
-              let resolvedApps = [...rawApps, ...matchingExtra];
-
-              // If no registered applications exist yet, provide both default volunteers
-              if (resolvedApps.length === 0) {
-                resolvedApps = [];
-              }
-
-              const allCurrentApps = resolvedApps.map((a) => ({
-                ...a,
-                status: eventLocalApps[a.id || a._id] || a.status || "Pending",
-              }));
-
-              const approvedCount = allCurrentApps.filter((a) => a.status === "Approved" || a.status === "Completed").length;
-              const isCompleted = managingEvent.eventStatus === "Completed" || managingEvent.status === "Completed";
-
-              // Filter by selected modal tab
-              const currentApps = (() => {
-                if (modalTab === "participated") return allCurrentApps.filter((a) => a.status === "Completed");
-                if (modalTab === "pending") return allCurrentApps.filter((a) => a.status === "Pending" || a.status === "Applied");
-                if (modalTab === "approved") return allCurrentApps.filter((a) => a.status === "Approved");
-                if (modalTab === "assigned") return allCurrentApps.filter((a) => a.status === "Assigned");
-                return allCurrentApps;
-              })();
-
-              // Current student for Page 2 evaluation
-              const activeStudent = selectedStudentForRubric || allCurrentApps[0] || resolvedApps[0];
-              const studentName = activeStudent.applicantDetails?.name || activeStudent.name || (activeStudent.userId && activeStudent.userId.fullName) || "Priya S";
-              const studentKey = activeStudent.id || activeStudent._id || studentName;
-              const studentInitials = studentName.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase() || "P";
-
-              const currentScores = rubricScores[studentKey] || {
-                attendance: 2,
-                punctuality: 2,
-                taskCompletion: 2,
-                responsibility: 2,
-                teamwork: 2,
-              };
-
-              const totalScore = RUBRIC_CATEGORIES.reduce((acc, cat) => acc + (Number(currentScores[cat.id]) || 0), 0);
-
-              const handleAdjustScore = (categoryId, delta) => {
-                const cat = RUBRIC_CATEGORIES.find((c) => c.id === categoryId);
-                const maxVal = cat ? cat.max : 2;
-                const curVal = currentScores[categoryId] ?? 2;
-                const nextVal = Math.max(0, Math.min(maxVal, curVal + delta));
-                setRubricScores((prev) => ({
-                  ...prev,
-                  [studentKey]: {
-                    ...currentScores,
-                    [categoryId]: nextVal,
-                  },
-                }));
-              };
-
-              const handleSaveFeedback = () => {
-                showToast(`✅ Verified feedback & ${totalScore}/10 marks recorded for ${studentName}!`, "success");
-                try {
-                  const eventId = managingEvent.id || managingEvent._id;
-                  const key = `marks_event_${eventId}`;
-                  const stored = JSON.parse(localStorage.getItem(key) || "{}");
-                  stored[studentKey] = { scores: currentScores, total: totalScore, savedAt: new Date().toISOString() };
-                  localStorage.setItem(key, JSON.stringify(stored));
-                } catch (_) { }
-              };
-
-              return (
-                <div>
-                  {/* ────────────────────────────────────────────────────────
-                      PAGE 1: EVENT OVERVIEW & VOLUNTEERS (WHITE, YELLOW & BLACK)
-                  ──────────────────────────────────────────────────────── */}
-                  {modalPage === "overview" && (
-                    <div>
-                      {/* Lifecycle Status & Config Header */}
-                      <div style={{ padding: "22px 28px", background: "#FFFFFF", borderBottom: "1.5px solid #E4E4E7" }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 14 }}>
-                          <div>
-                            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                              <span style={{ fontSize: 13, fontWeight: 800, color: "#000000" }}>
-                                Event Lifecycle Status:
-                              </span>
-                              <span
-                                style={{
-                                  background: isCompleted ? "#18181B" : "#FEF9C3",
-                                  color: isCompleted ? "#FACC15" : "#713F12",
-                                  padding: "5px 14px",
-                                  borderRadius: 16,
-                                  fontSize: 12.5,
-                                  fontWeight: 800,
-                                  display: "inline-flex",
-                                  alignItems: "center",
-                                  gap: 6,
-                                  border: isCompleted ? "1.5px solid #EAB308" : "1.5px solid #FACC15",
-                                }}
-                              >
-                                <span className="pulse-dot" style={{ background: isCompleted ? "#FACC15" : "#EAB308" }}></span>
-                                {isCompleted ? "Completed & Certified" : "In Progress / Active"}
-                              </span>
-                            </div>
-                            <p style={{ margin: "6px 0 0", fontSize: 12.5, color: "#52525B" }}>
-                              {approvedCount} Approved Volunteer{approvedCount !== 1 ? "s" : ""} will receive <strong>+{managingEvent.points || 50} pts</strong>, Certificate, and Thank-you Email upon completion.
-                            </p>
-                          </div>
-
-                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                            <div
-                              style={{
-                                background: "#000000",
-                                border: "1.5px solid #EAB308",
-                                padding: "7px 16px",
-                                borderRadius: 10,
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 7,
-                              }}
-                            >
-                              <Award size={16} color="#EAB308" />
-                              <span style={{ fontSize: 12.5, fontWeight: 800, color: "#FACC15" }}>
-                                +{managingEvent.points || 50} Points Award Configuration
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* 5 STAT BOXES (Matching Image 1 in White, Yellow and Black) */}
-                        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 10, marginTop: 16, marginBottom: 16 }}>
-                          <div style={{ background: "#FFFFFF", border: "1.5px solid #18181B", borderRadius: 12, padding: "12px 10px", display: "flex", alignItems: "center", gap: 8 }}>
-                            <Users size={17} color="#EAB308" style={{ flexShrink: 0 }} />
-                            <div>
-                              <div style={{ fontSize: 16, fontWeight: 900, color: "#000000", lineHeight: 1 }}>{allCurrentApps.length}</div>
-                              <div style={{ fontSize: 10.5, color: "#52525B", fontWeight: 700, marginTop: 2 }}>Interested</div>
-                            </div>
-                          </div>
-                          <div style={{ background: "#FFFFFF", border: "1.5px solid #18181B", borderRadius: 12, padding: "12px 10px", display: "flex", alignItems: "center", gap: 8 }}>
-                            <User size={17} color="#EAB308" style={{ flexShrink: 0 }} />
-                            <div>
-                              <div style={{ fontSize: 16, fontWeight: 900, color: "#000000", lineHeight: 1 }}>{approvedCount} / {managingEvent.volunteersNeeded || 12}</div>
-                              <div style={{ fontSize: 10.5, color: "#52525B", fontWeight: 700, marginTop: 2 }}>Volunteers</div>
-                            </div>
-                          </div>
-                          <div style={{ background: "#FFFFFF", border: "1.5px solid #18181B", borderRadius: 12, padding: "12px 10px", display: "flex", alignItems: "center", gap: 8 }}>
-                            <Clock size={17} color="#EAB308" style={{ flexShrink: 0 }} />
-                            <div>
-                              <div style={{ fontSize: 16, fontWeight: 900, color: "#000000", lineHeight: 1 }}>{approvedCount * (managingEvent.durationHours || 4)}</div>
-                              <div style={{ fontSize: 10.5, color: "#52525B", fontWeight: 700, marginTop: 2 }}>Total Hours</div>
-                            </div>
-                          </div>
-                          <div style={{ background: "#FFFFFF", border: "1.5px solid #18181B", borderRadius: 12, padding: "12px 10px", display: "flex", alignItems: "center", gap: 8 }}>
-                            <Mail size={17} color="#EAB308" style={{ flexShrink: 0 }} />
-                            <div>
-                              <div style={{ fontSize: 16, fontWeight: 900, color: "#000000", lineHeight: 1 }}>{managingEvent.emailsSent !== false ? "Yes" : "No"}</div>
-                              <div style={{ fontSize: 10.5, color: "#52525B", fontWeight: 700, marginTop: 2 }}>Emails Sent</div>
-                            </div>
-                          </div>
-                          <div style={{ background: "#FFFFFF", border: "1.5px solid #18181B", borderRadius: 12, padding: "12px 10px", display: "flex", alignItems: "center", gap: 8 }}>
-                            <Bell size={17} color="#EAB308" style={{ flexShrink: 0 }} />
-                            <div>
-                              <div style={{ fontSize: 16, fontWeight: 900, color: "#000000", lineHeight: 1 }}>{managingEvent.reminderSent !== false ? "Yes" : "No"}</div>
-                              <div style={{ fontSize: 10.5, color: "#52525B", fontWeight: 700, marginTop: 2 }}>Reminder Sent</div>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Assigned Alumni Mentor Card (Interactive Dropdown & Reassign in White, Yellow & Black) */}
-                        <div
-                          style={{
-                            marginTop: 14,
-                            padding: "16px 22px",
-                            background: "#FFFFFF",
-                            border: "2px solid #EAB308",
-                            borderRadius: 14,
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center",
-                            flexWrap: "wrap",
-                            gap: 12,
-                            boxShadow: "0 2px 10px rgba(234, 179, 8, 0.15)",
-                          }}
-                        >
-                          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                            <div
-                              style={{
-                                width: 44,
-                                height: 44,
-                                borderRadius: 10,
-                                background: "#000000",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                color: "#EAB308",
-                                boxShadow: "0 2px 6px rgba(0,0,0,0.3)",
-                              }}
-                            >
-                              <GraduationCap size={24} color="#EAB308" />
-                            </div>
-                            <div>
-                              <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                                <span style={{ fontSize: 11, fontWeight: 900, color: "#000000", textTransform: "uppercase", letterSpacing: 0.6 }}>
-                                  ASSIGNED ALUMNI MENTOR &amp; SUPERVISOR
-                                </span>
-                                <span style={{ fontSize: 10.5, fontWeight: 800, background: "#FEF08A", color: "#000000", padding: "1px 8px", borderRadius: 4, border: "1px solid #EAB308" }}>
-                                  Verified Alum
-                                </span>
-                              </div>
-                              <strong style={{ fontSize: 15, color: "#000000", display: "block", marginTop: 2 }}>
-                                {managingEvent.assignedAlumni || "Sundar R (Senior SDE @ Zoho)"}
-                              </strong>
-                            </div>
-                          </div>
-
-                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                            <span style={{ fontSize: 12.5, color: "#000000", fontWeight: 800 }}>Reassign:</span>
-                            <select
-                              value={managingEvent.assignedAlumni || (alumniUsers.length > 0 ? `${alumniUsers[0].fullName} (${alumniUsers[0].designation || alumniUsers[0].role || 'Alumni Leader'} @ ${alumniUsers[0].organization || alumniUsers[0].company || 'Zoho'})` : "Sundar R (Senior SDE @ Zoho)")}
-                              onChange={async (e) => {
-                                const newAlumni = e.target.value;
-                                setManagingEvent({ ...managingEvent, assignedAlumni: newAlumni });
-                                if (updateOpportunity && (managingEvent.id || managingEvent._id)) {
-                                  await updateOpportunity(managingEvent.id || managingEvent._id, { assignedAlumni: newAlumni });
-                                }
-                                const matchedAlum = alumniUsers.find((a) => {
-                                  const label = `${a.fullName} (${a.designation || a.role || "Alumni Leader"} @ ${a.organization || a.company || "Zoho"})`;
-                                  return label === newAlumni || a.fullName === newAlumni;
-                                });
-                                if (matchedAlum) {
-                                  try {
-                                    await adminAPI.assignWork(matchedAlum.id || matchedAlum._id, {
-                                      targetEvent: managingEvent.title,
-                                      targetRole: "Event Lead & Supervisor",
-                                      targetDate: managingEvent.date || new Date().toISOString().split("T")[0],
-                                      targetDesc: `Lead and supervise on-ground student drive for "${managingEvent.title}".`,
-                                    });
-                                  } catch (_) { }
-                                }
-                                showToast(`Assigned event to Alumni: ${newAlumni}`, "success");
-                              }}
-                              style={{
-                                padding: "8px 16px",
-                                fontSize: 13,
-                                borderRadius: 8,
-                                border: "2px solid #EAB308",
-                                background: "#FFFFFF",
-                                color: "#000000",
-                                fontWeight: 800,
-                                cursor: "pointer",
-                              }}
-                            >
-                              {alumniUsers.map((a) => {
-                                const label = `${a.fullName} (${a.designation || a.role || "Alumni Leader"} @ ${a.organization || a.company || "Zoho"})`;
-                                return (
-                                  <option key={a.id || a._id} value={label}>
-                                    {a.fullName} ({a.applicationId || "ALU"} - {a.designation || a.role || "Alumni"} @ {a.organization || a.company || "Zoho"})
-                                  </option>
-                                );
-                              })}
-                              <option value="Sundar R (Senior SDE @ Zoho)">Sundar R (Senior SDE @ Zoho)</option>
-                              <option value="Deepika K (Civil Services Aspirant & Public Policy Fellow)">Deepika K (Civil Services Aspirant &amp; Public Policy Fellow)</option>
-                              <option value="Karthik M (Product Lead @ Freshworks)">Karthik M (Product Lead @ Freshworks)</option>
-                              <option value="Direct Admin Supervised">Direct Admin Supervised</option>
-                            </select>
-                          </div>
-                        </div>
-
-                        {/* Participants Section */}
-                        <div style={{ marginTop: 22 }}>
-                          {/* ── VOLUNTEER CATEGORY TABS (White, Yellow and Black) ── */}
-                          <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-                            {[
-                              { key: "participated", label: "Volunteers Who Participated", count: currentApps.filter((a) => a.status === "Completed").length },
-                              { key: "interested", label: "Interested Volunteers", count: allCurrentApps.length },
-                              { key: "pending", label: "Pending Applications", count: currentApps.filter((a) => a.status === "Pending" || a.status === "Applied").length },
-                              { key: "approved", label: "Approved Volunteers", count: approvedCount },
-                              { key: "assigned", label: "Assigned", count: currentApps.filter((a) => a.status === "Assigned").length },
-                            ].map((tab) => {
-                              const isActive = modalTab === tab.key;
-                              return (
-                                <button
-                                  key={tab.key}
-                                  type="button"
-                                  onClick={() => setModalTab(tab.key)}
-                                  style={{
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    gap: 7,
-                                    padding: "7px 16px",
-                                    borderRadius: 24,
-                                    fontSize: 12.5,
-                                    fontWeight: 800,
-                                    cursor: "pointer",
-                                    transition: "all 0.15s",
-                                    background: isActive ? "#000000" : "#FFFFFF",
-                                    color: isActive ? "#FACC15" : "#000000",
-                                    border: isActive ? "2px solid #000000" : "1.5px solid #E4E4E7",
-                                  }}
-                                >
-                                  {tab.label}
-                                  <span
-                                    style={{
-                                      background: isActive ? "#EAB308" : "#F4F4F5",
-                                      color: "#000000",
-                                      borderRadius: 12,
-                                      padding: "1px 8px",
-                                      fontSize: 11,
-                                      fontWeight: 900,
-                                    }}
-                                  >
-                                    {tab.count}
-                                  </span>
-                                </button>
-                              );
-                            })}
-                          </div>
-
-                          {/* Table Header Controls */}
-                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 10 }}>
-                            <h4 style={{ margin: 0, fontSize: 15, fontWeight: 900, color: "#000000", display: "flex", alignItems: "center", gap: 8 }}>
-                              <Users size={18} color="#EAB308" /> Registered Volunteers &amp; Applications ({currentApps.length})
-                            </h4>
-                            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                              <button
-                                type="button"
-                                onClick={() => handleVerifyAllAttendance(currentApps)}
-                                style={{
-                                  display: "inline-flex",
-                                  alignItems: "center",
-                                  gap: 6,
-                                  padding: "7px 16px",
-                                  background: "#000000",
-                                  color: "#FACC15",
-                                  border: "1.5px solid #EAB308",
-                                  borderRadius: 8,
-                                  fontSize: 12.5,
-                                  fontWeight: 800,
-                                  cursor: "pointer",
-                                }}
-                              >
-                                <CheckCircle2 size={14} color="#EAB308" /> Verify Attendance for All Approved
-                              </button>
-                              <span style={{ fontSize: 12, color: "#52525B" }}>
-                                Approve volunteers &amp; verify attendance before completing event
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* Structured Table (White, Yellow & Black) */}
-                          <div style={{ border: "2px solid #18181B", borderRadius: 14, overflow: "hidden", background: "#FFFFFF" }}>
-                            <table className="admin-table" style={{ margin: 0 }}>
-                              <thead style={{ background: "#18181B" }}>
-                                <tr>
-                                  <th style={{ width: 45, color: "#FAFAFA", fontWeight: 800 }}>#</th>
-                                  <th style={{ color: "#FAFAFA", fontWeight: 800 }}>VOLUNTEER</th>
-                                  <th style={{ color: "#FAFAFA", fontWeight: 800 }}>COLLEGE</th>
-                                  <th style={{ color: "#FAFAFA", fontWeight: 800 }}>DEPT &amp; YEAR</th>
-                                  <th style={{ color: "#FAFAFA", fontWeight: 800 }}>ATTENDANCE</th>
-                                  <th style={{ color: "#FAFAFA", fontWeight: 800 }}>STATUS</th>
-                                  <th style={{ textAlign: "right", color: "#FAFAFA", fontWeight: 800 }}>ACTIONS</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {currentApps.length === 0 ? (
-                                  <tr>
-                                    <td colSpan={7} style={{ padding: "36px 20px", textAlign: "center", color: "#71717A" }}>
-                                      <Users size={32} style={{ display: "block", margin: "0 auto 10px", color: "#EAB308" }} />
-                                      <strong style={{ fontSize: 14, color: "#000000", display: "block", marginBottom: 4 }}>
-                                        No Registered Volunteers for this Filter
-                                      </strong>
-                                      <span style={{ fontSize: 12.5 }}>
-                                        Switch tabs or approve registered volunteers to proceed.
-                                      </span>
-                                    </td>
-                                  </tr>
-                                ) : (
-                                  currentApps.map((app, idx) => {
-                                    const name = app.applicantDetails?.name || app.name || (app.userId && app.userId.fullName) || "Student Volunteer";
-                                    const email = app.applicantDetails?.email || app.email || (app.userId && app.userId.email) || "";
-                                    const college = app.applicantDetails?.college || (app.userId && app.userId.college) || "Velammal Engineering college Chennai";
-                                    const dept = app.applicantDetails?.department || (app.userId && app.userId.department) || "Mechanical Engineering";
-                                    const year = app.applicantDetails?.academicYear || (app.userId && app.userId.academicYear) || "4 Year";
-                                    const appId = app.applicantDetails?.applicationId || app.applicationId || (app.userId && app.userId.applicationId) || `MAA00${idx + 1}`;
-                                    const st = eventLocalApps[app.id || app._id] || app.status;
-                                    const attStatus = eventLocalAttendance[app.id || app._id] || app.attendanceStatus || (st === "Completed" ? "Present" : "Absent");
-                                    const initials = name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase() || "V";
-
-                                    return (
-                                      <tr key={app.id || app._id || idx} style={{ borderBottom: "1px solid #E4E4E7" }}>
-                                        <td style={{ fontWeight: 800, color: "#000000" }}>{idx + 1}</td>
-                                        <td>
-                                          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                                            <div
-                                              style={{
-                                                width: 36,
-                                                height: 36,
-                                                borderRadius: "50%",
-                                                background: "#EAB308",
-                                                color: "#000000",
-                                                display: "flex",
-                                                alignItems: "center",
-                                                justifyContent: "center",
-                                                fontWeight: 900,
-                                                fontSize: 13,
-                                                boxShadow: "0 2px 6px rgba(234, 179, 8, 0.3)",
-                                              }}
-                                            >
-                                              {initials}
-                                            </div>
-                                            <div>
-                                              <div style={{ fontWeight: 800, color: "#000000", fontSize: 13.5 }}>{name}</div>
-                                              <div style={{ fontSize: 11, color: "#52525B" }}>{appId} • {email}</div>
-                                            </div>
-                                          </div>
-                                        </td>
-                                        <td style={{ color: "#000000", fontSize: 13, fontWeight: 600 }}>{college}</td>
-                                        <td style={{ color: "#27272A", fontSize: 13 }}>
-                                          <span style={{ fontWeight: 700 }}>{dept}</span> • {year}
-                                        </td>
-                                        <td>
-                                          {attStatus === "Present" ? (
-                                            <span style={{ background: "#18181B", color: "#FACC15", padding: "4px 10px", borderRadius: 12, fontSize: 11.5, fontWeight: 800, border: "1px solid #EAB308", display: "inline-flex", alignItems: "center", gap: 4 }}>
-                                              <Check size={12} color="#FACC15" /> Present (Verified)
-                                            </span>
-                                          ) : (
-                                            <span style={{ background: "#FAFAFA", color: "#000000", padding: "4px 10px", borderRadius: 12, fontSize: 11.5, fontWeight: 700, border: "1px solid #E4E4E7" }}>
-                                              ✗ Absent
-                                            </span>
-                                          )}
-                                        </td>
-                                        <td>
-                                          {st === "Approved" ? (
-                                            <span style={{ background: "#FEF08A", color: "#000000", padding: "4px 12px", borderRadius: 16, fontSize: 12, fontWeight: 800, border: "1.5px solid #EAB308", display: "inline-flex", alignItems: "center", gap: 5 }}>
-                                              • Approved
-                                            </span>
-                                          ) : st === "Completed" ? (
-                                            <span style={{ background: "#18181B", color: "#FACC15", padding: "4px 12px", borderRadius: 16, fontSize: 11.5, fontWeight: 800, border: "1px solid #EAB308", display: "inline-flex", alignItems: "center", gap: 4 }}>
-                                              <Award size={12} color="#FACC15" /> +{managingEvent.points || 50} pts
-                                            </span>
-                                          ) : (
-                                            <span style={{ background: "#FFFFFF", color: "#000000", padding: "4px 12px", borderRadius: 16, fontSize: 12, fontWeight: 700, border: "1.5px dashed #EAB308" }}>
-                                              Pending
-                                            </span>
-                                          )}
-                                        </td>
-                                        <td style={{ textAlign: "right" }}>
-                                          <div style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
-                                            {/* ⭐ Direct Mark Allocation Button -> Opens Page 2 */}
-                                            <button
-                                              type="button"
-                                              onClick={() => {
-                                                setSelectedStudentForRubric(app);
-                                                setModalPage("rubric");
-                                              }}
-                                              style={{
-                                                display: "inline-flex",
-                                                alignItems: "center",
-                                                gap: 5,
-                                                padding: "5px 12px",
-                                                background: "#EAB308",
-                                                color: "#000000",
-                                                border: "1.5px solid #CA8A04",
-                                                borderRadius: 8,
-                                                fontSize: 12,
-                                                fontWeight: 800,
-                                                cursor: "pointer",
-                                                boxShadow: "0 2px 6px rgba(234, 179, 8, 0.3)",
-                                              }}
-                                              title="Open Rubric & Allocate Marks for this student"
-                                            >
-                                              <Star size={12} color="#000000" /> Mark Allocation
-                                            </button>
-
-                                            {/* Attendance Toggle */}
-                                            <button
-                                              type="button"
-                                              onClick={() => handleToggleAttendance(app, attStatus === "Present" ? "Absent" : "Present")}
-                                              style={{
-                                                display: "inline-flex",
-                                                alignItems: "center",
-                                                gap: 4,
-                                                padding: "5px 10px",
-                                                background: "#FFFFFF",
-                                                color: "#000000",
-                                                border: "1.5px solid #18181B",
-                                                borderRadius: 8,
-                                                fontSize: 11.5,
-                                                fontWeight: 800,
-                                                cursor: "pointer",
-                                              }}
-                                            >
-                                              {attStatus === "Present" ? "Mark Absent" : "Mark Present"}
-                                            </button>
-
-                                            {st === "Pending" ? (
-                                              <button
-                                                type="button"
-                                                onClick={() => handleApproveEventVolunteer(app)}
-                                                style={{
-                                                  display: "inline-flex",
-                                                  alignItems: "center",
-                                                  gap: 4,
-                                                  padding: "5px 12px",
-                                                  background: "#000000",
-                                                  color: "#EAB308",
-                                                  border: "1.5px solid #EAB308",
-                                                  borderRadius: 8,
-                                                  fontSize: 12,
-                                                  fontWeight: 800,
-                                                  cursor: "pointer",
-                                                }}
-                                              >
-                                                <Check size={12} /> Approve
-                                              </button>
-                                            ) : (
-                                              <button
-                                                type="button"
-                                                onClick={() => handleRevokeApproval(app)}
-                                                style={{
-                                                  display: "inline-flex",
-                                                  alignItems: "center",
-                                                  gap: 4,
-                                                  padding: "5px 10px",
-                                                  background: "#FAFAFA",
-                                                  color: "#52525B",
-                                                  border: "1px solid #CBD5E1",
-                                                  borderRadius: 8,
-                                                  fontSize: 11.5,
-                                                  fontWeight: 700,
-                                                  cursor: "pointer",
-                                                }}
-                                                title="Reconsider Application"
-                                              >
-                                                <RotateCcw size={11} /> Reconsider
-                                              </button>
-                                            )}
-                                          </div>
-                                        </td>
-                                      </tr>
-                                    );
-                                  })
-                                )}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Footer with Close Button & Complete Event & Award Points (White, Yellow & Black) */}
-                      <div
-                        style={{
-                          padding: "16px 28px",
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                          background: "#FFFFFF",
-                          borderTop: "1.5px solid #E4E4E7",
-                          borderBottomLeftRadius: 22,
-                          borderBottomRightRadius: 22,
-                          flexWrap: "wrap",
-                          gap: 12,
-                        }}
-                      >
-                        <span style={{ fontSize: 12.5, color: "#000000", display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 700 }}>
-                          <Sparkles size={15} color="#EAB308" />
-                          Approvals &amp; awarded points sync real-time with volunteer profile certificates.
-                        </span>
-
-                        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                          <button
-                            type="button"
-                            onClick={() => setManagingEvent(null)}
-                            style={{
-                              padding: "11px 22px",
-                              borderRadius: 10,
-                              fontSize: 13,
-                              fontWeight: 800,
-                              border: "2px solid #18181B",
-                              color: "#000000",
-                              background: "#FFFFFF",
-                              cursor: "pointer",
-                              transition: "all 0.15s ease",
-                            }}
-                          >
-                            Close Window
-                          </button>
-
-                          <button
-                            type="button"
-                            className="btn-complete-event"
-                            onClick={() => {
-                              const count = allCurrentApps.filter((a) => (eventLocalApps[a.id || a._id] || a.status) === "Approved").length || 1;
-                              handleCompleteEventInside(managingEvent, count);
-                            }}
-                            disabled={awardingPoints}
-                            style={{
-                              display: "inline-flex",
-                              alignItems: "center",
-                              gap: 8,
-                              padding: "11px 26px",
-                              borderRadius: 10,
-                              background: isCompleted
-                                ? "#18181B"
-                                : "#EAB308",
-                              color: isCompleted ? "#FACC15" : "#000000",
-                              border: isCompleted ? "2px solid #EAB308" : "2px solid #CA8A04",
-                              fontSize: 13.5,
-                              fontWeight: 900,
-                              cursor: awardingPoints ? "not-allowed" : "pointer",
-                              boxShadow: isCompleted ? "0 4px 14px rgba(0,0,0,0.3)" : "0 4px 14px rgba(234, 179, 8, 0.45)",
-                              transition: "all 0.2s ease",
-                            }}
-                          >
-                            <CheckCircle2 size={18} color={isCompleted ? "#FACC15" : "#000000"} />
-                            <span>
-                              {awardingPoints
-                                ? "Processing Awards..."
-                                : isCompleted
-                                  ? "Event Completed (Awards Sent)"
-                                  : "Complete Event & Award Points"}
-                            </span>
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* ────────────────────────────────────────────────────────
-                      PAGE 2: STUDENT MARK ALLOCATIONS (MATCHING IMAGE 2 EXACTLY)
-                      WHITE, YELLOW & BLACK LUXURY PALETTE
-                  ──────────────────────────────────────────────────────── */}
-                  {modalPage === "rubric" && (
-                    <div style={{ padding: "26px 32px", background: "#FFFFFF", borderBottomLeftRadius: 22, borderBottomRightRadius: 22 }}>
-                      {/* Top Student Switcher Pills (If multiple volunteers exist) */}
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                          <span style={{ fontSize: 13, fontWeight: 800, color: "#000000" }}>Select Student:</span>
-                          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                            {allCurrentApps.map((st) => {
-                              const sName = st.applicantDetails?.name || st.name || (st.userId && st.userId.fullName) || "Volunteer";
-                              const isCur = (st.id || st._id || sName) === studentKey;
-                              return (
-                                <button
-                                  key={st.id || st._id || sName}
-                                  type="button"
-                                  onClick={() => setSelectedStudentForRubric(st)}
-                                  style={{
-                                    padding: "6px 14px",
-                                    borderRadius: 16,
-                                    fontSize: 12.5,
-                                    fontWeight: 800,
-                                    cursor: "pointer",
-                                    background: isCur ? "#000000" : "#FFFFFF",
-                                    color: isCur ? "#EAB308" : "#000000",
-                                    border: isCur ? "2px solid #000000" : "1.5px solid #E4E4E7",
-                                  }}
-                                >
-                                  {sName}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() => setModalPage("overview")}
-                          style={{
-                            padding: "6px 16px",
-                            borderRadius: 8,
-                            fontSize: 12.5,
-                            fontWeight: 800,
-                            background: "#FFFFFF",
-                            color: "#000000",
-                            border: "1.5px solid #18181B",
-                            cursor: "pointer",
-                          }}
-                        >
-                          ← Back to Event Overview
-                        </button>
-                      </div>
-
-                      {/* RUBRIC CONTAINER (Matching user reference Image 2) */}
-                      <div
-                        style={{
-                          maxWidth: 480,
-                          margin: "0 auto",
-                          padding: "24px 22px",
-                          background: "#FFFFFF",
-                          border: "2px solid #E4E4E7",
-                          borderRadius: 24,
-                          boxShadow: "0 10px 30px rgba(0,0,0,0.06)",
-                        }}
-                      >
-                        {/* Student Profile Header */}
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                            <div
-                              style={{
-                                width: 48,
-                                height: 48,
-                                borderRadius: "50%",
-                                background: "#F59E0B", // Vibrant Yellow circle
-                                color: "#000000",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                fontSize: 20,
-                                fontWeight: 900,
-                                boxShadow: "0 2px 8px rgba(245, 158, 11, 0.35)",
-                              }}
-                            >
-                              {studentInitials}
-                            </div>
-                            <div>
-                              <h3 style={{ margin: 0, fontSize: 18, fontWeight: 900, color: "#000000" }}>{studentName}</h3>
-                              <span style={{ fontSize: 12.5, color: "#52525B", fontWeight: 700 }}>Student volunteer</span>
-                            </div>
-                          </div>
-                          <div style={{ fontSize: 26, fontWeight: 900, color: "#000000", letterSpacing: -0.5 }}>
-                            {totalScore}/10
-                          </div>
-                        </div>
-
-                        {/* 5 Evaluation Rubric Cards (White, Rounded, Yellow Increment/Decrement) */}
-                        <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 18 }}>
-                          {RUBRIC_CATEGORIES.map((crit) => {
-                            const val = currentScores[crit.id] ?? 2;
-                            return (
-                              <div
-                                key={crit.id}
-                                style={{
-                                  background: "#FFFFFF",
-                                  border: "1.5px solid #E4E4E7",
-                                  borderRadius: 20,
-                                  padding: "16px 20px",
-                                  display: "flex",
-                                  justifyContent: "space-between",
-                                  alignItems: "center",
-                                  boxShadow: "0 2px 6px rgba(0,0,0,0.02)",
-                                }}
-                              >
-                                <span style={{ fontSize: 15, fontWeight: 800, color: "#000000" }}>
-                                  {crit.label}
-                                </span>
-                                <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleAdjustScore(crit.id, -1)}
-                                    style={{
-                                      width: 38,
-                                      height: 38,
-                                      borderRadius: "50%",
-                                      background: "#FEF9C3", // Light Cream Yellow
-                                      color: "#000000",
-                                      border: "none",
-                                      fontSize: 20,
-                                      fontWeight: 900,
-                                      cursor: "pointer",
-                                      display: "flex",
-                                      alignItems: "center",
-                                      justifyContent: "center",
-                                      transition: "all 0.15s ease",
-                                    }}
-                                    title="Decrease score"
-                                  >
-                                    -
-                                  </button>
-                                  <span style={{ fontSize: 15, fontWeight: 900, color: "#000000", minWidth: 40, textAlign: "center" }}>
-                                    {val} / {crit.max}
-                                  </span>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleAdjustScore(crit.id, 1)}
-                                    style={{
-                                      width: 38,
-                                      height: 38,
-                                      borderRadius: "50%",
-                                      background: "#F59E0B", // Solid Amber Yellow
-                                      color: "#000000",
-                                      border: "none",
-                                      fontSize: 18,
-                                      fontWeight: 900,
-                                      cursor: "pointer",
-                                      display: "flex",
-                                      alignItems: "center",
-                                      justifyContent: "center",
-                                      transition: "all 0.15s ease",
-                                      boxShadow: "0 2px 6px rgba(245, 158, 11, 0.3)",
-                                    }}
-                                    title="Increase score"
-                                  >
-                                    +
-                                  </button>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-
-                        {/* Total Summary Card (Dark/Black matching Image 2) */}
-                        <div
-                          style={{
-                            background: "#111111", // Pitch Black
-                            borderRadius: 20,
-                            padding: "20px 24px",
-                            color: "#FFFFFF",
-                            marginBottom: 18,
-                            boxShadow: "0 4px 16px rgba(0,0,0,0.25)",
-                          }}
-                        >
-                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                            <span style={{ fontSize: 16, fontWeight: 900, color: "#FFFFFF" }}>Total</span>
-                            <span style={{ fontSize: 24, fontWeight: 900, color: "#FACC15" }}>
-                              {totalScore} / 10
-                            </span>
-                          </div>
-                          <p style={{ margin: 0, fontSize: 12, color: "#A1A1AA", lineHeight: 1.4 }}>
-                            Based on actual volunteer performance and recorded for analytics.
-                          </p>
-                        </div>
-
-                        {/* Yellow Submit Button (Matching Image 2) */}
-                        <button
-                          type="button"
-                          onClick={handleSaveFeedback}
-                          style={{
-                            width: "100%",
-                            background: "#F59E0B", // Bright Yellow
-                            color: "#000000",
-                            border: "none",
-                            borderRadius: 16,
-                            padding: "16px 20px",
-                            fontSize: 14.5,
-                            fontWeight: 900,
-                            textTransform: "uppercase",
-                            letterSpacing: "0.8px",
-                            cursor: "pointer",
-                            boxShadow: "0 4px 16px rgba(245, 158, 11, 0.4)",
-                            transition: "all 0.2s ease",
-                          }}
-                        >
-                          SAVE VERIFIED FEEDBACK
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
           </div>
         </div>
       )}

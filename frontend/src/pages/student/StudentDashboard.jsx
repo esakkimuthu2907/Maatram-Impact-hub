@@ -35,10 +35,13 @@ import {
   Building2,
   X,
   Plus,
+  QrCode,
 } from "lucide-react";
 
 import { useApp } from "../../context/AppContext";
 import { usersAPI } from "../../api/usersAPI";
+import EventFeedbackModal from "../../components/common/EventFeedbackModal";
+import StudentMeetingsPage from "./StudentMeetingsPage";
 import "./StudentDashboard.css";
 
 // 6 Tier System
@@ -433,6 +436,7 @@ function UpcomingEventsCarousel({
   onRegister,
   onViewDetails,
   onMyApplication,
+  onCheckIn,
 }) {
   const scrollRef = useRef(null);
   const scrollByCards = (dir) => {
@@ -503,6 +507,7 @@ function UpcomingEventsCarousel({
               onRegister={onRegister}
               onViewDetails={onViewDetails}
               onMyApplication={onMyApplication}
+              onCheckIn={onCheckIn}
             />
           ))}
         </div>
@@ -512,7 +517,7 @@ function UpcomingEventsCarousel({
 }
 
 // Single event card (used in Upcoming Events and in History)
-function EventCard({ ev, app: appProp, applications = [], width = 380, compact = false, onRegister, onViewDetails, onMyApplication }) {
+function EventCard({ ev, app: appProp, applications = [], width = 380, compact = false, onRegister, onViewDetails, onMyApplication, onCheckIn }) {
   const [saved, setSaved] = useState(false);
 
   const findApplication = (e) => {
@@ -788,28 +793,53 @@ function EventCard({ ev, app: appProp, applications = [], width = 380, compact =
           </button>
 
           {app ? (
-            <button
-              type="button"
-              onClick={() => onMyApplication?.(app, ev)}
-              style={{
-                flex: 1,
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 7,
-                background: "linear-gradient(135deg, #1E1B4B 0%, #3730A3 100%)",
-                color: "#FFFFFF",
-                border: "none",
-                borderRadius: 14,
-                padding: "8px 12px",
-                fontSize: 14,
-                fontWeight: 800,
-                cursor: "pointer",
-                boxShadow: "0 6px 16px rgba(55,48,163,0.3)",
-              }}
-            >
-              My Application <ArrowRight size={15} />
-            </button>
+            <>
+              {(app.status === "Approved" || app.status === "Present" || app.status === "Checked-In") && (
+                <button
+                  type="button"
+                  onClick={() => onCheckIn?.(ev)}
+                  title="Check in via QR or view active volunteering hours timer"
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 6,
+                    background: "#DCFCE7",
+                    color: "#166534",
+                    border: "1.5px solid #86EFAC",
+                    borderRadius: 14,
+                    padding: "8px 12px",
+                    fontSize: 13,
+                    fontWeight: 800,
+                    cursor: "pointer",
+                  }}
+                >
+                  <QrCode size={15} /> QR Session
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => onMyApplication?.(app, ev)}
+                style={{
+                  flex: 1,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 7,
+                  background: "linear-gradient(135deg, #1E1B4B 0%, #3730A3 100%)",
+                  color: "#FFFFFF",
+                  border: "none",
+                  borderRadius: 14,
+                  padding: "8px 12px",
+                  fontSize: 14,
+                  fontWeight: 800,
+                  cursor: "pointer",
+                  boxShadow: "0 6px 16px rgba(55,48,163,0.3)",
+                }}
+              >
+                My Application <ArrowRight size={15} />
+              </button>
+            </>
           ) : (
             <button
               type="button"
@@ -1050,13 +1080,18 @@ export default function StudentDashboard() {
     openLinkedInShare,
     applyForOpportunity,
     cancelApplication,
+    openQRAttendance,
     showToast,
   } = useApp();
 
   const navigate = useNavigate();
 
-  // Tab navigation state: overview | events | certificates | linkedin | points | history
+  // Tab navigation state: overview | meetings | certificates | linkedin | points | history
   const [dashboardSection, setDashboardSection] = useState("overview");
+
+  // Event Feedback to Unlock Certificate Modal State
+  const [selectedFeedbackCert, setSelectedFeedbackCert] = useState(null);
+  const [unlockedCertificates, setUnlockedCertificates] = useState(new Set());
 
   // Filter state for History section
   const [historyCategory, setHistoryCategory] = useState("All");
@@ -1110,6 +1145,7 @@ export default function StudentDashboard() {
             id: cId,
             _id: cId,
             certificateId: cId,
+            eventId: app.opportunityId || app.eventId || app._id,
             eventTitle: title,
             eventCategory: app.category || "Maatram Core",
             volunteerName: app.applicantDetails?.name || user?.fullName || "Student Volunteer",
@@ -1117,13 +1153,27 @@ export default function StudentDashboard() {
             verifiedHours: app.hours || 4,
             pointsAwarded: app.pointsAwarded || 50,
             issueDate: app.eventDate || "15 Nov 2026",
+            unlocked: Boolean(app.feedbackSubmitted),
+            feedbackSubmitted: Boolean(app.feedbackSubmitted),
             linkedInPost: `🌟 Proud to share that I have completed the volunteering initiative for "${title}" with Maatram Foundation! #MaatramFoundation #Volunteering #SocialImpact`,
           });
         }
       }
     });
-    return Array.from(certMap.values());
-  }, [certificates, applications, user?.fullName, user?.email]);
+    return Array.from(certMap.values()).map((c) => {
+      const isUnlocked =
+        Boolean(c.unlocked) ||
+        Boolean(c.feedbackSubmitted) ||
+        unlockedCertificates.has(c.certificateId) ||
+        unlockedCertificates.has(c.eventId) ||
+        unlockedCertificates.has(c.eventTitle);
+      return {
+        ...c,
+        unlocked: isUnlocked,
+        feedbackSubmitted: isUnlocked,
+      };
+    });
+  }, [certificates, applications, user?.fullName, user?.email, unlockedCertificates]);
 
   // Filter registered upcoming events safely
   const myRegisteredEvents = (applications || []).filter(
@@ -1150,10 +1200,25 @@ export default function StudentDashboard() {
 
   const activeOpportunities = (opportunities || []).filter((opp) => {
     const oid = String(opp.id || opp._id || "");
-    return !(
+    const notCompleted = !(
       (oid && completedEventIds.has(oid)) ||
       completedEventTitles.has((opp.title || "").toLowerCase())
     );
+    if (!notCompleted) return false;
+
+    // Filter by student zone & audience
+    if (user && user.role !== "admin") {
+      const userZone = user.zone || "Zone 1";
+      if (Array.isArray(opp.targetZones) && opp.targetZones.length > 0) {
+        if (!opp.targetZones.includes(userZone)) return false;
+      }
+      const aud = opp.targetAudience || "Both";
+      const isStudent = user.role === "student" || user.role === "volunteer";
+      const isAlumni = user.role === "alumni" || user.role === "Alumni";
+      if (aud === "Students" && !isStudent) return false;
+      if (aud === "Alumni" && !isAlumni) return false;
+    }
+    return true;
   });
 
   const upcomingOpportunities = activeOpportunities.slice(0, 2);
@@ -1688,6 +1753,7 @@ export default function StudentDashboard() {
       >
         {[
           { key: "overview", label: "Overview", icon: Compass },
+          { key: "meetings", label: "Meetings & Availability", icon: Calendar, badge: 3 },
           { key: "certificates", label: "My Certificates", icon: Award, badge: allCertificates.length },
           { key: "linkedin", label: "My LinkedIn Content", icon: Share2 },
           { key: "points", label: "My Points", icon: Coins, badge: `${userPoints} pts` },
@@ -1760,6 +1826,7 @@ export default function StudentDashboard() {
               }}
               onViewDetails={(event) => setPreviewEvent(event)}
               onMyApplication={() => navigate("/applications")}
+              onCheckIn={(event) => openQRAttendance(event)}
             />
           </div>
 
@@ -2213,6 +2280,15 @@ export default function StudentDashboard() {
       )}
 
       {/* ═════════════════════════════════════════════════════════════════════
+          TAB: MEETINGS & AVAILABILITY
+      ══════════════════════════════════════════════════════════════════════ */}
+      {dashboardSection === "meetings" && (
+        <div style={{ marginTop: 8 }}>
+          <StudentMeetingsPage />
+        </div>
+      )}
+
+      {/* ═════════════════════════════════════════════════════════════════════
           TAB 3: MY CERTIFICATES (Gold Border Recognition & PDF Download)
       ══════════════════════════════════════════════════════════════════════ */}
       {dashboardSection === "certificates" && (
@@ -2345,6 +2421,49 @@ export default function StudentDashboard() {
                       </div>
                     </div>
 
+                    {/* Feedback Lock Overlay — shown when event completed but feedback not yet given */}
+                    {(!cert.unlocked && !cert.feedbackSubmitted) && (
+                      <div
+                        style={{
+                          position: "absolute",
+                          inset: 0,
+                          background: "rgba(15, 23, 42, 0.52)",
+                          backdropFilter: "blur(3px)",
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          padding: "16px",
+                          zIndex: 5,
+                          borderRadius: 0,
+                        }}
+                      >
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); setSelectedFeedbackCert(cert); }}
+                          style={{
+                            background: "#FACC15",
+                            color: "#000000",
+                            border: "none",
+                            borderRadius: 10,
+                            padding: "10px 18px",
+                            fontSize: 13.5,
+                            fontWeight: 900,
+                            boxShadow: "0 4px 14px rgba(0,0,0,0.35)",
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 6,
+                          }}
+                        >
+                          <Star size={15} fill="#000" color="#000" /> Submit Feedback to Unlock
+                        </button>
+                        <span style={{ color: "#FEF08A", fontSize: 11, fontWeight: 700, marginTop: 6 }}>
+                          🔒 Event Completed · Rate & Unlock
+                        </span>
+                      </div>
+                    )}
+
                     {/* Fade-out at the bottom so it looks "partially shown" */}
                     <div
                       style={{
@@ -2440,75 +2559,104 @@ export default function StudentDashboard() {
 
                     {/* Actions */}
                     <div style={{ display: "flex", gap: 10, marginTop: "auto" }}>
-                      <button
-                        type="button"
-                        onClick={() => openCertificate?.(cert)}
-                        style={{
-                          flex: 1,
-                          display: "inline-flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          gap: 6,
-                          padding: "11px 12px",
-                          borderRadius: 12,
-                          border: "1.5px solid #CBD5E1",
-                          background: "#FFFFFF",
-                          color: "#0F172A",
-                          fontSize: 13.5,
-                          fontWeight: 800,
-                          cursor: "pointer",
-                        }}
-                      >
-                        <Eye size={15} /> Preview
-                      </button>
+                      {(!cert.unlocked && !cert.feedbackSubmitted) ? (
+                        /* Locked: feedback required first */
+                        <button
+                          type="button"
+                          onClick={() => setSelectedFeedbackCert(cert)}
+                          style={{
+                            flex: 1,
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: 6,
+                            padding: "12px",
+                            borderRadius: 12,
+                            border: "none",
+                            background: "#FACC15",
+                            color: "#000000",
+                            fontSize: 13.5,
+                            fontWeight: 900,
+                            cursor: "pointer",
+                            boxShadow: "0 4px 12px rgba(234,179,8,0.35)",
+                          }}
+                        >
+                          <Star size={15} fill="#000" color="#000" /> Submit Feedback to Unlock
+                        </button>
+                      ) : (
+                        /* Unlocked: show Preview + Download + LinkedIn */
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => openCertificate?.(cert)}
+                            style={{
+                              flex: 1,
+                              display: "inline-flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              gap: 6,
+                              padding: "11px 12px",
+                              borderRadius: 12,
+                              border: "1.5px solid #CBD5E1",
+                              background: "#FFFFFF",
+                              color: "#0F172A",
+                              fontSize: 13.5,
+                              fontWeight: 800,
+                              cursor: "pointer",
+                            }}
+                          >
+                            <Eye size={15} /> Preview
+                          </button>
 
-                      <button
-                        type="button"
-                        onClick={() => openCertificate?.(cert)}
-                        style={{
-                          flex: 1.4,
-                          display: "inline-flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          gap: 6,
-                          padding: "11px 12px",
-                          borderRadius: 12,
-                          border: "none",
-                          background: "#FFD629",
-                          color: "#0F172A",
-                          fontSize: 13.5,
-                          fontWeight: 800,
-                          cursor: "pointer",
-                        }}
-                      >
-                        <Download size={15} /> Download PDF
-                      </button>
+                          <button
+                            type="button"
+                            onClick={() => openCertificate?.(cert)}
+                            style={{
+                              flex: 1.4,
+                              display: "inline-flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              gap: 6,
+                              padding: "11px 12px",
+                              borderRadius: 12,
+                              border: "none",
+                              background: "#FFD629",
+                              color: "#0F172A",
+                              fontSize: 13.5,
+                              fontWeight: 800,
+                              cursor: "pointer",
+                            }}
+                          >
+                            <Download size={15} /> Download PDF
+                          </button>
 
-                      <button
-                        type="button"
-                        onClick={() => openLinkedInShare?.({
-                          volunteerName: cert.volunteerName || user?.fullName,
-                          eventTitle: cert.eventTitle,
-                          hours: cert.verifiedHours,
-                          category: cert.eventCategory,
-                          date: cert.eventDate || cert.issueDate,
-                          certificateId: cert.certificateId,
-                        })}
-                        title="Share on LinkedIn"
-                        style={{
-                          width: 44,
-                          display: "inline-flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          borderRadius: 12,
-                          border: "none",
-                          background: "#0A66C2",
-                          color: "#FFFFFF",
-                          cursor: "pointer",
-                        }}
-                      >
-                        <Share2 size={16} />
-                      </button>
+                          <button
+                            type="button"
+                            onClick={() => openLinkedInShare?.({
+                              volunteerName: cert.volunteerName || user?.fullName,
+                              eventTitle: cert.eventTitle,
+                              hours: cert.verifiedHours,
+                              category: cert.eventCategory,
+                              date: cert.eventDate || cert.issueDate,
+                              certificateId: cert.certificateId,
+                            })}
+                            title="Share on LinkedIn"
+                            style={{
+                              width: 44,
+                              display: "inline-flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              borderRadius: 12,
+                              border: "none",
+                              background: "#0A66C2",
+                              color: "#FFFFFF",
+                              cursor: "pointer",
+                            }}
+                          >
+                            <Share2 size={16} />
+                          </button>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -2992,6 +3140,7 @@ export default function StudentDashboard() {
                     onRegister={(e) => navigate(`/opportunities/${e.id || e._id}/apply`)}
                     onViewDetails={(e) => setPreviewEvent(e)}
                     onMyApplication={() => navigate("/applications")}
+                    onCheckIn={(e) => openQRAttendance(e)}
                   />
                 ))}
               </div>
@@ -3020,6 +3169,25 @@ export default function StudentDashboard() {
           }}
         />
       )}
+
+      {/* FEEDBACK MODAL — submit feedback to unlock certificate */}
+      <EventFeedbackModal
+        isOpen={Boolean(selectedFeedbackCert)}
+        certificate={selectedFeedbackCert}
+        onClose={() => setSelectedFeedbackCert(null)}
+        onFeedbackSuccess={(unlockedCert) => {
+          setUnlockedCertificates((prev) => {
+            const next = new Set(prev);
+            if (unlockedCert.certificateId) next.add(unlockedCert.certificateId);
+            if (unlockedCert.eventId) next.add(unlockedCert.eventId);
+            if (unlockedCert.eventTitle) next.add(unlockedCert.eventTitle);
+            return next;
+          });
+          showToast("🎉 Feedback submitted! Your certificate is now unlocked.");
+          setSelectedFeedbackCert(null);
+          setTimeout(() => openCertificate?.(unlockedCert), 400);
+        }}
+      />
 
     </div>
   );

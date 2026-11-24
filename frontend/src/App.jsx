@@ -45,11 +45,14 @@ import AdminGameManagement from "./pages/games/AdminGameManagement";
 // Admin Pages
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminEventsPage from "./pages/admin/AdminEventsPage";
+import AdminManageEventPage from "./pages/admin/AdminManageEventPage";
 import AdminUsersPage from "./pages/admin/AdminUsersPage";
 import AdminStudentProfilePage from "./pages/admin/AdminStudentProfilePage";
 import AdminAlumniPage from "./pages/admin/AdminAlumniPage";
 import AdminReportsPage from "./pages/admin/AdminReportsPage";
 import AdminChatbotPage from "./pages/admin/AdminChatbotPage";
+import AdminMeetingsPage from "./pages/admin/AdminMeetingsPage";
+import StudentMeetingsPage from "./pages/student/StudentMeetingsPage";
 import MaatramChatbot from "./components/common/MaatramChatbot";
 
 
@@ -408,6 +411,16 @@ export default function App() {
               }
             />
             <Route
+              path="/meetings"
+              element={
+                <ProtectedRoute>
+                  <AppLayout>
+                    <StudentMeetingsPage />
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/alumni"
               element={<Navigate to="/dashboard" replace />}
             />
@@ -417,6 +430,16 @@ export default function App() {
                 <ProtectedRoute adminOnly={true}>
                   <AppLayout>
                     <AdminAlumniPage />
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/meetings"
+              element={
+                <ProtectedRoute adminOnly={true}>
+                  <AppLayout>
+                    <AdminMeetingsPage />
                   </AppLayout>
                 </ProtectedRoute>
               }
@@ -450,6 +473,26 @@ export default function App() {
                 <ProtectedRoute adminOnly={true}>
                   <AppLayout>
                     <AdminEventsPage />
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/events/:id/manage"
+              element={
+                <ProtectedRoute adminOnly={true}>
+                  <AppLayout>
+                    <AdminManageEventPage />
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/events/manage/:id"
+              element={
+                <ProtectedRoute adminOnly={true}>
+                  <AppLayout>
+                    <AdminManageEventPage />
                   </AppLayout>
                 </ProtectedRoute>
               }

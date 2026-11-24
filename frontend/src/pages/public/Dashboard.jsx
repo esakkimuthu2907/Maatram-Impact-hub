@@ -1,6 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, ShieldCheck } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import styles from "./Dashboard.module.css";
 
 /* Volunteering opportunities — grouped by category, fresh wording */
@@ -155,13 +155,6 @@ export default function Dashboard() {
         <div className={styles.topActions}>
           <button
             type="button"
-            className={styles.btnGhost}
-            onClick={() => goLogin("admin")}
-          >
-            <ShieldCheck size={16} /> Admin
-          </button>
-          <button
-            type="button"
             className={styles.btnSolid}
             onClick={() => goLogin("volunteer")}
           >
@@ -209,7 +202,7 @@ export default function Dashboard() {
       </main>
 
       <footer className={styles.footer}>
-        © {new Date().getFullYear()} Maatram Volunteer Community
+        © {new Date().getFullYear()} Maatram Impact Hub
       </footer>
     </div>
   );

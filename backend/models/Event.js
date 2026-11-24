@@ -57,6 +57,29 @@ const eventSchema = new mongoose.Schema(
       }
     ],
     postedBy:         { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    // Zone & audience targeting
+    zone:            { type: String, default: "All Zones" },
+    targetZones:      { type: [String], default: ["Zone 1", "Zone 2", "Zone 3", "Zone 4"] }, // empty = all zones
+    targetAudience:   { type: String, enum: ["Students", "Student", "Alumni", "Both"], default: "Both" },
+    // Volunteer Feedbacks & Ratings
+    feedbacks:        [
+      {
+        userId:             { type: mongoose.Schema.Types.Mixed },
+        studentName:        { type: String },
+        studentEmail:       { type: String },
+        maatramId:          { type: String },
+        avatar:             { type: String },
+        college:            { type: String },
+        department:         { type: String },
+        rating:             { type: Number, default: 5 }, // 1-5 overall
+        coordinatorRating:  { type: Number, default: 5 },
+        organizationRating: { type: Number, default: 5 },
+        recommendRating:    { type: String, default: "Definitely" }, // Definitely | Likely | Maybe
+        comment:            { type: String, default: "" },
+        takeaways:          { type: String, default: "" },
+        submittedAt:        { type: Date, default: Date.now },
+      }
+    ],
   },
   { timestamps: true }
 );

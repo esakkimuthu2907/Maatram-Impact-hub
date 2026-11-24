@@ -1,17 +1,29 @@
-/* frontend/src/pages/games/ZipGame.css */
+/* frontend/src/pages/games/ZipGame.css
+   Compact layout: the whole game fits in ONE screen (mobile + desktop). */
+
 .zip-game-page {
-  max-width: 620px;
+  /* Space kept for the app's own top bar + this page's header/controls.
+     Make it bigger if the board still scrolls, smaller for a bigger board. */
+  --zip-reserve: 250px;
+
+  max-width: 560px;
   margin: 0 auto;
-  padding: 16px 16px 60px;
+  padding: 6px 12px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
   font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, sans-serif;
   color: #0f172a;
 }
 
+/* ===== header ===== */
 .zip-header-nav {
+  width: 100%;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  gap: 8px;
 }
 
 .zip-back-link {
@@ -21,62 +33,78 @@
   color: #475569;
   text-decoration: none;
   font-weight: 700;
-  font-size: 13.5px;
+  font-size: 13px;
+}
+
+.zip-puzzle-name {
+  font-size: 17px;
+  font-weight: 800;
 }
 
 .zip-timer-pill {
   display: flex;
   align-items: center;
   gap: 6px;
-  background: #f1f5f9;
-  border: 1.5px solid #cbd5e1;
-  padding: 6px 14px;
+  background: #fff7ed;
+  border: 1.5px solid #fdba74;
+  padding: 4px 12px;
   border-radius: 20px;
   font-weight: 800;
-  font-size: 15px;
+  font-size: 14px;
   color: #0f172a;
   font-feature-settings: "tnum";
 }
 
-.zip-puzzle-title-bar {
-  text-align: center;
-  margin-bottom: 18px;
-}
-
-.zip-puzzle-title-bar h2 {
-  font-size: 26px;
-  font-weight: 800;
-  margin: 0 0 4px;
-}
-
-.zip-puzzle-title-bar p {
-  color: #64748b;
-  font-size: 13.5px;
+.zip-status-line {
   margin: 0;
+  text-align: center;
+  color: #64748b;
+  font-size: 12.5px;
+  line-height: 1.3;
+  min-height: 16px;
 }
 
-/* 6x6 Grid Container (Exact visual match to Screenshot 2) */
+.zip-status-line b {
+  color: #0f172a;
+}
+
+.zip-error {
+  color: #dc2626;
+  font-weight: 800;
+}
+
+/* ===== board (square, always fits the screen) ===== */
 .zip-board-wrapper {
+  width: min(100%, calc(100vh - var(--zip-reserve)), 560px);
+  width: min(100%, calc(100dvh - var(--zip-reserve)), 560px);
+  min-width: 240px;
+  box-sizing: border-box;
+  padding: 8px;
   background: #ffffff;
-  border-radius: 24px;
-  padding: 14px;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
-  border: 2px solid #e2e8f0;
-  margin-bottom: 20px;
+  border-radius: 20px;
+  border: 2px solid #fed7aa;
+  box-shadow: 0 8px 26px rgba(234, 88, 12, 0.12);
   touch-action: none;
   user-select: none;
+  -webkit-user-select: none;
+}
+
+.zip-grid-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  touch-action: none;
+  cursor: pointer;
 }
 
 .zip-grid {
+  position: absolute;
+  inset: 0;
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  grid-template-rows: repeat(6, 1fr);
-  gap: 0;
   border: 2px solid #94a3b8;
-  border-radius: 18px;
+  border-radius: 14px;
   overflow: hidden;
   background: #ffffff;
-  aspect-ratio: 1 / 1;
 }
 
 .zip-cell {
@@ -84,88 +112,108 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border-right: 1.5px solid #cbd5e1;
-  border-bottom: 1.5px solid #cbd5e1;
-  cursor: pointer;
+  border-right: 1px solid #e2e8f0;
+  border-bottom: 1px solid #e2e8f0;
   background: #ffffff;
-  transition: background-color 0.15s ease;
+  transition: background-color 0.18s ease;
 }
 
-.zip-cell:nth-child(6n) {
+.zip-cell.last-col {
   border-right: none;
 }
 
-.zip-cell:nth-last-child(-n+6) {
+.zip-cell.last-row {
   border-bottom: none;
 }
 
+/* visited cells get a soft orange tint under the path */
 .zip-cell.visited {
-  background: #f0f9ff;
+  background: #fff1e0;
 }
 
 .zip-cell.active-head {
-  background: #e0f2fe;
+  background: #ffe0bd;
 }
 
-/* Number badge in cells */
+/* ===== orange flowing path ===== */
+.zip-path-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 2;
+  filter: drop-shadow(0 2px 4px rgba(234, 88, 12, 0.35));
+}
+
+.zip-path-svg polyline {
+  transition: all 0.12s ease-out;
+}
+
+.zip-head-dot {
+  animation: headPulse 1.2s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+@keyframes headPulse {
+
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+
+  50% {
+    transform: scale(1.25);
+    opacity: 0.85;
+  }
+}
+
+/* ===== numbers ===== */
 .zip-num-badge {
-  width: 40px;
-  height: 40px;
+  position: relative;
+  z-index: 3;
+  width: 62%;
+  max-width: 46px;
+  aspect-ratio: 1 / 1;
   border-radius: 50%;
-  background: #000000;
+  background: #111111;
   color: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 800;
-  font-size: 18px;
-  z-index: 3;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
-  transition: all 0.2s ease;
-}
-
-.zip-num-badge.active-start {
-  border: 3.5px solid #0284c7;
-  box-shadow: 0 0 0 4px rgba(2, 132, 199, 0.25);
+  font-size: clamp(12px, 3.6vw, 18px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .zip-num-badge.passed {
-  background: #0284c7;
+  background: #111111;
+  box-shadow: 0 0 0 3px #ffffff, 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
-/* Path trail node */
-.zip-path-dot {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: #0284c7;
-  z-index: 2;
-  box-shadow: 0 0 6px rgba(2, 132, 199, 0.6);
-  animation: dotPop 0.2s ease-out;
+.zip-num-badge.active-start {
+  box-shadow: 0 0 0 3px #ffffff, 0 0 0 6px rgba(249, 115, 22, 0.55);
 }
 
-@keyframes dotPop {
-  0% { transform: scale(0); }
-  70% { transform: scale(1.3); }
-  100% { transform: scale(1); }
-}
-
-/* Action Controls (Matches Screenshot 2) */
+/* ===== controls ===== */
 .zip-controls-row {
+  width: min(100%, 560px);
   display: flex;
-  gap: 12px;
-  margin-bottom: 24px;
+  gap: 8px;
 }
 
 .zip-ctrl-btn {
   flex: 1;
-  padding: 12px 18px;
+  padding: 10px 8px;
   border-radius: 30px;
-  background: #f1f5f9;
-  border: 1.5px solid #cbd5e1;
+  background: #fff7ed;
+  border: 1.5px solid #fdba74;
   font-weight: 700;
-  font-size: 14px;
-  color: #475569;
+  font-size: 13.5px;
+  color: #9a3412;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -175,67 +223,46 @@
 }
 
 .zip-ctrl-btn:hover:not(:disabled) {
-  background: #e2e8f0;
-  color: #0f172a;
+  background: #f97316;
+  border-color: #f97316;
+  color: #ffffff;
+}
+
+.zip-ctrl-btn:active:not(:disabled) {
+  transform: scale(0.97);
 }
 
 .zip-ctrl-btn:disabled {
-  opacity: 0.5;
+  opacity: 0.45;
   cursor: not-allowed;
 }
 
-/* "How to play" Accordion (Matches Screenshot 2) */
-.zip-how-to-play-card {
-  background: #ffffff;
-  border-radius: 18px;
-  padding: 18px 22px;
-  border: 1.5px solid #f1f5f9;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+/* ===== small screens: tighter ===== */
+@media (max-width: 480px) {
+  .zip-game-page {
+    --zip-reserve: 230px;
+    padding: 4px 10px 8px;
+    gap: 6px;
+  }
+
+  .zip-board-wrapper {
+    padding: 6px;
+    border-radius: 16px;
+  }
+
+  .zip-grid {
+    border-radius: 11px;
+  }
 }
 
-.zip-how-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  cursor: pointer;
-  font-size: 15px;
-  font-weight: 800;
-  color: #0f172a;
+/* very short screens (phones in landscape) */
+@media (max-height: 560px) {
+  .zip-game-page {
+    --zip-reserve: 190px;
+  }
 }
 
-.zip-rules-content {
-  display: flex;
-  justify-content: space-around;
-  margin-top: 20px;
-  gap: 16px;
-  padding-top: 16px;
-  border-top: 1px solid #f1f5f9;
-}
-
-.rule-col {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  max-width: 150px;
-}
-
-.rule-icon-box {
-  height: 48px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 8px;
-}
-
-.rule-col span {
-  font-size: 12.5px;
-  font-weight: 700;
-  color: #334155;
-  line-height: 1.4;
-}
-
-/* ─── Golden Celebration Modal (Matches Screenshot 3) ─── */
+/* ─── Golden Celebration Modal ─── */
 .celebration-modal-overlay {
   position: fixed;
   inset: 0;
@@ -245,16 +272,17 @@
   align-items: center;
   justify-content: center;
   z-index: 9999;
-  padding: 20px;
+  padding: 16px;
 }
 
 .celebration-modal-card {
-  background: #f59e0b;
   background: linear-gradient(180deg, #f59e0b 0%, #d97706 100%);
-  border-radius: 32px;
+  border-radius: 28px;
   width: 100%;
   max-width: 440px;
-  padding: 36px 28px 32px;
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  padding: 28px 22px 24px;
   text-align: center;
   color: #ffffff;
   box-shadow: 0 20px 50px rgba(217, 119, 6, 0.45);
@@ -263,16 +291,23 @@
 }
 
 @keyframes modalSlideUp {
-  0% { transform: translateY(40px) scale(0.95); opacity: 0; }
-  100% { transform: translateY(0) scale(1); opacity: 1; }
+  0% {
+    transform: translateY(40px) scale(0.95);
+    opacity: 0;
+  }
+
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
 }
 
 .celebration-header-icon {
-  width: 56px;
-  height: 56px;
+  width: 52px;
+  height: 52px;
   background: #ffffff;
   border-radius: 14px;
-  margin: 0 auto 12px;
+  margin: 0 auto 10px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -285,29 +320,29 @@
   font-size: 15px;
   font-weight: 700;
   color: rgba(255, 255, 255, 0.9);
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 
 .celebration-headline {
-  font-size: 32px;
+  font-size: 28px;
   font-weight: 900;
   color: #ffffff;
-  margin: 0 0 24px;
+  margin: 0 0 18px;
   letter-spacing: -0.5px;
 }
 
-/* Carousel Cards */
 .celebration-carousel-container {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  margin-bottom: 24px;
+  gap: 8px;
+  margin-bottom: 18px;
 }
 
 .carousel-arrow-btn {
-  width: 36px;
-  height: 36px;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
   border-radius: 50%;
   background: rgba(0, 0, 0, 0.15);
   border: none;
@@ -326,26 +361,27 @@
 .carousel-main-card {
   background: #ffffff;
   border-radius: 20px;
-  padding: 24px 20px;
-  width: 230px;
+  padding: 20px 18px;
+  width: 220px;
+  max-width: 100%;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12);
   color: #0f172a;
 }
 
 .carousel-clock-icon {
-  width: 60px;
-  height: 60px;
+  width: 56px;
+  height: 56px;
   border-radius: 50%;
   border: 3.5px solid #0284c7;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 0 auto 12px;
+  margin: 0 auto 10px;
   color: #0284c7;
 }
 
 .carousel-time-text {
-  font-size: 34px;
+  font-size: 32px;
   font-weight: 900;
   color: #0f172a;
   margin: 0 0 4px;
@@ -359,12 +395,11 @@
   margin: 0;
 }
 
-/* Action Share Buttons Row (Matches Screenshot 3: Post, Send, Copy) */
 .celebration-share-actions {
   display: flex;
   justify-content: center;
-  gap: 28px;
-  margin-bottom: 26px;
+  gap: 26px;
+  margin-bottom: 20px;
 }
 
 .share-action-item {
@@ -375,8 +410,8 @@
 }
 
 .share-circle-btn {
-  width: 52px;
-  height: 52px;
+  width: 50px;
+  height: 50px;
   border-radius: 50%;
   background: #ffffff;
   border: none;
@@ -406,7 +441,7 @@
   color: #ffffff;
   border: none;
   border-radius: 14px;
-  padding: 14px;
+  padding: 13px;
   font-size: 15px;
   font-weight: 800;
   cursor: pointer;
@@ -415,4 +450,12 @@
 
 .celebration-next-btn:hover {
   background: #1e1b4b;
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  .zip-head-dot,
+  .celebration-modal-card {
+    animation: none;
+  }
 }

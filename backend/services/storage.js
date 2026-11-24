@@ -41,6 +41,7 @@ const Attendance = require("../models/Attendance");
 const Certificate = require("../models/Certificate");
 const HourLog = require("../models/HourLog");
 const AlumniAssignment = require("../models/AlumniAssignment");
+const Meeting = require("../models/Meeting");
 const EmailService = require("./emailService");
 
 const DEFAULT_GRADING_LEVELS = [
@@ -144,23 +145,36 @@ const Storage = {
       if (data.role === "admin") {
         assignedAppId = "ADMIN001";
       } else if (data.role === "alumni") {
-        // Alumni IDs start at ALU000 — find next available sequence
-        const existingAluSeqs = db.users
-          .map((u) => {
-            const m = (u.applicationId || "").match(/^ALU(\d+)$/);
-            return m ? parseInt(m[1], 10) : -1;
-          })
-          .filter((n) => n >= 0);
-        const maxAlu = existingAluSeqs.length > 0 ? Math.max(...existingAluSeqs) : -1;
+        let maxAlu = -1;
+        for (const u of (db.users || [])) {
+          const m = (u.applicationId || "").match(/^ALU(\d+)$/);
+          if (m) maxAlu = Math.max(maxAlu, parseInt(m[1], 10));
+        }
+        if (getIsConnected()) {
+          try {
+            const mongoUsers = await User.find({ role: "alumni" }, "applicationId").lean();
+            for (const u of mongoUsers) {
+              const m = (u.applicationId || "").match(/^ALU(\d+)$/);
+              if (m) maxAlu = Math.max(maxAlu, parseInt(m[1], 10));
+            }
+          } catch (_) {}
+        }
         assignedAppId = `ALU${String(maxAlu + 1).padStart(3, "0")}`;
       } else {
-        const existingSeqs = db.users
-          .map((u) => {
-            const m = (u.applicationId || "").match(/^MAA(\d+)$/);
-            return m ? parseInt(m[1], 10) : 0;
-          })
-          .filter((n) => n > 0);
-        const maxSeq = Math.max(0, ...(existingSeqs.length ? existingSeqs : [0]), Number(db.counter) || 0);
+        let maxSeq = Number(db.counter) || 0;
+        for (const u of (db.users || [])) {
+          const m = (u.applicationId || "").match(/^MAA(\d+)$/);
+          if (m) maxSeq = Math.max(maxSeq, parseInt(m[1], 10));
+        }
+        if (getIsConnected()) {
+          try {
+            const mongoUsers = await User.find({}, "applicationId").lean();
+            for (const u of mongoUsers) {
+              const m = (u.applicationId || "").match(/^MAA(\d+)$/);
+              if (m) maxSeq = Math.max(maxSeq, parseInt(m[1], 10));
+            }
+          } catch (_) {}
+        }
         const nextSeq = maxSeq + 1;
         db.counter = nextSeq;
         assignedAppId = `MAA${String(nextSeq).padStart(3, "0")}`;
@@ -180,27 +194,35 @@ const Storage = {
       tier: "Bronze",
       role: data.role || "student",
       status: data.status || "pending_approval",
+      rating: 0,
       isActive: true,
       assignedWorks: [],
       createdAt: new Date().toISOString(),
     };
 
+    let userObj = null;
+
     if (getIsConnected()) {
       try {
         const doc = await User.create(newUser);
-        const userObj = { ...doc.toObject(), id: doc._id.toString() };
-        try {
-          await EmailService.sendRegistrationConfirmation({ user: userObj });
-        } catch (e) {}
-        return userObj;
+        userObj = { ...doc.toObject(), id: doc._id.toString() };
       } catch (err) {
         console.warn("Mongo createUser error, falling back to db.json:", err.message);
       }
     }
 
-    const id = (data.id || data._id || "user_" + Date.now() + "_" + Math.floor(Math.random() * 1000)).toString();
-    const userObj = { ...newUser, id, _id: id };
-    db.users.push(userObj);
+    const localId = (userObj?.id || data.id || data._id || "user_" + Date.now() + "_" + Math.floor(Math.random() * 1000)).toString();
+    if (!userObj) {
+      userObj = { ...newUser, id: localId, _id: localId };
+    }
+
+    // Always keep db.json updated as synchronized fallback
+    const existingIdx = (db.users || []).findIndex((u) => (u.id || u._id) === localId || u.email === userObj.email);
+    if (existingIdx !== -1) {
+      db.users[existingIdx] = { ...db.users[existingIdx], ...userObj };
+    } else {
+      db.users.push(userObj);
+    }
     writeDB(db);
 
     try {
@@ -217,7 +239,7 @@ const Storage = {
       "graduationYear", "zone", "batch", "status", "assignedWorks", "assignedEvent",
       "assignedRole", "workDescription", "assignedDate",
       "totalHours", "completedEventsCount", "eventsJoined", "points", "badgesEarned", "streakDays",
-      "rating", "tier", "lastActiveAt"
+      "rating", "tier", "lastActiveAt", "achievements", "adminNotes"
     ];
     const update = {};
     for (const k of allowedFields) {
@@ -316,7 +338,27 @@ const Storage = {
     return this.getAllUsers(filters);
   },
 
+  // Calculate rating (0 - 5.0) based on student involvement
+  calculateInvolvementRating(u) {
+    if (u.rating !== undefined && u.rating !== null && u.rating !== 4.8 && u.rating > 0) {
+      return Number(u.rating);
+    }
+    const completed = Number(u.completedEventsCount) || Number(u.eventsJoined) || 0;
+    const hours = Number(u.totalHours) || 0;
+    const points = Number(u.points) || 0;
+    if (completed === 0 && hours === 0 && points === 0) return 0;
+
+    let score = 0;
+    score += Math.min(3.0, completed * 0.75);
+    score += Math.min(1.5, (hours / 5) * 0.5);
+    if (points >= 100) score += 0.5;
+    return Math.min(5.0, Math.max(0, Math.round(score * 10) / 10));
+  },
+
   async getAllUsers(filters = {}) {
+    const userMap = new Map();
+
+    // 1. Load from MongoDB
     if (getIsConnected()) {
       try {
         const query = {
@@ -335,22 +377,41 @@ const Storage = {
             { email: { $regex: q, $options: "i" } },
           ];
         }
-        const users = await User.find(query).select("-password").lean();
-        if (users && users.length > 0) return users.map((u) => ({ ...u, id: u._id.toString() }));
-      } catch {}
+        const mongoUsers = await User.find(query).select("-password").lean();
+        for (const u of mongoUsers) {
+          const key = (u.email || u.applicationId || u._id || "").toString().toLowerCase();
+          const clean = { ...u, id: u._id.toString() };
+          clean.rating = this.calculateInvolvementRating(clean);
+          userMap.set(key, clean);
+        }
+      } catch (err) {
+        console.warn("Mongo getAllUsers notice:", err.message);
+      }
     }
 
+    // 2. Load from db.json and merge seamlessly
     const db = readDB();
-    let list = Array.isArray(db.users) ? db.users : [];
-    list = list.filter((u) => !u.isDeleted && u.status !== "deleted");
-    if (filters.department && filters.department !== "All") list = list.filter((u) => u.department === filters.department);
-    if (filters.academicYear && filters.academicYear !== "All") list = list.filter((u) => u.academicYear === filters.academicYear);
-    if (filters.role && filters.role !== "All") list = list.filter((u) => u.role === filters.role);
+    let jsonList = Array.isArray(db.users) ? db.users : [];
+    jsonList = jsonList.filter((u) => !u.isDeleted && u.status !== "deleted");
+    if (filters.department && filters.department !== "All") jsonList = jsonList.filter((u) => u.department === filters.department);
+    if (filters.academicYear && filters.academicYear !== "All") jsonList = jsonList.filter((u) => u.academicYear === filters.academicYear);
+    if (filters.role && filters.role !== "All") jsonList = jsonList.filter((u) => u.role === filters.role);
     if (filters.search) {
       const q = filters.search.toLowerCase().trim();
-      list = list.filter((u) => (u.fullName && u.fullName.toLowerCase().includes(q)) || (u.email && u.email.toLowerCase().includes(q)) || (u.college && u.college.toLowerCase().includes(q)));
+      jsonList = jsonList.filter((u) => (u.fullName && u.fullName.toLowerCase().includes(q)) || (u.email && u.email.toLowerCase().includes(q)) || (u.college && u.college.toLowerCase().includes(q)));
     }
-    return list.map(({ password, plainPassword, ...u }) => ({ ...u, id: (u.id || u._id).toString() }));
+
+    for (const u of jsonList) {
+      const key = (u.email || u.applicationId || u.id || u._id || "").toString().toLowerCase();
+      if (!userMap.has(key)) {
+        const { password, plainPassword, ...rest } = u;
+        const clean = { ...rest, id: (u.id || u._id).toString() };
+        clean.rating = this.calculateInvolvementRating(clean);
+        userMap.set(key, clean);
+      }
+    }
+
+    return Array.from(userMap.values());
   },
 
   async getStudentsForConnect(excludeUserId) {
@@ -525,6 +586,26 @@ const Storage = {
         );
       }
       events = list.map((e) => ({ ...e, id: (e.id || e._id || "").toString() }));
+    }
+
+    // Filter by Zone and Target Audience if specified
+    if (filters.zone && filters.zone !== "All") {
+      events = events.filter((e) => {
+        if (!e.targetZones || !Array.isArray(e.targetZones) || e.targetZones.length === 0) return true;
+        return e.targetZones.includes(filters.zone);
+      });
+    }
+
+    if (filters.role && filters.role !== "admin") {
+      const isStudent = filters.role === "student" || filters.role === "volunteer";
+      const isAlumni = filters.role === "alumni" || filters.role === "Alumni";
+      events = events.filter((e) => {
+        const aud = e.targetAudience || "Both";
+        if (aud === "Both") return true;
+        if (isStudent && aud === "Students") return true;
+        if (isAlumni && aud === "Alumni") return true;
+        return false;
+      });
     }
 
     return events;
@@ -950,26 +1031,44 @@ const Storage = {
     const appIdStr = (applicationId || "").toString();
     const em = (email || "").toLowerCase().trim();
 
+    let list = [];
     if (getIsConnected()) {
       try {
         const conditions = [];
-        if (uIdStr) conditions.push({ userId: uIdStr });
+        if (uIdStr) {
+          conditions.push({ userId: uIdStr });
+          if (mongoose.isValidObjectId(uIdStr)) {
+            conditions.push({ userId: new mongoose.Types.ObjectId(uIdStr) });
+          }
+        }
         if (appIdStr) conditions.push({ applicationId: appIdStr });
-        if (em) conditions.push({ "applicantDetails.email": em });
+        if (em) conditions.push({ "applicantDetails.email": new RegExp(`^${em}$`, "i") });
         const query = conditions.length > 0 ? { $or: conditions } : {};
         const apps = await Application.find(query).sort({ createdAt: -1 }).lean();
-        if (apps && apps.length > 0) return apps.map((a) => ({ ...a, id: a._id.toString() }));
+        if (apps && apps.length > 0) list = apps.map((a) => ({ ...a, id: a._id.toString() }));
       } catch {}
     }
 
     const db = readDB();
-    const apps = (db.applications || []).filter((a) => {
+    const jsonApps = (db.applications || []).filter((a) => {
       if (uIdStr && (a.userId || "").toString() === uIdStr) return true;
       if (appIdStr && (a.applicationId || "").toString() === appIdStr) return true;
       if (em && (a.applicantDetails?.email || "").toLowerCase().trim() === em) return true;
       return false;
     });
-    return apps.map((a) => ({ ...a, id: (a.id || a._id || "").toString() }));
+
+    const merged = [...list];
+    for (const a of jsonApps) {
+      const aId = (a.id || a._id || a.referenceId || "").toString();
+      if (!merged.some((m) => (m.id || m._id || m.referenceId || "").toString() === aId)) {
+        merged.push({ ...a, id: aId });
+      }
+    }
+    return merged;
+  },
+
+  async getApplications(filters = {}) {
+    return this.getAllApplications(filters);
   },
 
   async getAllApplications(filters = {}) {
@@ -1152,13 +1251,33 @@ const Storage = {
   },
 
   // QR ATTENDANCE (Module 2: Cryptographic token, SHA-256 hash storage, validity window, regeneration)
-  async generateEventQRToken(eventId, adminUser, validityHours = 24) {
+  // "one event one qr generate if any problem only use another qr for the same ok"
+  async generateEventQRToken(eventId, adminUser, validityHours = 24, forceRegenerate = false) {
     let event = await this.getEventById(eventId);
     if (!event) throw new Error("Event not found.");
 
-    // Generate a cryptographically secure random token
+    // ONE EVENT ONE QR: If the event already has an active, valid QR code and forceRegenerate is false, REUSE IT!
+    if (!forceRegenerate && event.qrCodeToken && event.checkInCode) {
+      const isExpired = event.qrExpiresAt && new Date() > new Date(event.qrExpiresAt);
+      if (!isExpired && event.attendanceOpen !== false) {
+        return {
+          eventId: (event.id || event._id).toString(),
+          qrCodeToken: event.qrCodeToken,
+          qrTokenHash: event.qrTokenHash,
+          checkInCode: event.checkInCode,
+          expiresAt: event.qrExpiresAt,
+          attendanceOpen: true,
+          title: event.title,
+          date: event.date,
+          reused: true,
+        };
+      }
+    }
+
+    // Generate a cryptographically secure random token and a human-readable 6-digit Check-In Pass Code
     const token = "MFQR-" + crypto.randomBytes(16).toString("hex").toUpperCase();
     const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+    const checkInCode = "MF-" + Math.floor(100000 + Math.random() * 900000);
     const expiresAt = new Date(Date.now() + Number(validityHours) * 3600 * 1000);
 
     // Store only the SHA-256 hash of the token in MongoDB (along with raw token for admin UI display)
@@ -1167,6 +1286,7 @@ const Storage = {
       {
         qrCodeToken: token,
         qrTokenHash: tokenHash,
+        checkInCode: checkInCode,
         qrExpiresAt: expiresAt,
         attendanceOpen: true,
       },
@@ -1177,10 +1297,12 @@ const Storage = {
       eventId: (event.id || event._id).toString(),
       qrCodeToken: token,
       qrTokenHash: tokenHash,
+      checkInCode: checkInCode,
       expiresAt,
       attendanceOpen: true,
       title: event.title,
       date: event.date,
+      reused: false,
     };
   },
 
@@ -1192,6 +1314,7 @@ const Storage = {
       eventId,
       {
         qrTokenHash: "",
+        checkInCode: "",
         attendanceOpen: false,
       },
       adminUser
@@ -1207,7 +1330,7 @@ const Storage = {
   // Student QR Check-in with validation, registration verification, duplicate prevention, and JWT auth
   async checkInViaQR({ eventId, qrToken, user }) {
     if (!qrToken || typeof qrToken !== "string" || !qrToken.trim()) {
-      throw new Error("QR attendance token is required.");
+      throw new Error("QR attendance token or Check-In Code is required.");
     }
 
     let event = await this.getEventById(eventId);
@@ -1221,16 +1344,19 @@ const Storage = {
       throw new Error("This attendance QR code has expired. Please ask the coordinator to regenerate it.");
     }
 
+    // Note: If admin has opened attendance or generated the QR, check-in is immediately permissible without blocking.
     const cleanToken = qrToken.trim();
     const incomingHash = crypto.createHash("sha256").update(cleanToken).digest("hex");
 
-    // Validate QR token: compare with SHA-256 hash or legacy token
+    // Validate QR token or human Check-In Code: compare with SHA-256 hash, raw token, or checkInCode
     const isValidToken =
       (event.qrTokenHash && incomingHash === event.qrTokenHash) ||
-      (event.qrCodeToken && cleanToken === event.qrCodeToken);
+      (event.qrCodeToken && cleanToken === event.qrCodeToken) ||
+      (event.checkInCode && cleanToken.toUpperCase() === event.checkInCode.toUpperCase()) ||
+      cleanToken.toUpperCase().endsWith((event.checkInCode || "").toUpperCase());
 
     if (!isValidToken) {
-      throw new Error("Invalid QR attendance token. Please scan the current official event code.");
+      throw new Error("Invalid QR attendance token or Pass Code. Please scan the current official event code.");
     }
 
     const userId = (user._id || user.id || "").toString();
@@ -1279,6 +1405,9 @@ const Storage = {
 
     // 3. Record Attendance (isVerified remains false until Admin verifies completion)
     // A student must not be able to manually award themselves attendance, hours or points.
+    const nowIso = new Date().toISOString();
+    const durationHours = Number(event.durationHours || event.duration || 4);
+
     const attRecord = {
       id: "att_" + Date.now(),
       eventId: eventIdStr,
@@ -1287,8 +1416,10 @@ const Storage = {
       volunteerName: user.fullName || userApp.applicantDetails?.name || "Volunteer",
       volunteerEmail: user.email || userApp.applicantDetails?.email || "",
       status: "Checked-In",
+      sessionStatus: "Active",
       checkInMethod: "QR_SCAN",
-      checkInTime: new Date().toISOString(),
+      checkInTime: nowIso,
+      loggedHours: 0,
       isVerified: false,
       verifiedHours: 0,
       pointsAwarded: false,
@@ -1308,8 +1439,10 @@ const Storage = {
           volunteerName: user.fullName || userApp.applicantDetails?.name || "Volunteer",
           volunteerEmail: user.email || userApp.applicantDetails?.email || "",
           status: "Checked-In",
+          sessionStatus: "Active",
           checkInMethod: "QR_SCAN",
           checkInTime: new Date(),
+          loggedHours: 0,
           isVerified: false,
           verifiedHours: 0,
           pointsAwarded: false,
@@ -1327,14 +1460,106 @@ const Storage = {
       userId,
       type: "attendance",
       title: "QR Attendance Recorded! ✅",
-      message: `Your attendance at "${event.title}" has been recorded. Verified hours will be credited upon admin completion.`,
+      message: `Your attendance at "${event.title}" has been recorded. Volunteering session timer started!`,
       link: `/opportunities/${eventId}`,
     });
 
     return {
       success: true,
-      message: "Attendance recorded successfully! Awaiting admin hours verification.",
-      data: attRecord,
+      message: "Attendance recorded successfully! Volunteering session timer active.",
+      data: {
+        ...attRecord,
+        eventTitle: event.title,
+        date: event.date,
+        time: event.time || event.slot || "09:30 AM - 01:30 PM",
+        durationHours,
+      },
+    };
+  },
+
+  // Lock volunteer session manually or when meet ends
+  async lockVolunteerSession({ eventId, userId, lockMethod = "MANUAL", hours }) {
+    const eventIdStr = (eventId || "").toString();
+    const userIdStr = (userId || "").toString();
+    const event = await this.getEventById(eventId);
+
+    const db = readDB();
+    if (!Array.isArray(db.attendance)) db.attendance = [];
+    const record = db.attendance.find(
+      (a) => (a.eventId || "").toString() === eventIdStr && (a.userId || "").toString() === userIdStr
+    );
+
+    if (!record) {
+      throw new Error("No check-in attendance record found for this event.");
+    }
+
+    const checkInTime = record.checkInTime ? new Date(record.checkInTime) : new Date();
+    const now = new Date();
+    const diffHours = Math.max(0.5, Number(((now - checkInTime) / (1000 * 60 * 60)).toFixed(1)));
+    const defaultDuration = Number(event?.durationHours || event?.duration || 4);
+
+    // If explicit hours given or calculated, cap at scheduled duration if meet ended
+    const calculatedHours = hours ? Number(hours) : Math.min(diffHours, defaultDuration);
+
+    record.sessionStatus = "Locked";
+    record.status = "Present";
+    record.checkOutTime = now.toISOString();
+    record.lockedAt = now.toISOString();
+    record.lockMethod = lockMethod;
+    record.loggedHours = calculatedHours;
+    record.verifiedHours = calculatedHours;
+
+    writeDB(db);
+
+    if (getIsConnected()) {
+      try {
+        await Attendance.findOneAndUpdate(
+          { eventId: eventIdStr, userId: userIdStr },
+          {
+            $set: {
+              sessionStatus: "Locked",
+              status: "Present",
+              checkOutTime: now,
+              lockedAt: now,
+              lockMethod: lockMethod,
+              loggedHours: calculatedHours,
+              verifiedHours: calculatedHours,
+            },
+          }
+        );
+      } catch (_) {}
+    }
+
+    return {
+      success: true,
+      message: `Volunteering session locked! ${calculatedHours} hour(s) recorded.`,
+      data: record,
+    };
+  },
+
+  async getVolunteerSession({ eventId, userId }) {
+    const eventIdStr = (eventId || "").toString();
+    const userIdStr = (userId || "").toString();
+    const event = await this.getEventById(eventId);
+
+    const db = readDB();
+    const record = (db.attendance || []).find(
+      (a) => (a.eventId || "").toString() === eventIdStr && (a.userId || "").toString() === userIdStr
+    );
+
+    if (!record) {
+      return { hasSession: false, session: null };
+    }
+
+    return {
+      hasSession: true,
+      session: {
+        ...record,
+        eventTitle: event?.title,
+        date: event?.date,
+        time: event?.time || event?.slot || "09:30 AM - 01:30 PM",
+        durationHours: Number(event?.durationHours || event?.duration || 4),
+      },
     };
   },
 
@@ -1615,6 +1840,9 @@ const Storage = {
         volunteerName,
         volunteerEmail,
         status: "Present",
+        sessionStatus: "Locked",
+        lockMethod: "ADMIN_CLOSE",
+        checkOutTime: new Date().toISOString(),
         isVerified: true,
         verifiedHours,
         pointsAwarded: true,
@@ -1636,6 +1864,9 @@ const Storage = {
             {
               $set: {
                 status: "Present",
+                sessionStatus: "Locked",
+                lockMethod: "ADMIN_CLOSE",
+                checkOutTime: new Date(),
                 isVerified: true,
                 verifiedHours,
                 pointsAwarded: true,
@@ -1651,7 +1882,30 @@ const Storage = {
 
       verifiedCount++;
 
-      // 4. Module 1: Email 2: Volunteer Completion Thank You
+      // 4a. Automatically issue Official Certificate of Appreciation
+      let certDoc = null;
+      try {
+        certDoc = await this.issueCertificate({
+          userId: userIdStr,
+          eventId: eventIdStr,
+          applicationId: vol.applicationId,
+          verifiedHours,
+          pointsAwarded: pointsPerVolunteer,
+          adminUser,
+          user,
+        });
+      } catch (cErr) {
+        console.warn(`[closeAttendance] Certificate issuance notice for ${userIdStr}:`, cErr.message);
+      }
+
+      // 4b. Mark Application Completed
+      if (vol.applicationId) {
+        try {
+          await this.updateApplicationStatus(vol.applicationId, "Completed", adminUser);
+        } catch (_) {}
+      }
+
+      // 4c. Module 1: Email 2: Volunteer Completion Thank You & Certificate Delivery
       // Do not send completion emails until attendance is verified!
       if (volunteerEmail) {
         try {
@@ -1669,6 +1923,8 @@ const Storage = {
               date: event.date,
               durationHours: verifiedHours,
             },
+            certificateId: certDoc?.certificateId || certDoc?.id || "",
+            certificateUrl: certDoc?.verificationUrl || `${process.env.FRONTEND_URL || "http://localhost:5173"}/contributions`,
             verifiedHours,
             pointsEarned: pointsPerVolunteer,
           });
@@ -1686,12 +1942,12 @@ const Storage = {
         }
       }
 
-      // 5. In-app notification
+      // 5. In-app notification with direct certificate link
       await this.createNotification({
         userId: userIdStr,
         type: "hours",
-        title: "Attendance Verified & Points Credited! 🎉",
-        message: `Your attendance at "${event.title}" has been verified! +${verifiedHours} verified hours and +${pointsPerVolunteer} points added.`,
+        title: "Attendance Verified & Certificate Issued! 🎉",
+        message: `Your attendance at "${event.title}" has been verified! +${verifiedHours} hours and +${pointsPerVolunteer} points credited. Your Certificate (${certDoc?.certificateId || "issued"}) is ready to view and download!`,
         link: "/contributions",
       });
     }
@@ -1733,7 +1989,91 @@ const Storage = {
   async getEventAttendance(eventId) {
     const idStr = (eventId || "").toString();
     const db = readDB();
-    return (db.attendance || []).filter((a) => (a.eventId || "").toString() === idStr);
+
+    // Try MongoDB first if connected, to get properly populated records
+    if (getIsConnected()) {
+      try {
+        const Attendance = require("../models/Attendance");
+        const mongoRecords = await Attendance.find({ eventId: idStr }).lean();
+        if (mongoRecords && mongoRecords.length > 0) {
+          // Enrich each record with user profile data for display
+          const enriched = await Promise.all(
+            mongoRecords.map(async (rec) => {
+              let name = rec.volunteerName || "";
+              let email = rec.volunteerEmail || "";
+              let maatramId = "";
+              let college = "";
+              let department = "";
+              try {
+                if (rec.userId) {
+                  const User = require("../models/User");
+                  const u = await User.findById(rec.userId).select("fullName email maatramId college department").lean();
+                  if (u) {
+                    name = u.fullName || name;
+                    email = u.email || email;
+                    maatramId = u.maatramId || "";
+                    college = u.college || "";
+                    department = u.department || "";
+                  }
+                }
+              } catch (_) {}
+              return {
+                ...rec,
+                id: rec._id?.toString() || rec.id,
+                userId: (rec.userId || "").toString(),
+                applicationId: (rec.applicationId || "").toString(),
+                volunteerName: name,
+                userName: name,
+                fullName: name,
+                volunteerEmail: email,
+                maatramId,
+                college,
+                department,
+                status: rec.status || (rec.checkInMethod ? "Present" : "Absent"),
+                checkInTime: rec.checkInTime ? new Date(rec.checkInTime).toLocaleString("en-IN") : null,
+                method: rec.checkInMethod || rec.method || "QR Code",
+              };
+            })
+          );
+          return enriched;
+        }
+      } catch (err) {
+        console.warn("[Storage] getEventAttendance MongoDB query notice:", err.message);
+      }
+    }
+
+    // Fallback to local DB — enrich with user profile lookup
+    const localRecords = (db.attendance || []).filter((a) => (a.eventId || "").toString() === idStr);
+    return localRecords.map((rec) => {
+      // Try to find user in local db.users
+      const userEntry = (db.users || []).find(
+        (u) => (u.id || u._id || "").toString() === (rec.userId || "").toString()
+      );
+      const appEntry = (db.applications || []).find(
+        (a) => (a.id || a._id || "").toString() === (rec.applicationId || "").toString()
+      );
+      const name =
+        userEntry?.fullName ||
+        appEntry?.applicantDetails?.name ||
+        rec.volunteerName ||
+        rec.userName ||
+        "Volunteer";
+      const maatramId = userEntry?.maatramId || appEntry?.maatramId || "";
+      const college = userEntry?.college || appEntry?.applicantDetails?.college || "";
+      const department = userEntry?.department || appEntry?.applicantDetails?.department || "";
+      return {
+        ...rec,
+        volunteerName: name,
+        userName: name,
+        fullName: name,
+        maatramId,
+        college,
+        department,
+        status: rec.status || (rec.checkInMethod ? "Present" : "Absent"),
+        checkInTime: rec.checkInTime ? new Date(rec.checkInTime).toLocaleString("en-IN") : null,
+        method: rec.checkInMethod || rec.method || "QR Code",
+      };
+    });
   },
 
   // Record or update attendance for an individual volunteer
@@ -2161,7 +2501,39 @@ const Storage = {
       }
     } catch (_) {}
 
-    return merged;
+    // Annotate whether the student has submitted feedback to unlock each certificate
+    try {
+      const allEvents = await this.getEvents();
+      const eventMap = new Map();
+      (allEvents || []).forEach((ev) => {
+        const eId = (ev._id || ev.id || "").toString();
+        const eTitle = (ev.title || "").toLowerCase().trim();
+        if (eId) eventMap.set(eId, ev);
+        if (eTitle) eventMap.set(eTitle, ev);
+      });
+
+      return merged.map((cert) => {
+        const ev = eventMap.get((cert.eventId || "").toString()) || eventMap.get((cert.eventTitle || "").toLowerCase().trim());
+        let hasFeedback = Boolean(cert.feedbackSubmitted);
+
+        if (!hasFeedback && ev && Array.isArray(ev.feedbacks)) {
+          hasFeedback = ev.feedbacks.some((fb) => {
+            const fUid = (fb.userId || "").toString();
+            const fEm = (fb.studentEmail || "").toLowerCase().trim();
+            return fUid === idStr || (appIdStr && fUid === appIdStr) || (em && fEm === em);
+          });
+        }
+
+        return {
+          ...cert,
+          unlocked: hasFeedback,
+          feedbackSubmitted: hasFeedback,
+          feedbackRequired: !hasFeedback,
+        };
+      });
+    } catch (_) {
+      return merged;
+    }
   },
 
   async getAllCertificates(filters = {}) {
@@ -2487,12 +2859,20 @@ const Storage = {
 
   async getPointsTransactions(filters = {}) {
     let list = [];
+    const uStr = (filters.userId || "").toString();
+    const appId = (filters.applicationId || "").toString();
+    const name = (filters.name || "").toLowerCase().trim();
+
     if (getIsConnected()) {
       try {
-        const query = {};
-        if (filters.userId && mongoose.isValidObjectId(filters.userId.toString())) {
-          query.userId = filters.userId.toString();
+        const conditions = [];
+        if (uStr) {
+          conditions.push({ userId: uStr });
+          if (mongoose.isValidObjectId(uStr)) conditions.push({ userId: new mongoose.Types.ObjectId(uStr) });
         }
+        if (appId) conditions.push({ applicationId: appId });
+        if (name) conditions.push({ studentName: new RegExp(`^${name}$`, "i") });
+        const query = conditions.length > 0 ? { $or: conditions } : {};
         const mongoTxs = await PointsTransaction.find(query).sort({ createdAt: -1 }).lean();
         if (mongoTxs && mongoTxs.length > 0) {
           list = mongoTxs.map((t) => ({ ...t, id: t._id.toString() }));
@@ -2502,15 +2882,20 @@ const Storage = {
 
     const db = readDB();
     let txs = Array.isArray(db.pointsTransactions) ? db.pointsTransactions : [];
-    if (filters.userId) {
-      const uStr = filters.userId.toString();
-      txs = txs.filter((t) => (t.userId || "").toString() === uStr);
+    if (uStr || appId || name) {
+      txs = txs.filter((t) => {
+        const tUid = (t.userId || "").toString();
+        const tApp = (t.applicationId || "").toString();
+        const tName = (t.studentName || "").toLowerCase().trim();
+        return (uStr && tUid === uStr) || (appId && tApp === appId) || (name && tName === name);
+      });
     }
 
     const merged = [...list];
     for (const t of txs) {
-      if (!merged.some((m) => m.id === t.id)) {
-        merged.push(t);
+      const tid = (t.id || t._id || "").toString();
+      if (!merged.some((m) => (m.id || m._id || "").toString() === tid)) {
+        merged.push({ ...t, id: tid });
       }
     }
     return merged;
@@ -2708,56 +3093,183 @@ const Storage = {
   },
 
   async getAdminReports() {
+    let mongoEvents = [];
+    let mongoUsers = [];
+    let mongoApps = [];
+
+    if (getIsConnected()) {
+      try {
+        mongoEvents = await Event.find({}).lean();
+        mongoUsers = await User.find({ role: { $ne: "admin" } }).lean();
+        mongoApps = await Application.find({}).lean();
+      } catch (err) {
+        console.warn("Storage.getAdminReports mongo fetch notice:", err.message);
+      }
+    }
+
     const db = readDB();
-    const users = db.users || [];
-    const events = db.events || [];
-    const apps = db.applications || [];
+    const jsonEvents = db.events || [];
+    const jsonUsers = (db.users || []).filter((u) => u.role !== "admin");
+    const jsonApps = db.applications || [];
 
-    const students = users.filter((u) => u.role !== "admin");
-    const totalHours = students.reduce((sum, s) => sum + (Number(s.totalHours) || 0), 0);
-    const totalPoints = students.reduce((sum, s) => sum + (Number(s.points) || 0), 0);
+    // Merge events
+    const eventMap = new Map();
+    jsonEvents.forEach((e) => eventMap.set((e.id || e._id || "").toString(), e));
+    mongoEvents.forEach((e) => eventMap.set((e.id || e._id || "").toString(), e));
+    const allEvents = Array.from(eventMap.values());
 
-    const collegeLeaderboard = {};
-    students.forEach((s) => {
-      const col = s.college || "Anna University";
-      if (!collegeLeaderboard[col]) collegeLeaderboard[col] = { college: col, students: 0, hours: 0, points: 0 };
-      collegeLeaderboard[col].students += 1;
-      collegeLeaderboard[col].hours += Number(s.totalHours) || 0;
-      collegeLeaderboard[col].points += Number(s.points) || 0;
+    // Merge users
+    const userMap = new Map();
+    jsonUsers.forEach((u) => userMap.set((u.email || u.applicationId || u.id || u._id || "").toString().toLowerCase(), u));
+    mongoUsers.forEach((u) => userMap.set((u.email || u.applicationId || u.id || u._id || "").toString().toLowerCase(), u));
+    const allStudents = Array.from(userMap.values());
+
+    // Merge applications
+    const appMap = new Map();
+    jsonApps.forEach((a) => appMap.set((a.id || a._id || "").toString(), a));
+    mongoApps.forEach((a) => appMap.set((a.id || a._id || "").toString(), a));
+    const allApps = Array.from(appMap.values());
+
+    // Compute Totals
+    const totalHours = allStudents.reduce((sum, s) => sum + (Number(s.totalHours) || 0), 0);
+    const totalPoints = allStudents.reduce((sum, s) => sum + (Number(s.points) || 0), 0);
+
+    // 1. Event Participation
+    const eventParticipation = allEvents.map((e) => {
+      const eId = (e.id || e._id || "").toString();
+      const eTitle = (e.title || "").trim().toLowerCase();
+      const matchedApps = allApps.filter(
+        (a) =>
+          String(a.opportunityId?._id || a.opportunityId?.id || a.opportunityId || "") === eId ||
+          String(a.opportunityTitle || "").trim().toLowerCase() === eTitle
+      );
+      const appsReceived = matchedApps.length;
+      const approvedCount = matchedApps.filter((a) => a.status === "Approved" || a.status === "Completed").length;
+      const needed = Number(e.volunteersNeeded || 10);
+      const rate = Math.min(100, Math.round((approvedCount / (needed || 1)) * 100));
+
+      return {
+        eventTitle: e.title || "Community Drive",
+        category: e.category || "General",
+        date: e.date || "Upcoming",
+        volunteersNeeded: needed,
+        applicationsReceived: appsReceived,
+        approvedVolunteers: approvedCount,
+        completionRate: rate,
+      };
     });
+
+    // 2. Student Contributions
+    const studentContributions = allStudents
+      .sort((a, b) => (Number(b.points) || 0) - (Number(a.points) || 0))
+      .map((s) => {
+        const sEmail = (s.email || "").toLowerCase();
+        const sId = (s.applicationId || s.id || s._id || "").toString();
+        const joined = allApps.filter(
+          (a) =>
+            (String(a.userId?._id || a.userId?.id || a.userId || "") === sId ||
+              String(a.applicantDetails?.email || "").toLowerCase() === sEmail) &&
+            (a.status === "Approved" || a.status === "Completed")
+        ).length;
+
+        return {
+          fullName: s.fullName || "Volunteer",
+          college: s.college || "Anna University",
+          department: s.department || "Engineering",
+          points: Number(s.points) || 0,
+          totalHours: Number(s.totalHours) || 0,
+          eventsJoined: joined,
+          status: s.status || "active",
+        };
+      });
+
+    // 3. Department Statistics
+    const deptMap = {};
+    allStudents.forEach((s) => {
+      const dept = s.department || "General Engineering";
+      if (!deptMap[dept]) {
+        deptMap[dept] = { department: dept, totalStudents: 0, totalPoints: 0, totalHours: 0 };
+      }
+      deptMap[dept].totalStudents += 1;
+      deptMap[dept].totalPoints += Number(s.points) || 0;
+      deptMap[dept].totalHours += Number(s.totalHours) || 0;
+    });
+    const departmentStatistics = Object.values(deptMap).map((d) => ({
+      ...d,
+      averagePoints: d.totalStudents > 0 ? Math.round(d.totalPoints / d.totalStudents) : 0,
+    }));
+
+    // 4. Points Distribution
+    const pointsDistribution = (db.pointsTransactions || []).slice(0, 50).map((pt) => ({
+      studentName: pt.studentName || pt.userName || "Volunteer",
+      eventName: pt.eventName || pt.eventTitle || "Community Activity",
+      points: Number(pt.points || pt.amount) || 50,
+      type: pt.type || "Award",
+      reason: pt.reason || "Event Volunteering Credit",
+      date: pt.date || new Date().toISOString().split("T")[0],
+    }));
+
+    // Fallback points distribution if empty
+    if (pointsDistribution.length === 0) {
+      allStudents.slice(0, 10).forEach((s, idx) => {
+        pointsDistribution.push({
+          studentName: s.fullName || `Volunteer ${idx + 1}`,
+          eventName: allEvents[idx % (allEvents.length || 1)]?.title || "Community Engagement",
+          points: Number(s.points) || 50,
+          type: "Award",
+          reason: "Participation & Civic Hours",
+          date: new Date().toISOString().split("T")[0],
+        });
+      });
+    }
+
+    // 5. Application Statistics
+    const appPending = allApps.filter((a) => a.status === "Pending").length;
+    const appApproved = allApps.filter((a) => a.status === "Approved").length;
+    const appRejected = allApps.filter((a) => a.status === "Rejected").length;
+    const appCompleted = allApps.filter((a) => a.status === "Completed").length;
+
+    const applicationStatistics = {
+      total: allApps.length,
+      pending: appPending,
+      approved: appApproved,
+      rejected: appRejected,
+      completed: appCompleted,
+    };
+
+    // 6. College Leaderboard
+    const collegeMap = {};
+    allStudents.forEach((s) => {
+      const col = s.college || "Anna University";
+      if (!collegeMap[col]) collegeMap[col] = { college: col, totalStudents: 0, totalHours: 0, totalPoints: 0 };
+      collegeMap[col].totalStudents += 1;
+      collegeMap[col].totalHours += Number(s.totalHours) || 0;
+      collegeMap[col].totalPoints += Number(s.points) || 0;
+    });
+    const collegeLeaderboard = Object.values(collegeMap)
+      .sort((a, b) => b.totalPoints - a.totalPoints)
+      .map((c, i) => ({
+        rank: i + 1,
+        ...c,
+        averagePoints: c.totalStudents > 0 ? Math.round(c.totalPoints / c.totalStudents) : 0,
+      }));
 
     return {
       summary: {
-        totalStudents: students.length,
+        totalStudents: allStudents.length,
         totalHours,
         totalPoints,
-        totalEvents: events.length,
-        completedEvents: events.filter((e) => e.eventStatus === "Completed").length,
-        totalApplications: apps.length,
+        totalEvents: allEvents.length,
+        completedEvents: allEvents.filter((e) => e.eventStatus === "Completed" || e.status === "Completed").length,
+        totalApplications: allApps.length,
       },
-      events: events.map((e) => ({
-        id: (e.id || e._id).toString(),
-        title: e.title,
-        category: e.category,
-        date: e.date,
-        location: e.location,
-        volunteersNeeded: e.volunteersNeeded,
-        slotsAvailable: e.slotsAvailable,
-        status: e.eventStatus || "Upcoming",
-      })),
-      studentLeaders: students
-        .sort((a, b) => (Number(b.points) || 0) - (Number(a.points) || 0))
-        .map((s, idx) => ({
-          rank: idx + 1,
-          name: s.fullName,
-          email: s.email,
-          college: s.college || "Anna University",
-          department: s.department || "General",
-          hours: Number(s.totalHours) || 0,
-          points: Number(s.points) || 0,
-        })),
-      collegeLeaderboard: Object.values(collegeLeaderboard),
-      pointsLog: (db.pointsTransactions || []).slice(0, 50),
+      eventParticipation,
+      studentContributions,
+      departmentStatistics,
+      pointsDistribution,
+      applicationStatistics,
+      collegeLeaderboard,
+      events: allEvents,
     };
   },
 
@@ -3281,6 +3793,516 @@ const Storage = {
       recipientGroup,
       emailType,
       details,
+    };
+  },
+
+  // ─── EVENT FEEDBACK & CERTIFICATE UNLOCK ──────────────────────────────────
+  async submitEventFeedback(eventId, feedbackData, user) {
+    const event = await this.getEventById(eventId);
+    if (!event) throw new Error("Event not found.");
+
+    const idStr = (user._id || user.id || "").toString();
+    const appIdStr = (user.applicationId || "").toString();
+    const em = (user.email || "").toLowerCase().trim();
+
+    const newFeedback = {
+      id: `FB-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`,
+      userId: idStr,
+      studentName: user.fullName || feedbackData.studentName || "Volunteer",
+      studentEmail: em,
+      maatramId: appIdStr || "MAA-VOL",
+      avatar: user.avatar || "",
+      college: user.college || "Anna University",
+      department: user.department || "General",
+      rating: Math.max(1, Math.min(5, Number(feedbackData.rating) || 5)),
+      coordinatorRating: Math.max(1, Math.min(5, Number(feedbackData.coordinatorRating) || 5)),
+      organizationRating: Math.max(1, Math.min(5, Number(feedbackData.organizationRating) || 5)),
+      recommendRating: feedbackData.recommendRating || "Definitely",
+      comment: feedbackData.comment || feedbackData.feedback || "",
+      takeaways: feedbackData.takeaways || feedbackData.learnings || "",
+      submittedAt: new Date().toISOString(),
+    };
+
+    // Update in MongoDB
+    if (getIsConnected()) {
+      try {
+        const evDoc = await Event.findById(eventId);
+        if (evDoc) {
+          if (!Array.isArray(evDoc.feedbacks)) evDoc.feedbacks = [];
+          const existingIdx = evDoc.feedbacks.findIndex(
+            (f) =>
+              (f.userId && f.userId.toString() === idStr) ||
+              (f.studentEmail && f.studentEmail.toLowerCase().trim() === em)
+          );
+          if (existingIdx >= 0) {
+            evDoc.feedbacks[existingIdx] = newFeedback;
+          } else {
+            evDoc.feedbacks.push(newFeedback);
+          }
+          await evDoc.save();
+        }
+
+        // Also unlock certificate in Mongo
+        await Certificate.updateMany(
+          {
+            $or: [
+              { eventId: eventId.toString(), userId: idStr },
+              { eventId: eventId.toString(), volunteerEmail: em },
+              { eventTitle: event.title, volunteerEmail: em },
+            ],
+          },
+          { $set: { unlocked: true, feedbackSubmitted: true, feedbackId: newFeedback.id } }
+        );
+      } catch (err) {
+        console.warn("Mongo feedback save notice:", err.message);
+      }
+    }
+
+    // Update in JSON DB
+    const db = readDB();
+    if (!Array.isArray(db.events)) db.events = [];
+    const jsonEvent = db.events.find((e) => (e._id || e.id || "").toString() === eventId.toString());
+    if (jsonEvent) {
+      if (!Array.isArray(jsonEvent.feedbacks)) jsonEvent.feedbacks = [];
+      const exIdx = jsonEvent.feedbacks.findIndex(
+        (f) =>
+          (f.userId && f.userId.toString() === idStr) ||
+          (f.studentEmail && f.studentEmail.toLowerCase().trim() === em)
+      );
+      if (exIdx >= 0) {
+        jsonEvent.feedbacks[exIdx] = newFeedback;
+      } else {
+        jsonEvent.feedbacks.push(newFeedback);
+      }
+    }
+
+    if (!Array.isArray(db.certificates)) db.certificates = [];
+    db.certificates.forEach((c) => {
+      const isMatch =
+        ((c.eventId || "").toString() === eventId.toString() || c.eventTitle === event.title) &&
+        ((c.userId || "").toString() === idStr || (c.volunteerEmail || "").toLowerCase().trim() === em);
+      if (isMatch) {
+        c.unlocked = true;
+        c.feedbackSubmitted = true;
+        c.feedbackId = newFeedback.id;
+      }
+    });
+
+    if (!Array.isArray(db.applications)) db.applications = [];
+    db.applications.forEach((a) => {
+      const isMatch =
+        ((a.eventId || a.opportunityId || "").toString() === eventId.toString() || a.opportunityTitle === event.title) &&
+        ((a.userId || "").toString() === idStr || (a.applicantDetails?.email || "").toLowerCase().trim() === em);
+      if (isMatch) {
+        a.feedbackSubmitted = true;
+      }
+    });
+
+    writeDB(db);
+
+    return {
+      success: true,
+      message: "Feedback submitted successfully! Certificate unlocked.",
+      feedback: newFeedback,
+      eventTitle: event.title,
+    };
+  },
+
+  async getEventFeedbacks(eventId) {
+    const event = await this.getEventById(eventId);
+    if (!event) return { feedbacks: [], stats: { averageRating: 5, totalFeedbacks: 0 } };
+
+    const feedbacks = event.feedbacks || [];
+    const total = feedbacks.length;
+    const avgOverall = total > 0 ? Number((feedbacks.reduce((acc, f) => acc + (Number(f.rating) || 5), 0) / total).toFixed(1)) : 5.0;
+    const avgCoord = total > 0 ? Number((feedbacks.reduce((acc, f) => acc + (Number(f.coordinatorRating) || 5), 0) / total).toFixed(1)) : 5.0;
+    const avgOrg = total > 0 ? Number((feedbacks.reduce((acc, f) => acc + (Number(f.organizationRating) || 5), 0) / total).toFixed(1)) : 5.0;
+    const definitelyCount = feedbacks.filter((f) => (f.recommendRating || "").toLowerCase().includes("definitely")).length;
+    const recommendRate = total > 0 ? Math.round((definitelyCount / total) * 100) : 100;
+
+    return {
+      feedbacks,
+      stats: {
+        totalFeedbacks: total,
+        averageRating: avgOverall,
+        averageCoordinatorRating: avgCoord,
+        averageOrganizationRating: avgOrg,
+        recommendRate,
+      },
+      eventTitle: event.title,
+    };
+  },
+
+  async getMyEventFeedback(eventId, user) {
+    const event = await this.getEventById(eventId);
+    if (!event || !Array.isArray(event.feedbacks)) return { hasSubmitted: false, feedback: null };
+
+    const idStr = (user._id || user.id || "").toString();
+    const em = (user.email || "").toLowerCase().trim();
+
+    const fb = event.feedbacks.find(
+      (f) =>
+        (f.userId && f.userId.toString() === idStr) ||
+        (f.studentEmail && f.studentEmail.toLowerCase().trim() === em)
+    );
+
+    return {
+      hasSubmitted: Boolean(fb),
+      feedback: fb || null,
+    };
+  },
+
+  // ─── MEETINGS & AVAILABILITY MANAGEMENT ───────────────────────────────────
+  async getMeetings(filters = {}) {
+    const DEFAULT_MEETINGS = [
+      {
+        id: "MEET-001",
+        _id: "MEET-001",
+        tag: "NSS",
+        day: "24",
+        mon: "NOV",
+        date: "24 Nov 2026",
+        iso: "2026-11-24",
+        time: "10:00 AM – 11:00 AM",
+        title: "NSS Planning Discussion",
+        status: "Confirmed",
+        tone: "gn",
+        grad: "b",
+        emoji: "📋",
+        desc: "Planning the upcoming NSS activities, volunteer roles and the event schedule for December.",
+        coord: "Karthik R",
+        role: "NSS Programme Coordinator",
+        phone: "+91 98765 43210",
+        email: "karthik@maatram.org",
+        people: "12 Volunteers",
+        mode: "Google Meet",
+        location: "Google Meet · Chennai, Tamil Nadu",
+        meetLink: "https://meet.google.com/nss-maatram-plan",
+        agenda: ["Welcome and review of last month", "December NSS drives and schedule", "Volunteer role allocation", "Points and attendance rules", "Questions and next steps"],
+        note: "Keep your college ID ready. Join 5 minutes early.",
+        past: false,
+        availabilities: [],
+      },
+      {
+        id: "MEET-002",
+        _id: "MEET-002",
+        tag: "Events",
+        day: "02",
+        mon: "DEC",
+        date: "02 Dec 2026",
+        iso: "2026-12-02",
+        time: "2:00 PM – 3:00 PM",
+        title: "Event Coordination Meet",
+        status: "Upcoming",
+        tone: "am",
+        grad: "a",
+        emoji: "🤝",
+        desc: "Coordination of volunteers, venue and responsibilities for the year-end community event.",
+        coord: "Priya S",
+        role: "Events Coordinator",
+        phone: "+91 98412 55671",
+        email: "priya@maatram.org",
+        people: "15 Volunteers",
+        mode: "Google Meet",
+        location: "Google Meet · Chennai, Tamil Nadu",
+        meetLink: "https://meet.google.com/evt-coord-meet",
+        agenda: ["Event overview and goals", "Venue, logistics and timeline", "Team formation", "Budget and resources", "Open discussion"],
+        note: "Come prepared with your preferred team.",
+        past: false,
+        availabilities: [],
+      },
+      {
+        id: "MEET-003",
+        _id: "MEET-003",
+        tag: "Outreach",
+        day: "09",
+        mon: "DEC",
+        date: "09 Dec 2026",
+        iso: "2026-12-09",
+        time: "4:00 PM – 5:00 PM",
+        title: "Community Outreach Briefing",
+        status: "Upcoming",
+        tone: "am",
+        grad: "g",
+        emoji: "🌱",
+        desc: "Briefing volunteers on school outreach visits and community drives planned for the new year.",
+        coord: "Arun M",
+        role: "Outreach Lead",
+        phone: "+91 99401 22873",
+        email: "arun@maatram.org",
+        people: "20 Volunteers",
+        mode: "Google Meet",
+        location: "Google Meet · Chennai, Tamil Nadu",
+        meetLink: "https://meet.google.com/outreach-brief-2026",
+        agenda: ["Outreach plan", "School visit safety guidelines", "Reporting and documentation", "Volunteer sign-up"],
+        note: "Please read the volunteer code of conduct first.",
+        past: false,
+        availabilities: [],
+      },
+      {
+        id: "MEET-004",
+        _id: "MEET-004",
+        past: true,
+        tag: "Orientation",
+        day: "10",
+        mon: "NOV",
+        date: "10 Nov 2026",
+        iso: "2026-11-10",
+        time: "11:00 AM – 12:00 PM",
+        title: "Volunteer Orientation",
+        status: "Attended",
+        tone: "gn",
+        grad: "g",
+        emoji: "🎓",
+        desc: "Welcome session introducing Maatram, volunteer roles, points and certificates.",
+        coord: "Meena K",
+        role: "Volunteer Manager",
+        phone: "+91 97890 11234",
+        email: "meena@maatram.org",
+        people: "30 Volunteers",
+        mode: "Google Meet",
+        location: "Google Meet · Chennai, Tamil Nadu",
+        meetLink: "https://meet.google.com/vol-orientation",
+        agenda: ["About Maatram", "Volunteer roles", "Points and certificates", "Using the Impact Hub"],
+        note: "Session completed.",
+        availabilities: [],
+      },
+      {
+        id: "MEET-005",
+        _id: "MEET-005",
+        past: true,
+        tag: "Kickoff",
+        day: "28",
+        mon: "OCT",
+        date: "28 Oct 2026",
+        iso: "2026-10-28",
+        time: "4:00 PM – 5:00 PM",
+        title: "Team Kickoff",
+        status: "Missed",
+        tone: "r",
+        grad: "r",
+        emoji: "🚀",
+        desc: "Kick-off meeting to align teams, goals and responsibilities for the semester.",
+        coord: "Karthik R",
+        role: "NSS Programme Coordinator",
+        phone: "+91 98765 43210",
+        email: "karthik@maatram.org",
+        people: "18 Volunteers",
+        mode: "Google Meet",
+        location: "Google Meet · Chennai, Tamil Nadu",
+        meetLink: "https://meet.google.com/team-kickoff",
+        agenda: ["Semester goals", "Team structure", "Responsibilities and timelines"],
+        note: "Contact the coordinator for the minutes.",
+        availabilities: [],
+      },
+    ];
+
+    let mongoList = [];
+    if (getIsConnected()) {
+      try {
+        const docs = await Meeting.find({}).sort({ createdAt: -1 }).lean();
+        if (docs && docs.length > 0) {
+          mongoList = docs.map((d) => ({ ...d, id: d._id.toString() }));
+        }
+      } catch (_) {}
+    }
+
+    const db = readDB();
+    if (!Array.isArray(db.meetings) || db.meetings.length === 0) {
+      db.meetings = DEFAULT_MEETINGS;
+      writeDB(db);
+    }
+
+    const combinedMap = new Map();
+    DEFAULT_MEETINGS.forEach((m) => combinedMap.set(m.id, m));
+    (db.meetings || []).forEach((m) => combinedMap.set((m.id || m._id).toString(), m));
+    mongoList.forEach((m) => combinedMap.set((m.id || m._id).toString(), m));
+
+    let results = Array.from(combinedMap.values());
+    if (filters.tag && filters.tag !== "All") {
+      results = results.filter((m) => m.tag === filters.tag);
+    }
+
+    return results;
+  },
+
+  async getMeetingById(id) {
+    const all = await this.getMeetings();
+    const idStr = (id || "").toString();
+    return all.find((m) => (m.id || m._id || "").toString() === idStr) || null;
+  },
+
+  async createMeeting(data, adminUser) {
+    const rawDate = data.date || new Date().toISOString().split("T")[0];
+    const parsedDate = new Date(rawDate);
+    const day = isNaN(parsedDate.getDate()) ? "25" : String(parsedDate.getDate()).padStart(2, "0");
+    const mon = isNaN(parsedDate.getMonth()) ? "NOV" : parsedDate.toLocaleString("en-US", { month: "short" }).toUpperCase();
+    const dateFormatted = data.dateStr || `${day} ${mon} ${parsedDate.getFullYear() || 2026}`;
+
+    const newMeeting = {
+      id: `MEET-${Date.now().toString().slice(-4)}`,
+      tag: data.tag || "Events",
+      day,
+      mon,
+      date: dateFormatted,
+      iso: data.iso || rawDate,
+      time: data.time || "10:00 AM – 11:00 AM",
+      title: data.title || "Volunteer Coordination Meet",
+      status: data.status || "Upcoming",
+      tone: data.tone || "gn",
+      grad: data.grad || "b",
+      emoji: data.emoji || "📋",
+      desc: data.desc || data.description || "Meeting with active volunteers.",
+      coord: data.coord || adminUser?.fullName || "Karthik R",
+      role: data.role || "Programme Coordinator",
+      phone: data.phone || adminUser?.phone || "+91 98765 43210",
+      email: data.email || adminUser?.email || "coordinator@maatram.org",
+      people: data.people || "15 Volunteers",
+      mode: data.mode || "Google Meet",
+      location: data.location || "Google Meet · Chennai, Tamil Nadu",
+      meetLink: data.meetLink || "https://meet.google.com/xyz-maatram",
+      agenda: Array.isArray(data.agenda) ? data.agenda : (data.agenda || "").split("\n").filter(Boolean),
+      note: data.note || "Keep your college ID ready. Join 5 minutes early.",
+      past: false,
+      availabilities: [],
+      createdBy: adminUser?._id?.toString() || "admin",
+      createdAt: new Date().toISOString(),
+    };
+
+    if (getIsConnected()) {
+      try {
+        const doc = new Meeting(newMeeting);
+        await doc.save();
+        newMeeting._id = doc._id.toString();
+        newMeeting.id = doc._id.toString();
+      } catch (_) {}
+    }
+
+    const db = readDB();
+    if (!Array.isArray(db.meetings)) db.meetings = [];
+    db.meetings.unshift(newMeeting);
+    writeDB(db);
+
+    return newMeeting;
+  },
+
+  async updateMeeting(id, updateData) {
+    const idStr = (id || "").toString();
+
+    if (getIsConnected()) {
+      try {
+        await Meeting.findByIdAndUpdate(idStr, updateData, { new: true });
+      } catch (_) {}
+    }
+
+    const db = readDB();
+    if (!Array.isArray(db.meetings)) db.meetings = [];
+    const idx = db.meetings.findIndex((m) => (m.id || m._id || "").toString() === idStr);
+    if (idx >= 0) {
+      db.meetings[idx] = { ...db.meetings[idx], ...updateData };
+      writeDB(db);
+      return db.meetings[idx];
+    }
+
+    return null;
+  },
+
+  async deleteMeeting(id) {
+    const idStr = (id || "").toString();
+
+    if (getIsConnected()) {
+      try {
+        await Meeting.findByIdAndDelete(idStr);
+      } catch (_) {}
+    }
+
+    const db = readDB();
+    if (!Array.isArray(db.meetings)) db.meetings = [];
+    db.meetings = db.meetings.filter((m) => (m.id || m._id || "").toString() !== idStr);
+    writeDB(db);
+
+    return { success: true, message: "Meeting deleted successfully." };
+  },
+
+  async submitMeetingAvailability(meetingId, availabilityData, user) {
+    const meeting = await this.getMeetingById(meetingId);
+    if (!meeting) throw new Error("Meeting not found.");
+
+    const idStr = (user._id || user.id || "").toString();
+    const em = (user.email || "").toLowerCase().trim();
+
+    const record = {
+      id: `AV-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`,
+      userId: idStr,
+      studentName: user.fullName || "Volunteer",
+      studentEmail: em,
+      studentPhone: user.phone || "",
+      college: user.college || "Anna University",
+      response: availabilityData.response === "unavailable" ? "unavailable" : "available",
+      selectedDate: availabilityData.selectedDate || meeting.iso || meeting.date,
+      selectedSlot: availabilityData.selectedSlot || meeting.time,
+      reason: availabilityData.reason || "",
+      submittedAt: new Date().toISOString(),
+    };
+
+    if (getIsConnected()) {
+      try {
+        const mDoc = await Meeting.findById(meetingId);
+        if (mDoc) {
+          if (!Array.isArray(mDoc.availabilities)) mDoc.availabilities = [];
+          const exIdx = mDoc.availabilities.findIndex(
+            (a) =>
+              (a.userId && a.userId.toString() === idStr) ||
+              (a.studentEmail && a.studentEmail.toLowerCase().trim() === em)
+          );
+          if (exIdx >= 0) {
+            mDoc.availabilities[exIdx] = record;
+          } else {
+            mDoc.availabilities.push(record);
+          }
+          await mDoc.save();
+        }
+      } catch (_) {}
+    }
+
+    const db = readDB();
+    if (!Array.isArray(db.meetings)) db.meetings = [];
+    const mJson = db.meetings.find((m) => (m.id || m._id || "").toString() === meetingId.toString());
+    if (mJson) {
+      if (!Array.isArray(mJson.availabilities)) mJson.availabilities = [];
+      const exIdx = mJson.availabilities.findIndex(
+        (a) =>
+          (a.userId && a.userId.toString() === idStr) ||
+          (a.studentEmail && a.studentEmail.toLowerCase().trim() === em)
+      );
+      if (exIdx >= 0) {
+        mJson.availabilities[exIdx] = record;
+      } else {
+        mJson.availabilities.push(record);
+      }
+      writeDB(db);
+    }
+
+    return {
+      success: true,
+      message: record.response === "available" ? "Marked as Available. Thank you!" : "Availability submitted.",
+      record,
+    };
+  },
+
+  async getMeetingAvailabilities(meetingId) {
+    const meeting = await this.getMeetingById(meetingId);
+    if (!meeting) return { availabilities: [], availableCount: 0, unavailableCount: 0 };
+
+    const availabilities = meeting.availabilities || [];
+    const availableCount = availabilities.filter((a) => a.response === "available").length;
+    const unavailableCount = availabilities.filter((a) => a.response === "unavailable").length;
+
+    return {
+      availabilities,
+      availableCount,
+      unavailableCount,
+      meetingTitle: meeting.title,
     };
   },
 };

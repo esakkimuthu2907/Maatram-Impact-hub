@@ -71,6 +71,29 @@ function yearOfStudy(u) {
 
 function rankMedal(rank) {
   if (rank <= 3) return <span style={{ fontSize: 22 }}>{MEDAL[rank - 1]}</span>;
+  
+  const handleAdminExportCSV = () => {
+    const rows = filteredVolunteers.map((v, i) => ({
+      Rank: i + 1,
+      Name: v.fullName || v.studentName || "Volunteer",
+      College: v.college || "Anna University",
+      Department: v.department || "General",
+      Zone: v.zone || "Zone 1",
+      Points: v.points || 0,
+      Hours: v.totalHours || 0,
+      EventsAttended: v.eventsJoined || v.completedEventsCount || 0,
+    }));
+    if (rows.length === 0) return;
+    const header = Object.keys(rows[0]).join(",");
+    const body = rows.map((r) => Object.values(r).map((val) => `"${String(val ?? "").replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob([header + "\n" + body], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `Maatram_Leaderboard_Report_${new Date().toISOString().split("T")[0]}.csv`;
+    a.click();
+  };
+
   return (
     <span
       style={{
@@ -249,6 +272,11 @@ function FilterChip({ icon, label, onRemove }) {
 export default function LeaderboardPage() {
   const { user, opportunities = [], applications = [] } = useApp();
   const [activeTab, setActiveTab] = useState("Overall");
+  /* ADMIN LEADERBOARD CONTROLS */
+  const isAdmin = user?.role === "admin";
+  const [adminZoneFilter, setAdminZoneFilter] = useState("All Zones");
+  const [adminRoleFilter, setAdminRoleFilter] = useState("all");
+  const [adminCollegeFilter, setAdminCollegeFilter] = useState("All");
   const [search, setSearch] = useState("");
   const [selectedCollege, setSelectedCollege] = useState("All");
   const [selectedZone, setSelectedZone] = useState("All");
